@@ -60,12 +60,9 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
           type="number"
           value={element.fontSize}
           onChange={(e) =>
-            updateElement(element.id, {
-              fontSize: Math.max(1, Number(e.target.value)),
-            })
+            updateElement(element.id, { fontSize: Number(e.target.value) })
           }
           className="h-7 text-xs"
-          min={1}
         />
       </PropertyField>
 
@@ -95,14 +92,11 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
           value={element.maxLength ?? ""}
           onChange={(e) =>
             updateElement(element.id, {
-              maxLength: e.target.value
-                ? Math.max(1, Number(e.target.value))
-                : undefined,
+              maxLength: e.target.value ? Number(e.target.value) : undefined,
             })
           }
           placeholder="No limit"
           className="h-7 text-xs"
-          min={1}
         />
       </PropertyField>
 
@@ -113,12 +107,9 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
           type="number"
           value={Math.round(element.width)}
           onChange={(e) =>
-            updateElement(element.id, {
-              width: Math.max(10, Number(e.target.value)),
-            })
+            updateElement(element.id, { fontSize: Number(e.target.value) })
           }
           className="h-7 text-xs"
-          min={10}
         />
       </PropertyField>
 
@@ -128,11 +119,10 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
           value={Math.round(element.height)}
           onChange={(e) =>
             updateElement(element.id, {
-              height: Math.max(10, Number(e.target.value)),
+              height: Number(e.target.value),
             })
           }
           className="h-7 text-xs"
-          min={10}
         />
       </PropertyField>
 
@@ -196,12 +186,9 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
           type="number"
           value={Math.round(element.width)}
           onChange={(e) =>
-            updateElement(element.id, {
-              width: Math.max(10, Number(e.target.value)),
-            })
+            updateElement(element.id, { fontSize: Number(e.target.value) })
           }
           className="h-7 text-xs"
-          min={10}
         />
       </PropertyField>
 
@@ -211,11 +198,10 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
           value={Math.round(element.height)}
           onChange={(e) =>
             updateElement(element.id, {
-              height: Math.max(10, Number(e.target.value)),
+              height: Number(e.target.value),
             })
           }
           className="h-7 text-xs"
-          min={10}
         />
       </PropertyField>
 
@@ -291,12 +277,9 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
           type="number"
           value={Math.round(element.width)}
           onChange={(e) =>
-            updateElement(element.id, {
-              width: Math.max(10, Number(e.target.value)),
-            })
+            updateElement(element.id, { fontSize: Number(e.target.value) })
           }
           className="h-7 text-xs"
-          min={10}
         />
       </PropertyField>
 
@@ -306,11 +289,10 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
           value={Math.round(element.height)}
           onChange={(e) =>
             updateElement(element.id, {
-              height: Math.max(10, Number(e.target.value)),
+              height: Number(e.target.value),
             })
           }
           className="h-7 text-xs"
-          min={10}
         />
       </PropertyField>
 
