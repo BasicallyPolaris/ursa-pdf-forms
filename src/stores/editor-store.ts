@@ -30,6 +30,7 @@ export const useEditorStore = create<EditorState>()(
       pages: [],
       zoom: 1,
       activeTool: "select",
+      sidebarCollapsed: false,
 
       setPdf: (fileName, bytes, pages) =>
         set({ pdfFileName: fileName, pdfBytes: bytes, pages }),
@@ -37,6 +38,8 @@ export const useEditorStore = create<EditorState>()(
       setZoom: (zoom) => set({ zoom }),
 
       setActiveTool: (activeTool) => set({ activeTool }),
+
+      toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
       clearPdf: () =>
         set({ pdfFileName: null, pdfBytes: null, pages: [] }),

@@ -1,4 +1,5 @@
 import { PdfCanvas } from "@/components/pdf-canvas";
+import { PageSidebar } from "@/components/page-sidebar";
 import { useEditorStore } from "@/stores/editor-store";
 import { openPdfFile } from "@/lib/file-operations";
 
@@ -21,10 +22,7 @@ function App() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <aside
-          data-testid="left-sidebar"
-          className="w-48 border-r border-border bg-card"
-        />
+        <PageSidebar />
 
         <main data-testid="canvas-area" className="flex-1 bg-background">
           <PdfCanvas />
