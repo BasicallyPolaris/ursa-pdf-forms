@@ -65,7 +65,8 @@ function App() {
 
         {([
           ["select", "Select"],
-          ["text", "Text Field"],
+          ["input", "Input"],
+          ["textarea", "Textarea"],
           ["checkbox", "Checkbox"],
           ["radio", "Radio"],
         ] as const).map(([tool, label]) => (

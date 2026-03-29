@@ -20,7 +20,7 @@ interface EditorState {
   pdfBytes: Uint8Array | null;
   pages: PageInfo[];
   zoom: number;
-  activeTool: "select" | "text" | "checkbox" | "radio";
+  activeTool: "select" | "input" | "textarea" | "checkbox" | "radio";
   sidebarCollapsed: boolean;
   elements: FormElement[];
   selectedIds: Set<string>;

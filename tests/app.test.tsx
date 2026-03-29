@@ -48,7 +48,8 @@ describe("App layout", () => {
   it("renders tool buttons", () => {
     render(<App />);
     expect(screen.getByText("Select")).toBeInTheDocument();
-    expect(screen.getByText("Text Field")).toBeInTheDocument();
+    expect(screen.getByText("Input")).toBeInTheDocument();
+    expect(screen.getByText("Textarea")).toBeInTheDocument();
   });
 
   it("renders export button", () => {

@@ -18,6 +18,9 @@ function getElementName(el: FormElement): string {
 
 const MIN_SIZE = 10;
 
+const CLICK_TOOLS = new Set(["input", "checkbox", "radio"]);
+const DRAW_TOOLS = new Set(["textarea"]);
+
 export function CanvasOverlay() {
   const {
     elements,
@@ -29,7 +32,6 @@ export function CanvasOverlay() {
   } = useEditorStore();
   const addElement = useEditorStore((s) => s.addElement);
   const updateElement = useEditorStore((s) => s.updateElement);
-  const setActiveTool = useEditorStore((s) => s.setActiveTool);
   const selectElements = useEditorStore((s) => s.selectElements);
   const clearSelection = useEditorStore((s) => s.clearSelection);
   const toggleInSelection = useEditorStore((s) => s.toggleInSelection);
@@ -45,6 +47,17 @@ export function CanvasOverlay() {
   } | null>(null);
   const marqueeStartRef = useRef<{ x: number; y: number } | null>(null);
   const isDraggingRef = useRef(false);
+
+  const [drawRect, setDrawRect] = useState<{
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
+  const drawStartRef = useRef<{ x: number; y: number; pageX: number; pageY: number; pageNumber: number } | null>(null);
+  const isDrawingRef = useRef(false);
+
+  const dragStartPositions = useRef<Map<string, { x: number; y: number }> | null>(null);
 
   useEffect(() => {
     const el = overlayRef.current;
@@ -116,15 +129,16 @@ export function CanvasOverlay() {
         return;
       }
 
-      if (activeTool === "text" || activeTool === "checkbox" || activeTool === "radio") {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const screenX = e.clientX - rect.left;
-        const screenY = e.clientY - rect.top;
-        const layouts = getPageLayouts();
-        const pageNumber = findPageAtPoint(screenX, screenY, layouts);
-        if (!pageNumber) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const screenX = e.clientX - rect.left;
+      const screenY = e.clientY - rect.top;
+      const layouts = getPageLayouts();
+      const pageNumber = findPageAtPoint(screenX, screenY, layouts);
+      if (!pageNumber) return;
 
-        const layout = layouts.get(pageNumber)!;
+      const layout = layouts.get(pageNumber)!;
+
+      if (CLICK_TOOLS.has(activeTool)) {
         const pdf = screenToPdf(
           { x: screenX, y: screenY },
           { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
@@ -152,11 +166,25 @@ export function CanvasOverlay() {
             y: pdf.y,
             pageNumber,
             name: `text_${elements.length + 1}`,
+            multiline: false,
+            height: 20,
           });
         }
         addElement(newEl);
         selectElements(new Set([newEl.id]));
-        setActiveTool("select");
+        return;
+      }
+
+      if (DRAW_TOOLS.has(activeTool)) {
+        drawStartRef.current = {
+          x: screenX,
+          y: screenY,
+          pageX: layout.xOffset,
+          pageY: layout.yOffset,
+          pageNumber,
+        };
+        isDrawingRef.current = false;
+        setDrawRect(null);
         return;
       }
 
@@ -164,7 +192,6 @@ export function CanvasOverlay() {
         if (!e.shiftKey) {
           clearSelection();
         }
-        const rect = e.currentTarget.getBoundingClientRect();
         marqueeStartRef.current = {
           x: e.clientX - rect.left,
           y: e.clientY - rect.top,
@@ -173,15 +200,27 @@ export function CanvasOverlay() {
         setMarquee(null);
       }
     },
-    [activeTool, zoom, elements.length, selectedIds, addElement, selectElements, setActiveTool, clearSelection, toggleInSelection, getPageLayouts, findPageAtPoint],
+    [activeTool, zoom, elements.length, selectedIds, addElement, selectElements, clearSelection, toggleInSelection, getPageLayouts, findPageAtPoint],
   );
 
   const handleCanvasMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!marqueeStartRef.current) return;
       const rect = e.currentTarget.getBoundingClientRect();
       const currentX = e.clientX - rect.left;
       const currentY = e.clientY - rect.top;
+
+      if (drawStartRef.current) {
+        isDrawingRef.current = true;
+        setDrawRect({
+          startX: drawStartRef.current.x,
+          startY: drawStartRef.current.y,
+          currentX,
+          currentY,
+        });
+        return;
+      }
+
+      if (!marqueeStartRef.current) return;
       isDraggingRef.current = true;
       setMarquee({
         startX: marqueeStartRef.current.x,
@@ -195,6 +234,43 @@ export function CanvasOverlay() {
 
   const handleCanvasMouseUp = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      if (drawStartRef.current && isDrawingRef.current && drawRect) {
+        const start = drawStartRef.current;
+        const left = Math.min(drawRect.startX, drawRect.currentX);
+        const top = Math.min(drawRect.startY, drawRect.currentY);
+        const width = Math.abs(drawRect.currentX - drawRect.startX);
+        const height = Math.abs(drawRect.currentY - drawRect.startY);
+
+        if (width > 5 && height > 5) {
+          const pdfTopLeft = screenToPdf(
+            { x: left, y: top },
+            { zoom, pageX: start.pageX, pageY: start.pageY },
+          );
+          const pdfWidth = width / zoom;
+          const pdfHeight = height / zoom;
+
+          const newEl = createTextField({
+            x: pdfTopLeft.x,
+            y: pdfTopLeft.y,
+            pageNumber: start.pageNumber,
+            name: `text_${elements.length + 1}`,
+            multiline: true,
+            width: pdfWidth,
+            height: pdfHeight,
+          });
+          addElement(newEl);
+          selectElements(new Set([newEl.id]));
+        }
+        drawStartRef.current = null;
+        isDrawingRef.current = false;
+        setDrawRect(null);
+        return;
+      }
+
+      drawStartRef.current = null;
+      isDrawingRef.current = false;
+      setDrawRect(null);
+
       if (marqueeStartRef.current && isDraggingRef.current && marquee) {
         const layouts = getPageLayouts();
         const left = Math.min(marquee.startX, marquee.currentX);
@@ -235,7 +311,7 @@ export function CanvasOverlay() {
       isDraggingRef.current = false;
       setMarquee(null);
     },
-    [marquee, elements, zoom, getPageLayouts, selectElements, addToSelection],
+    [drawRect, marquee, activeTool, zoom, elements, addElement, selectElements, addToSelection, getPageLayouts],
   );
 
   useEffect(() => {
@@ -278,6 +354,9 @@ export function CanvasOverlay() {
 
   const layouts = getPageLayouts();
 
+  const isInputEl = (el: FormElement) =>
+    el.type === "text" && !el.multiline;
+
   const elementOverlays = elements.map((el) => {
     const layout = layouts.get(el.pageNumber);
     if (!layout) return null;
@@ -290,6 +369,8 @@ export function CanvasOverlay() {
     const screenHeight = el.height * zoom;
     const isSelected = selectedIds.has(el.id);
 
+    const isSingleInput = isInputEl(el);
+
     return (
       <Rnd
         key={el.id}
@@ -300,33 +381,20 @@ export function CanvasOverlay() {
         minWidth={MIN_SIZE}
         minHeight={MIN_SIZE}
         bounds="parent"
+        enableResizing={
+          isSingleInput
+            ? { left: true, right: true, topLeft: false, topRight: false, bottomLeft: false, bottomRight: false, top: false, bottom: false }
+            : undefined
+        }
         onDragStart={() => {
           if (!isSelected) {
             selectElements(new Set([el.id]));
           }
-        }}
-        onDrag={(_e, d) => {
-          if (selectedIds.size > 1 && isSelected) {
-            const deltaX = d.x - screen.x;
-            const deltaY = d.y - screen.y;
-            for (const otherEl of elements) {
-              if (otherEl.id === el.id) continue;
-              if (!selectedIds.has(otherEl.id)) continue;
-              const otherLayout = layouts.get(otherEl.pageNumber);
-              if (!otherLayout) continue;
-              const otherScreen = pdfToScreen(
-                { x: otherEl.x, y: otherEl.y },
-                { zoom, pageX: otherLayout.xOffset, pageY: otherLayout.yOffset },
-              );
-              const rndEl = document.querySelector(
-                `[data-element-overlay][style*="${otherEl.id}"]`,
-              );
-              if (rndEl) {
-                const htmlEl = rndEl as HTMLElement;
-                htmlEl.style.transform = `translate(${otherScreen.x + deltaX}px, ${otherScreen.y + deltaY}px)`;
-              }
-            }
+          const positions = new Map<string, { x: number; y: number }>();
+          for (const e of elements) {
+            positions.set(e.id, { x: e.x, y: e.y });
           }
+          dragStartPositions.current = positions;
         }}
         onDragStop={(_e, d) => {
           const pl = layouts.get(el.pageNumber);
@@ -339,10 +407,13 @@ export function CanvasOverlay() {
           if (selectedIds.size > 1 && isSelected) {
             for (const otherEl of elements) {
               if (!selectedIds.has(otherEl.id)) continue;
-              updateElement(otherEl.id, {
-                x: otherEl.x + pdfDeltaX,
-                y: otherEl.y + pdfDeltaY,
-              });
+              const startPos = dragStartPositions.current?.get(otherEl.id);
+              if (startPos) {
+                updateElement(otherEl.id, {
+                  x: startPos.x + pdfDeltaX,
+                  y: startPos.y + pdfDeltaY,
+                });
+              }
             }
           } else {
             const pdf = screenToPdf(
@@ -351,6 +422,7 @@ export function CanvasOverlay() {
             );
             updateElement(el.id, { x: pdf.x, y: pdf.y });
           }
+          dragStartPositions.current = null;
         }}
         onResizeStop={(_e, _dir, ref, _delta, position) => {
           const pl = layouts.get(el.pageNumber);
@@ -383,9 +455,13 @@ export function CanvasOverlay() {
                 ? isSelected
                   ? "border-2 border-purple-400 bg-purple-500/15"
                   : "border border-purple-500/50 bg-purple-500/10"
-                : isSelected
-                  ? "border-2 border-blue-400 bg-blue-500/15"
-                  : "border border-blue-500/50 bg-blue-500/10"
+                : el.type === "text" && el.multiline
+                  ? isSelected
+                    ? "border-2 border-amber-400 bg-amber-500/15"
+                    : "border border-amber-500/50 bg-amber-500/10"
+                  : isSelected
+                    ? "border-2 border-blue-400 bg-blue-500/15"
+                    : "border border-blue-500/50 bg-blue-500/10"
           }`}
         >
           {el.type === "checkbox" && (
@@ -406,8 +482,15 @@ export function CanvasOverlay() {
               <circle cx="5" cy="5" r="1.5" fill="currentColor" />
             </svg>
           )}
+          {el.type === "text" && el.multiline && (
+            <svg viewBox="0 0 12 12" className="h-3/5 w-3/5 text-amber-500 opacity-50">
+              <line x1="2" y1="3" x2="10" y2="3" stroke="currentColor" strokeWidth="1" />
+              <line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" strokeWidth="1" />
+              <line x1="2" y1="9" x2="7" y2="9" stroke="currentColor" strokeWidth="1" />
+            </svg>
+          )}
           <span className={`absolute -top-4 left-0 truncate text-[10px] ${
-            el.type === "checkbox" ? "text-green-400" : el.type === "radio" ? "text-purple-400" : "text-blue-400"
+            el.type === "checkbox" ? "text-green-400" : el.type === "radio" ? "text-purple-400" : el.type === "text" && el.multiline ? "text-amber-400" : "text-blue-400"
           }`}>
             {getElementName(el)}
           </span>
@@ -422,6 +505,15 @@ export function CanvasOverlay() {
         top: Math.min(marquee.startY, marquee.currentY),
         width: Math.abs(marquee.currentX - marquee.startX),
         height: Math.abs(marquee.currentY - marquee.startY),
+      }
+    : null;
+
+  const drawRectStyle = drawRect
+    ? {
+        left: Math.min(drawRect.startX, drawRect.currentX),
+        top: Math.min(drawRect.startY, drawRect.currentY),
+        width: Math.abs(drawRect.currentX - drawRect.startX),
+        height: Math.abs(drawRect.currentY - drawRect.startY),
       }
     : null;
 
@@ -443,6 +535,17 @@ export function CanvasOverlay() {
             top: marqueeRect.top,
             width: marqueeRect.width,
             height: marqueeRect.height,
+          }}
+        />
+      )}
+      {drawRectStyle && drawRectStyle.width > 0 && drawRectStyle.height > 0 && (
+        <div
+          className="pointer-events-none absolute border-2 border-amber-400/70 bg-amber-400/10"
+          style={{
+            left: drawRectStyle.left,
+            top: drawRectStyle.top,
+            width: drawRectStyle.width,
+            height: drawRectStyle.height,
           }}
         />
       )}
