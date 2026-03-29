@@ -1,50 +1,41 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import { PdfCanvas } from "@/components/pdf-canvas";
+import { useEditorStore } from "@/stores/editor-store";
+import { openPdfFile } from "@/lib/file-operations";
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
-
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  const pdfFileName = useEditorStore((s) => s.pdfFileName);
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    <div className="dark flex h-screen flex-col">
+      <header className="flex h-12 items-center gap-4 border-b border-border bg-card px-4">
+        <h1 className="text-sm font-semibold text-foreground">PDF Form Maker</h1>
+        <button
+          onClick={() => openPdfFile()}
+          className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          Open PDF
+        </button>
+        {pdfFileName && (
+          <span className="text-xs text-muted-foreground">{pdfFileName}</span>
+        )}
+      </header>
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
+      <div className="flex flex-1 overflow-hidden">
+        <aside
+          data-testid="left-sidebar"
+          className="w-48 border-r border-border bg-card"
         />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+
+        <main data-testid="canvas-area" className="flex-1 bg-background">
+          <PdfCanvas />
+        </main>
+
+        <aside
+          data-testid="properties-panel"
+          className="w-64 border-l border-border bg-card"
+        />
+      </div>
+    </div>
   );
 }
 
