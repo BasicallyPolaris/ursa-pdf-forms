@@ -2,7 +2,7 @@ import { PdfCanvas } from "@/components/pdf-canvas";
 import { PageSidebar } from "@/components/page-sidebar";
 import { CanvasOverlay } from "@/components/canvas-overlay";
 import { useEditorStore } from "@/stores/editor-store";
-import { openPdfFile } from "@/lib/file-operations";
+import { openPdfFile, saveProjectFile, openProjectFile } from "@/lib/file-operations";
 import { exportPdf } from "@/lib/export-pdf";
 import { useFileDrop } from "@/hooks/use-file-drop";
 
@@ -22,6 +22,18 @@ function App() {
           className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
         >
           Open PDF
+        </button>
+        <button
+          onClick={() => openProjectFile()}
+          className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        >
+          Open Project
+        </button>
+        <button
+          onClick={() => saveProjectFile()}
+          className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        >
+          Save Project
         </button>
 
         <div className="mx-2 h-6 w-px bg-border" />
