@@ -13,6 +13,12 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
   readFile: vi.fn(),
 }));
 
+vi.mock("@tauri-apps/api/webview", () => ({
+  getCurrentWebview: () => ({
+    onDragDropEvent: () => Promise.resolve(() => {}),
+  }),
+}));
+
 import { render, screen } from "@testing-library/react";
 import App from "./App";
 

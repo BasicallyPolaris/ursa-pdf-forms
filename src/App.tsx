@@ -2,9 +2,11 @@ import { PdfCanvas } from "@/components/pdf-canvas";
 import { PageSidebar } from "@/components/page-sidebar";
 import { useEditorStore } from "@/stores/editor-store";
 import { openPdfFile } from "@/lib/file-operations";
+import { useFileDrop } from "@/hooks/use-file-drop";
 
 function App() {
   const pdfFileName = useEditorStore((s) => s.pdfFileName);
+  useFileDrop();
 
   return (
     <div className="dark flex h-screen flex-col">
