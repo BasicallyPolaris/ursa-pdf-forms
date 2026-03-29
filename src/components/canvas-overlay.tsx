@@ -34,7 +34,6 @@ export function CanvasOverlay() {
   const updateElement = useEditorStore((s) => s.updateElement);
   const selectElements = useEditorStore((s) => s.selectElements);
   const clearSelection = useEditorStore((s) => s.clearSelection);
-  const toggleInSelection = useEditorStore((s) => s.toggleInSelection);
   const addToSelection = useEditorStore((s) => s.addToSelection);
   const overlayRef = useRef<HTMLDivElement>(null);
   const [overlayWidth, setOverlayWidth] = useState(0);
@@ -116,18 +115,7 @@ export function CanvasOverlay() {
       if (e.button !== 0) return;
 
       const elementTarget = (e.target as HTMLElement).closest("[data-element-overlay]");
-
-      if (elementTarget) {
-        if (activeTool !== "select") return;
-        const elementId = (elementTarget as HTMLElement).getAttribute("data-element-id");
-        if (!elementId) return;
-        if (e.shiftKey) {
-          toggleInSelection(elementId);
-        } else if (!selectedIds.has(elementId)) {
-          selectElements(new Set([elementId]));
-        }
-        return;
-      }
+      if (elementTarget) return;
 
       const rect = e.currentTarget.getBoundingClientRect();
       const screenX = e.clientX - rect.left;
@@ -200,7 +188,7 @@ export function CanvasOverlay() {
         setMarquee(null);
       }
     },
-    [activeTool, zoom, elements.length, selectedIds, addElement, selectElements, clearSelection, toggleInSelection, getPageLayouts, findPageAtPoint],
+    [activeTool, zoom, elements.length, addElement, selectElements, clearSelection, getPageLayouts, findPageAtPoint],
   );
 
   const handleCanvasMouseMove = useCallback(
@@ -386,9 +374,17 @@ export function CanvasOverlay() {
             ? { left: true, right: true, topLeft: false, topRight: false, bottomLeft: false, bottomRight: false, top: false, bottom: false }
             : undefined
         }
-        onDragStart={() => {
+        onDragStart={(e) => {
+          const shiftOrCtrl = (e as React.MouseEvent).shiftKey || (e as React.MouseEvent).ctrlKey || (e as React.MouseEvent).metaKey;
           if (!isSelected) {
-            selectElements(new Set([el.id]));
+            if (shiftOrCtrl) {
+              const store = useEditorStore.getState();
+              const next = new Set(store.selectedIds);
+              next.add(el.id);
+              selectElements(next);
+            } else {
+              selectElements(new Set([el.id]));
+            }
           }
           const positions = new Map<string, { x: number; y: number }>();
           for (const e of elements) {

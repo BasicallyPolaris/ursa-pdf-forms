@@ -1,3 +1,4 @@
+import { Component } from "react";
 import { useEditorStore } from "@/stores/editor-store";
 import {
   isTextField,
@@ -10,7 +11,31 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
+class ErrorBoundary extends Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  state: { hasError: boolean; error: Error | null } = { hasError: false, error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4">
+          <p className="text-xs text-red-400">Panel error</p>
+          <p className="mt-1 text-[10px] text-muted-foreground break-all">
+            {this.state.error?.message}
+          </p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function PropertyField({
   label,
@@ -107,7 +132,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
           type="number"
           value={Math.round(element.width)}
           onChange={(e) =>
-            updateElement(element.id, { fontSize: Number(e.target.value) })
+            updateElement(element.id, { width: Number(e.target.value) })
           }
           className="h-7 text-xs"
         />
@@ -347,13 +372,12 @@ function MultiTextFieldProperties({ elementIds }: { elementIds: string[] }) {
           value={allSameFontSize ? (elements[0] as TextField).fontSize : ""}
           placeholder={allSameFontSize ? undefined : "Mixed"}
           onChange={(e) => {
-            const val = Math.max(1, Number(e.target.value));
+            const val = Number(e.target.value);
             for (const el of elements) {
               updateElement(el.id, { fontSize: val });
             }
           }}
           className="h-7 text-xs"
-          min={1}
         />
       </PropertyField>
 
@@ -416,6 +440,14 @@ function MultiRadioProperties({ elementIds }: { elementIds: string[] }) {
 }
 
 export function PropertiesPanel() {
+  return (
+    <ErrorBoundary>
+      <PropertiesPanelContent />
+    </ErrorBoundary>
+  );
+}
+
+function PropertiesPanelContent() {
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const elements = useEditorStore((s) => s.elements);
   const selectedElements = elements.filter((el) => selectedIds.has(el.id));
@@ -434,7 +466,7 @@ export function PropertiesPanel() {
     const singleType = allSameType ? [...types][0] : null;
 
     return (
-      <ScrollArea className="h-full">
+      <div className="h-full overflow-y-auto">
         <div className="p-4">
           <div className="mb-3">
             <span className="text-xs font-medium text-foreground">
@@ -455,7 +487,7 @@ export function PropertiesPanel() {
             <MultiRadioProperties elementIds={selectedElements.map((e) => e.id)} />
           )}
         </div>
-      </ScrollArea>
+      </div>
     );
   }
 
@@ -471,7 +503,7 @@ export function PropertiesPanel() {
   }
 
   return (
-    <ScrollArea className="h-full">
+    <div className="h-full overflow-y-auto">
       <div className="p-4">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-xs font-medium text-foreground">
@@ -484,6 +516,6 @@ export function PropertiesPanel() {
         {isCheckbox(element) && <CheckboxProperties elementId={element.id} />}
         {isRadioButton(element) && <RadioButtonProperties elementId={element.id} />}
       </div>
-    </ScrollArea>
+    </div>
   );
 }
