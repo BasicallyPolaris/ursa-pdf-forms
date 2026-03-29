@@ -3,8 +3,8 @@ import {
   serializeProject,
   parseProject,
   type ProjectFile,
-} from "./project-file-io";
-import { createTextField, isTextField } from "./form-element-model";
+} from "@/lib/project-file-io";
+import { createTextField, isTextField } from "@/lib/form-element-model";
 
 describe("serializeProject / parseProject", () => {
   it("round-trips a minimal project", () => {

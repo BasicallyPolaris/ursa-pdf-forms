@@ -1,4 +1,4 @@
-import { PDFDocument, PDFPage } from "pdf-lib";
+import { PDFDocument, PDFName, PDFPage } from "pdf-lib";
 import type { FormElement, TextField } from "./form-element-model";
 
 export async function exportFormElements(
@@ -6,6 +6,12 @@ export async function exportFormElements(
   elements: FormElement[],
 ): Promise<Uint8Array> {
   const pdf = await PDFDocument.load(originalPdfBytes);
+
+  const existingForm = pdf.catalog.lookup(PDFName.of("AcroForm"));
+  if (existingForm) {
+    pdf.catalog.delete(PDFName.of("AcroForm"));
+  }
+
   const form = pdf.getForm();
 
   for (const el of elements) {

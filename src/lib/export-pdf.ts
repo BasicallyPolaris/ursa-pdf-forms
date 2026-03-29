@@ -7,14 +7,18 @@ export async function exportPdf() {
   const { pdfBytes, elements } = useEditorStore.getState();
   if (!pdfBytes) return;
 
-  const resultBytes = await exportFormElements(pdfBytes, elements);
+  try {
+    const resultBytes = await exportFormElements(pdfBytes, elements);
 
-  const filePath = await save({
-    filters: [{ name: "PDF", extensions: ["pdf"] }],
-    defaultPath: "form-output.pdf",
-  });
+    const filePath = await save({
+      filters: [{ name: "PDF", extensions: ["pdf"] }],
+      defaultPath: "form-output.pdf",
+    });
 
-  if (!filePath) return;
+    if (!filePath) return;
 
-  await writeFile(filePath, resultBytes);
+    await writeFile(filePath, resultBytes);
+  } catch (error) {
+    console.error("Export failed:", error);
+  }
 }

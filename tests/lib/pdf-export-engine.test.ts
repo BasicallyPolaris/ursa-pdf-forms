@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { PDFDocument, PDFName } from "pdf-lib";
-import { exportFormElements } from "./pdf-export-engine";
-import { createTextField, type FormElement } from "./form-element-model";
+import { exportFormElements } from "@/lib/pdf-export-engine";
+import { createTextField, type FormElement } from "@/lib/form-element-model";
 
 async function createFixturePdf(): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();

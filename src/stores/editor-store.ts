@@ -1,19 +1,16 @@
 import { create } from "zustand";
 import { temporal } from "zundo";
 import type { FormElement } from "@/lib/form-element-model";
+import type { PageInfo } from "@/lib/pdf-loader";
 
-export interface PageInfo {
-  width: number;
-  height: number;
-  pageNumber: number;
-}
+export type { PageInfo };
 
 interface EditorState {
   pdfFileName: string | null;
   pdfBytes: Uint8Array | null;
   pages: PageInfo[];
   zoom: number;
-  activeTool: "select" | "text" | "checkbox" | "radio";
+  activeTool: "select" | "text";
   sidebarCollapsed: boolean;
   elements: FormElement[];
   selectedIds: Set<string>;

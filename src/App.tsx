@@ -7,7 +7,7 @@ import { exportPdf } from "@/lib/export-pdf";
 import { useFileDrop } from "@/hooks/use-file-drop";
 
 function App() {
-  const { pdfFileName, activeTool } = useEditorStore();
+  const { pdfFileName, activeTool, setActiveTool } = useEditorStore();
   useFileDrop();
 
   return (
@@ -41,7 +41,7 @@ function App() {
         {(["select", "text"] as const).map((tool) => (
           <button
             key={tool}
-            onClick={() => useEditorStore.getState().setActiveTool(tool)}
+            onClick={() => setActiveTool(tool)}
             className={`rounded-md px-3 py-1.5 text-xs font-medium ${
               activeTool === tool
                 ? "bg-accent text-accent-foreground"
@@ -69,9 +69,10 @@ function App() {
       <div className="flex flex-1 overflow-hidden">
         <PageSidebar />
 
-        <main data-testid="canvas-area" className="relative flex-1 bg-background">
-          <PdfCanvas />
-          <CanvasOverlay />
+        <main data-testid="canvas-area" className="relative flex-1 overflow-hidden bg-background">
+          <PdfCanvas>
+            <CanvasOverlay />
+          </PdfCanvas>
         </main>
 
         <aside

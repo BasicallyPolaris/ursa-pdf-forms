@@ -1,8 +1,13 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Rnd } from "react-rnd";
 import { useEditorStore } from "@/stores/editor-store";
 import { createTextField, type FormElement } from "@/lib/form-element-model";
-import { pdfToScreen, screenToPdf } from "@/lib/coordinates";
+import {
+  pdfToScreen,
+  screenToPdf,
+  TOP_PADDING,
+  PAGE_GAP,
+} from "@/lib/coordinates";
 
 function getElementName(el: FormElement): string {
   if ("name" in el) return (el as { name: string }).name;
@@ -12,10 +17,49 @@ function getElementName(el: FormElement): string {
 
 const MIN_SIZE = 10;
 
+interface PageLayout {
+  xOffset: number;
+  yOffset: number;
+  screenWidth: number;
+  screenHeight: number;
+}
+
 export function CanvasOverlay() {
   const { elements, activeTool, zoom, pages, pdfBytes } = useEditorStore();
   const addElement = useEditorStore((s) => s.addElement);
   const updateElement = useEditorStore((s) => s.updateElement);
+  const setActiveTool = useEditorStore((s) => s.setActiveTool);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const [overlayWidth, setOverlayWidth] = useState(0);
+
+  useEffect(() => {
+    const el = overlayRef.current;
+    if (!el) return;
+    setOverlayWidth(el.clientWidth);
+    const observer = new ResizeObserver((entries) => {
+      setOverlayWidth(entries[0].contentRect.width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const getPageLayouts = useCallback((): Map<number, PageLayout> => {
+    const layouts = new Map<number, PageLayout>();
+    let currentY = TOP_PADDING;
+    for (const page of pages) {
+      const screenWidth = page.width * zoom;
+      const screenHeight = page.height * zoom;
+      const xOffset = Math.max(0, (overlayWidth - screenWidth) / 2);
+      layouts.set(page.pageNumber, {
+        xOffset,
+        yOffset: currentY,
+        screenWidth,
+        screenHeight,
+      });
+      currentY += screenHeight + PAGE_GAP;
+    }
+    return layouts;
+  }, [pages, zoom, overlayWidth]);
 
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -26,96 +70,79 @@ export function CanvasOverlay() {
       const screenX = e.clientX - rect.left;
       const screenY = e.clientY - rect.top;
 
-      let pageOffset = 0;
-      for (const page of pages) {
-        const pageScreenHeight = page.height * zoom;
-        if (screenY >= pageOffset && screenY < pageOffset + pageScreenHeight) {
-          const pageCenterOffset = (page.width * zoom) / 2;
-          const adjustedX = screenX - (rect.width / 2 - pageCenterOffset);
-
-          const pdfPoint = {
-            x: adjustedX / zoom,
-            y: (screenY - pageOffset) / zoom,
-          };
+      const layouts = getPageLayouts();
+      for (const [pageNumber, layout] of layouts) {
+        if (
+          screenX >= layout.xOffset &&
+          screenX < layout.xOffset + layout.screenWidth &&
+          screenY >= layout.yOffset &&
+          screenY < layout.yOffset + layout.screenHeight
+        ) {
+          const pdf = screenToPdf(
+            { x: screenX, y: screenY },
+            { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
+          );
 
           const el = createTextField({
-            x: pdfPoint.x,
-            y: pdfPoint.y,
-            pageNumber: page.pageNumber,
+            x: pdf.x,
+            y: pdf.y,
+            pageNumber,
             name: `text_${elements.length + 1}`,
           });
           addElement(el);
-          useEditorStore.getState().setActiveTool("select");
+          setActiveTool("select");
           return;
         }
-        pageOffset += pageScreenHeight + 8;
       }
     },
-    [activeTool, zoom, pages, elements.length, addElement],
+    [activeTool, zoom, elements.length, addElement, setActiveTool, getPageLayouts],
   );
 
   if (!pdfBytes) return null;
 
+  const layouts = getPageLayouts();
+
   const elementOverlays = elements.map((el) => {
-    const page = pages.find((p) => p.pageNumber === el.pageNumber);
-    if (!page) return null;
+    const layout = layouts.get(el.pageNumber);
+    if (!layout) return null;
 
-    let offsetForPage = 0;
-    for (const p of pages) {
-      if (p.pageNumber === el.pageNumber) break;
-      offsetForPage += p.height * zoom + 8;
-    }
-
-    const screenPos = pdfToScreen(
+    const screen = pdfToScreen(
       { x: el.x, y: el.y },
-      { zoom, pageOffset: offsetForPage },
+      { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
     );
-
     const screenWidth = el.width * zoom;
     const screenHeight = el.height * zoom;
-
-    const pageCenterOffset = (page.width * zoom) / 2;
-
-    const leftOffset = `calc(50% - ${pageCenterOffset}px + ${screenPos.x}px)`;
 
     return (
       <Rnd
         key={el.id}
         data-element-overlay
         size={{ width: screenWidth, height: screenHeight }}
-        position={{ x: 0, y: 0 }}
-        style={{
-          position: "absolute",
-          left: leftOffset,
-          top: `${screenPos.y}px`,
-        }}
+        position={{ x: screen.x, y: screen.y }}
         minWidth={MIN_SIZE}
         minHeight={MIN_SIZE}
         bounds="parent"
-        enableResizing={{
-          top: true,
-          right: true,
-          bottom: true,
-          left: true,
-          topRight: true,
-          bottomRight: true,
-          bottomLeft: true,
-          topLeft: true,
-        }}
         onDragStop={(_e, d) => {
-          const newScreenY = screenPos.y + d.deltaY;
-          const newScreenX = screenPos.x + d.deltaX;
-
-          const newPdf = screenToPdf(
-            { x: newScreenX, y: newScreenY },
-            { zoom, pageOffset: offsetForPage },
+          const pl = layouts.get(el.pageNumber);
+          if (!pl) return;
+          const pdf = screenToPdf(
+            { x: d.x, y: d.y },
+            { zoom, pageX: pl.xOffset, pageY: pl.yOffset },
           );
-          updateElement(el.id, { x: newPdf.x, y: newPdf.y });
+          updateElement(el.id, { x: pdf.x, y: pdf.y });
         }}
-        onResizeStop={(_e, _dir, ref, _delta, _position) => {
+        onResizeStop={(_e, _dir, ref, _delta, position) => {
+          const pl = layouts.get(el.pageNumber);
+          if (!pl) return;
           const newWidth = parseFloat(ref.style.width) / zoom;
           const newHeight = parseFloat(ref.style.height) / zoom;
+          const pdf = screenToPdf(
+            { x: position.x, y: position.y },
+            { zoom, pageX: pl.xOffset, pageY: pl.yOffset },
+          );
           updateElement(el.id, {
+            x: pdf.x,
+            y: pdf.y,
             width: Math.max(MIN_SIZE / zoom, newWidth),
             height: Math.max(MIN_SIZE / zoom, newHeight),
           });
@@ -132,6 +159,7 @@ export function CanvasOverlay() {
 
   return (
     <div
+      ref={overlayRef}
       className="absolute inset-0"
       onClick={handleCanvasClick}
       style={{ cursor: activeTool !== "select" ? "crosshair" : "default" }}

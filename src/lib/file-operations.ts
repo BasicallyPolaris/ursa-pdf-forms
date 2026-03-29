@@ -2,6 +2,16 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { readFile, writeFile } from "@tauri-apps/plugin-fs";
 import { useEditorStore } from "@/stores/editor-store";
 import { serializeProject, parseProject } from "./project-file-io";
+import { loadPdfDocument } from "./pdf-loader";
+
+function extractFileName(filePath: string, fallback: string): string {
+  return filePath.split(/[/\\]/).pop() ?? fallback;
+}
+
+async function loadPdfIntoStore(pdfBytes: Uint8Array, fileName: string) {
+  const { pageInfos } = await loadPdfDocument(pdfBytes);
+  useEditorStore.getState().setPdf(fileName, pdfBytes, pageInfos);
+}
 
 export async function openPdfFile() {
   const selected = await open({
@@ -11,11 +21,11 @@ export async function openPdfFile() {
 
   if (!selected) return;
 
-  const filePath = typeof selected === "string" ? selected : selected;
-  const bytes = await readFile(filePath as string);
-  const fileName = (filePath as string).split(/[/\\]/).pop() ?? "document.pdf";
-
-  useEditorStore.getState().setPdf(fileName, new Uint8Array(bytes), []);
+  const filePath = selected as string;
+  const bytes = await readFile(filePath);
+  const fileName = extractFileName(filePath, "document.pdf");
+  const pdfBytes = new Uint8Array(bytes);
+  await loadPdfIntoStore(pdfBytes, fileName);
 }
 
 export async function saveProjectFile() {
@@ -53,8 +63,8 @@ export async function openProjectFile() {
 
   if (!selected) return;
 
-  const filePath = typeof selected === "string" ? selected : selected;
-  const bytes = await readFile(filePath as string);
+  const filePath = selected as string;
+  const bytes = await readFile(filePath);
   const json = new TextDecoder().decode(bytes);
   const project = parseProject(json);
 
@@ -62,11 +72,12 @@ export async function openProjectFile() {
     c.charCodeAt(0),
   );
 
-  const fileName = (filePath as string).split(/[/\\]/).pop() ?? "project.pfm";
-
-  useEditorStore.getState().setPdf(fileName, pdfBytes, []);
+  const fileName = extractFileName(filePath, "project.pfm");
+  await loadPdfIntoStore(pdfBytes, fileName);
 
   for (const el of project.elements) {
     useEditorStore.getState().addElement(el);
   }
 }
+
+export { extractFileName, loadPdfIntoStore };

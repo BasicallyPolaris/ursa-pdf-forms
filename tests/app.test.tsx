@@ -22,7 +22,7 @@ vi.mock("@tauri-apps/api/webview", () => ({
 }));
 
 import { render, screen } from "@testing-library/react";
-import App from "./App";
+import App from "@/App";
 
 describe("App layout", () => {
   it("renders 3-panel layout with toolbar, sidebar, canvas, and properties panel", () => {

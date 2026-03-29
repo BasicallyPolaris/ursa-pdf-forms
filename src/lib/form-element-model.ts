@@ -14,32 +14,7 @@ export interface TextField {
   maxLength: number | undefined;
 }
 
-export interface CheckboxField {
-  type: "checkbox";
-  id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  pageNumber: number;
-  name: string;
-  defaultChecked: boolean;
-}
-
-export interface RadioField {
-  type: "radio";
-  id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  pageNumber: number;
-  groupName: string;
-  value: string;
-  label: string;
-}
-
-export type FormElement = TextField | CheckboxField | RadioField;
+export type FormElement = TextField;
 
 let nextId = 1;
 function generateId(): string {
@@ -82,32 +57,4 @@ export function isTextField(el: FormElement): el is TextField {
   return el.type === "text";
 }
 
-export function isCheckboxField(el: FormElement): el is CheckboxField {
-  return el.type === "checkbox";
-}
 
-export function isRadioField(el: FormElement): el is RadioField {
-  return el.type === "radio";
-}
-
-export function validateElement(el: FormElement): string[] {
-  const errors: string[] = [];
-
-  if ("name" in el && !el.name) {
-    errors.push("name is required");
-  }
-  if ("groupName" in el && !(el as RadioField).groupName) {
-    errors.push("groupName is required");
-  }
-  if (el.pageNumber < 1) {
-    errors.push("pageNumber must be >= 1");
-  }
-  if (el.width <= 0) {
-    errors.push("width must be > 0");
-  }
-  if (el.height <= 0) {
-    errors.push("height must be > 0");
-  }
-
-  return errors;
-}

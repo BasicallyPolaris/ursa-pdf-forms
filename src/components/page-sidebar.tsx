@@ -1,48 +1,61 @@
-import { useEffect, useRef, useCallback } from "react";
-import * as pdfjsLib from "pdfjs-dist";
+import { useEffect, useRef } from "react";
 import { useEditorStore } from "@/stores/editor-store";
+import { loadPdfDocument } from "@/lib/pdf-loader";
 
 export function PageSidebar() {
-  const { pdfBytes, pages, sidebarCollapsed } = useEditorStore();
+  const { pdfBytes, pages, sidebarCollapsed, toggleSidebar } = useEditorStore();
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const renderThumbnails = useCallback(async () => {
-    if (!pdfBytes || sidebarCollapsed) return;
-
-    const pdf = await pdfjsLib.getDocument({ data: pdfBytes.slice() }).promise;
-    const thumbScale = 0.2;
-
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const canvas = canvasRefs.current.get(i);
-      if (!canvas) continue;
-
-      const page = await pdf.getPage(i);
-      const viewport = page.getViewport({ scale: thumbScale });
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-
-      const ctx = canvas.getContext("2d");
-      if (!ctx) continue;
-
-      await page.render({ canvas, viewport }).promise;
-    }
-  }, [pdfBytes, sidebarCollapsed]);
-
   useEffect(() => {
+    if (!pdfBytes || sidebarCollapsed || pages.length === 0) return;
+
+    let cancelled = false;
+    const renderThumbnails = async () => {
+      const { proxy: pdf } = await loadPdfDocument(pdfBytes);
+      if (cancelled) return;
+
+      const thumbScale = 0.2;
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        if (cancelled) return;
+
+        const canvas = canvasRefs.current.get(i);
+        if (!canvas) continue;
+
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: thumbScale });
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) continue;
+
+        await page.render({ canvas, viewport }).promise;
+      }
+    };
+
     renderThumbnails();
-  }, [renderThumbnails]);
+    return () => {
+      cancelled = true;
+    };
+  }, [pdfBytes, sidebarCollapsed, pages]);
 
   const scrollToPage = (pageNumber: number) => {
-    const canvasArea = document.querySelector("[data-testid='canvas-area']");
-    if (!canvasArea) return;
+    const scrollContainer = document.querySelector("[data-pdf-scroll-container]");
+    if (!scrollContainer) return;
 
-    const pageCanvas = canvasArea.querySelector(
+    const pageCanvas = scrollContainer.querySelector(
       `[data-page-number="${pageNumber}"]`,
     );
-    if (pageCanvas) {
-      pageCanvas.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    if (!pageCanvas) return;
+
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const canvasRect = pageCanvas.getBoundingClientRect();
+    const offset =
+      canvasRect.top - containerRect.top + scrollContainer.scrollTop;
+
+    scrollContainer.scrollTo({ top: offset, behavior: "smooth" });
   };
 
   if (sidebarCollapsed) {
@@ -52,7 +65,7 @@ export function PageSidebar() {
         className="flex w-10 flex-col items-center border-r border-border bg-card py-2"
       >
         <button
-          onClick={() => useEditorStore.getState().toggleSidebar()}
+          onClick={() => toggleSidebar()}
           className="text-xs text-muted-foreground hover:text-foreground"
           title="Expand sidebar"
         >
@@ -75,7 +88,7 @@ export function PageSidebar() {
       <div className="flex items-center justify-between px-2 py-1">
         <span className="text-xs font-medium text-muted-foreground">Pages</span>
         <button
-          onClick={() => useEditorStore.getState().toggleSidebar()}
+          onClick={() => toggleSidebar()}
           className="text-xs text-muted-foreground hover:text-foreground"
           title="Collapse sidebar"
         >

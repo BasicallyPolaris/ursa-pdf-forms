@@ -1,21 +1,26 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, type ReactNode } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 import { useEditorStore } from "@/stores/editor-store";
+import { loadPdfDocument } from "@/lib/pdf-loader";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
   import.meta.url,
 ).toString();
 
-export function PdfCanvas() {
+interface PdfCanvasProps {
+  children?: ReactNode;
+}
+
+export function PdfCanvas({ children }: PdfCanvasProps) {
   const { pdfBytes, zoom } = useEditorStore();
-  const containerRef = useRef<HTMLDivElement>(null);
+  const pagesRef = useRef<HTMLDivElement>(null);
   const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
   const renderTasksRef = useRef<Map<number, pdfjsLib.RenderTask>>(new Map());
 
   const renderAllPages = useCallback(
     async (pdf: pdfjsLib.PDFDocumentProxy) => {
-      const container = containerRef.current;
+      const container = pagesRef.current;
       if (!container) return;
 
       renderTasksRef.current.forEach((task) => task.cancel());
@@ -49,7 +54,6 @@ export function PdfCanvas() {
           await task.promise;
           renderTasksRef.current.delete(i);
         } catch {
-          // cancelled
         }
       }
     },
@@ -57,34 +61,17 @@ export function PdfCanvas() {
   );
 
   useEffect(() => {
-    if (!pdfBytes) return;
+    if (!pdfBytes) {
+      pdfDocRef.current = null;
+      return;
+    }
 
     let cancelled = false;
     const load = async () => {
-      const pdf = await pdfjsLib.getDocument({ data: pdfBytes.slice() }).promise;
+      const { proxy: pdf } = await loadPdfDocument(pdfBytes);
       if (cancelled) return;
 
       pdfDocRef.current = pdf;
-
-      const pageInfos = [];
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const vp = page.getViewport({ scale: 1 });
-        pageInfos.push({
-          width: vp.width,
-          height: vp.height,
-          pageNumber: i,
-        });
-      }
-
-      if (cancelled) return;
-
-      useEditorStore.getState().setPdf(
-        useEditorStore.getState().pdfFileName ?? "document.pdf",
-        pdfBytes,
-        pageInfos,
-      );
-
       await renderAllPages(pdf);
     };
 
@@ -109,9 +96,14 @@ export function PdfCanvas() {
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="flex flex-col items-center gap-2 overflow-auto p-4"
-    />
+    <div className="h-full overflow-auto" data-pdf-scroll-container>
+      <div className="relative min-w-full">
+        <div
+          ref={pagesRef}
+          className="flex flex-col items-center gap-2 p-4"
+        />
+        {children}
+      </div>
+    </div>
   );
 }

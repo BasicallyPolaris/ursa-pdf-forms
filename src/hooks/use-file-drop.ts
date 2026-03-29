@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { readFile } from "@tauri-apps/plugin-fs";
-import { useEditorStore } from "@/stores/editor-store";
+import { extractFileName, loadPdfIntoStore } from "@/lib/file-operations";
 
 export function useFileDrop() {
   useEffect(() => {
@@ -15,8 +15,9 @@ export function useFileDrop() {
 
       const load = async () => {
         const bytes = await readFile(pdfPath);
-        const fileName = pdfPath.split(/[/\\]/).pop() ?? "document.pdf";
-        useEditorStore.getState().setPdf(fileName, new Uint8Array(bytes), []);
+        const fileName = extractFileName(pdfPath, "document.pdf");
+        const pdfBytes = new Uint8Array(bytes);
+        await loadPdfIntoStore(pdfBytes, fileName);
       };
 
       load();

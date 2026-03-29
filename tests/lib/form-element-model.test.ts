@@ -2,9 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   createTextField,
   isTextField,
-  validateElement,
-  type FormElement,
-} from "./form-element-model";
+} from "@/lib/form-element-model";
 
 describe("createTextField", () => {
   it("creates a text field with sensible defaults", () => {
@@ -58,54 +56,5 @@ describe("isTextField", () => {
   it("returns true for text elements", () => {
     const el = createTextField({ x: 0, y: 0, pageNumber: 1 });
     expect(isTextField(el)).toBe(true);
-  });
-
-  it("returns false for non-text elements", () => {
-    const el: FormElement = {
-      type: "checkbox",
-      id: "test",
-      x: 0,
-      y: 0,
-      width: 12,
-      height: 12,
-      pageNumber: 1,
-      name: "cb",
-      defaultChecked: false,
-    } as FormElement;
-    expect(isTextField(el)).toBe(false);
-  });
-});
-
-describe("validateElement", () => {
-  it("accepts valid text field", () => {
-    const el = createTextField({ x: 0, y: 0, pageNumber: 1, name: "field1" });
-    const errors = validateElement(el);
-    expect(errors).toEqual([]);
-  });
-
-  it("rejects element with empty name", () => {
-    const el = createTextField({ x: 0, y: 0, pageNumber: 1 });
-    const errors = validateElement(el);
-    expect(errors.length).toBeGreaterThan(0);
-    expect(errors).toContain("name is required");
-  });
-
-  it("rejects element with zero page number", () => {
-    const el = createTextField({ x: 0, y: 0, pageNumber: 0, name: "f" });
-    const errors = validateElement(el);
-    expect(errors).toContain("pageNumber must be >= 1");
-  });
-
-  it("rejects element with negative dimensions", () => {
-    const el = createTextField({
-      x: 0,
-      y: 0,
-      pageNumber: 1,
-      name: "f",
-      width: -10,
-      height: 5,
-    });
-    const errors = validateElement(el);
-    expect(errors).toContain("width must be > 0");
   });
 });
