@@ -7,10 +7,12 @@ vi.mock("pdfjs-dist", () => ({
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: vi.fn(),
+  save: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/plugin-fs", () => ({
   readFile: vi.fn(),
+  writeFile: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/api/webview", () => ({
@@ -41,5 +43,16 @@ describe("App layout", () => {
   it("shows empty state when no PDF is loaded", () => {
     render(<App />);
     expect(screen.getByText("Open a PDF file to get started")).toBeInTheDocument();
+  });
+
+  it("renders tool buttons", () => {
+    render(<App />);
+    expect(screen.getByText("Select")).toBeInTheDocument();
+    expect(screen.getByText("Text Field")).toBeInTheDocument();
+  });
+
+  it("renders export button", () => {
+    render(<App />);
+    expect(screen.getByText("Export PDF")).toBeInTheDocument();
   });
 });
