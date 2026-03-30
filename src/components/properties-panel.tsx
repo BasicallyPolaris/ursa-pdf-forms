@@ -16,6 +16,9 @@ import {
   Square,
   CircleDot,
   AlignLeft,
+  Trash2,
+  MoveHorizontal,
+  MoveVertical,
 } from "lucide-react";
 
 class ErrorBoundary extends Component<
@@ -521,9 +524,67 @@ export function PropertiesPanel() {
   );
 }
 
+function GuideProperties({ guideId }: { guideId: string }) {
+  const guide = useEditorStore((s) => s.guides.find((g) => g.id === guideId));
+  const updateGuidePosition = useEditorStore((s) => s.updateGuidePosition);
+  const removeGuide = useEditorStore((s) => s.removeGuide);
+
+  if (!guide) return null;
+
+  const isHorizontal = guide.orientation === "horizontal";
+  const Icon = isHorizontal ? MoveHorizontal : MoveVertical;
+  const label = isHorizontal ? "Horizontal" : "Vertical";
+  const posLabel = isHorizontal ? "Y" : "X";
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="flex h-5 w-5 items-center justify-center rounded text-guide-ruler">
+            <Icon className="h-3.5 w-3.5" />
+          </span>
+          <span className="text-xs font-medium text-foreground">
+            {label} guide
+          </span>
+        </div>
+      </div>
+      <Separator />
+      <PropertyField label={`${posLabel} position`}>
+        <Input
+          type="number"
+          value={Math.round(guide.position)}
+          onChange={(e) =>
+            updateGuidePosition(guide.id, Number(e.target.value))
+          }
+          className="h-7 text-xs font-mono tabular-nums"
+        />
+      </PropertyField>
+      <button
+        onClick={() => removeGuide(guide.id)}
+        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/20"
+      >
+        <Trash2 className="h-3 w-3" />
+        Delete guide
+      </button>
+    </div>
+  );
+}
+
 function PropertiesPanelContent() {
+  const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const elements = useEditorStore((s) => s.elements);
+
+  if (selectedGuideId) {
+    return (
+      <div className="h-full overflow-y-auto">
+        <div className="p-3">
+          <GuideProperties guideId={selectedGuideId} />
+        </div>
+      </div>
+    );
+  }
+
   const selectedElements = elements.filter((el) => selectedIds.has(el.id));
 
   if (selectedIds.size === 0) {

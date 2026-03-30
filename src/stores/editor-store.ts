@@ -52,6 +52,7 @@ interface EditorState {
   showGrid: boolean;
   guides: GuideLine[];
   previewGuide: { orientation: "horizontal" | "vertical"; position: number } | null;
+  selectedGuideId: string | null;
 
   setPdf: (fileName: string, bytes: Uint8Array, pages: PageInfo[]) => void;
   setZoom: (zoom: number) => void;
@@ -75,6 +76,7 @@ interface EditorState {
   removeGuide: (id: string) => void;
   updateGuidePosition: (id: string, position: number) => void;
   setPreviewGuide: (guide: { orientation: "horizontal" | "vertical"; position: number } | null) => void;
+  selectGuide: (id: string | null) => void;
   alignElements: (type: "left" | "right" | "top" | "bottom" | "centerH" | "centerV") => void;
   distributeElements: (direction: "horizontal" | "vertical") => void;
   centerSelectionOnPage: () => void;
@@ -97,6 +99,7 @@ export const useEditorStore = create<EditorState>()(
       showGrid: true,
       guides: [],
       previewGuide: null,
+      selectedGuideId: null,
 
       setPdf: (fileName, bytes, pages) =>
         set({ pdfFileName: fileName, pdfBytes: bytes, pages }),
@@ -133,9 +136,9 @@ export const useEditorStore = create<EditorState>()(
           selectedIds: new Set([...s.selectedIds].filter((id) => !ids.includes(id))),
         })),
 
-      selectElements: (ids) => set({ selectedIds: ids }),
+      selectElements: (ids) => set({ selectedIds: ids, selectedGuideId: null }),
 
-      clearSelection: () => set({ selectedIds: new Set<string>() }),
+      clearSelection: () => set({ selectedIds: new Set<string>(), selectedGuideId: null }),
 
       toggleInSelection: (id) =>
         set((s) => {
@@ -211,6 +214,9 @@ export const useEditorStore = create<EditorState>()(
         })),
 
       setPreviewGuide: (guide) => set({ previewGuide: guide }),
+
+      selectGuide: (id) =>
+        set({ selectedGuideId: id, selectedIds: new Set<string>() }),
 
       alignElements: (type) => {
         const state = get();

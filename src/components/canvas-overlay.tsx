@@ -18,6 +18,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { Trash2 } from "lucide-react";
 
 function getElementName(el: FormElement): string {
   if (el.type === "radio" && "groupName" in el) return el.groupName || el.value;
@@ -682,12 +683,17 @@ export function CanvasOverlay() {
 
   const removeGuide = useEditorStore((s) => s.removeGuide);
   const updateGuidePosition = useEditorStore((s) => s.updateGuidePosition);
+  const selectGuide = useEditorStore((s) => s.selectGuide);
+  const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
 
   const persistentGuideElements = guides.map((guide) => {
+    const isSelected = selectedGuideId === guide.id;
+
     const handleGuideMouseDown = (e: React.MouseEvent) => {
       if (e.button !== 0) return;
       e.preventDefault();
       e.stopPropagation();
+      selectGuide(guide.id);
 
       const overlayEl = overlayRef.current;
       if (!overlayEl) return;
@@ -734,33 +740,34 @@ export function CanvasOverlay() {
       document.addEventListener("mouseup", onMouseUp);
     };
 
+    const lineStyle: React.CSSProperties = {
+      position: "absolute",
+      backgroundColor: "var(--guide-ruler)",
+      opacity: isSelected ? 1 : 0.6,
+    };
+
     if (guide.orientation === "horizontal") {
       const screenY = TOP_PADDING + guide.position * zoom;
       return (
         <ContextMenu key={guide.id}>
-          <ContextMenuTrigger>
+          <ContextMenuTrigger
+            render={<div />}
+            className="absolute z-40 cursor-ns-resize group"
+            style={{ left: 0, top: screenY - 4, width: overlayWidth, height: 9 }}
+            onMouseDown={handleGuideMouseDown}
+          >
             <div
-              className="absolute z-40 cursor-ns-resize group"
-              style={{ left: 0, top: screenY - 4, width: overlayWidth, height: 9 }}
-              onMouseDown={handleGuideMouseDown}
-            >
-              <div
-                className="w-full group-hover:opacity-100"
-                style={{
-                  position: "absolute",
-                  top: 4,
-                  height: 1,
-                  backgroundColor: "var(--guide-ruler)",
-                  opacity: 0.6,
-                }}
-              />
-            </div>
+              className="w-full group-hover:opacity-100"
+              style={{ ...lineStyle, top: 4, height: 1 }}
+            />
           </ContextMenuTrigger>
           <ContextMenuContent>
             <ContextMenuItem
+              variant="destructive"
               className="text-xs"
-              onSelect={() => removeGuide(guide.id)}
+              onClick={() => removeGuide(guide.id)}
             >
+              <Trash2 className="size-3.5" />
               Delete guide
             </ContextMenuItem>
           </ContextMenuContent>
@@ -773,29 +780,24 @@ export function CanvasOverlay() {
         : guide.position * zoom;
       return (
         <ContextMenu key={guide.id}>
-          <ContextMenuTrigger>
+          <ContextMenuTrigger
+            render={<div />}
+            className="absolute z-40 cursor-ew-resize group"
+            style={{ left: screenX - 4, top: 0, width: 9, height: totalContentHeight }}
+            onMouseDown={handleGuideMouseDown}
+          >
             <div
-              className="absolute z-40 cursor-ew-resize group"
-              style={{ left: screenX - 4, top: 0, width: 9, height: totalContentHeight }}
-              onMouseDown={handleGuideMouseDown}
-            >
-              <div
-                className="h-full group-hover:opacity-100"
-                style={{
-                  position: "absolute",
-                  left: 4,
-                  width: 1,
-                  backgroundColor: "var(--guide-ruler)",
-                  opacity: 0.6,
-                }}
-              />
-            </div>
+              className="h-full group-hover:opacity-100"
+              style={{ ...lineStyle, left: 4, width: 1 }}
+            />
           </ContextMenuTrigger>
           <ContextMenuContent>
             <ContextMenuItem
+              variant="destructive"
               className="text-xs"
-              onSelect={() => removeGuide(guide.id)}
+              onClick={() => removeGuide(guide.id)}
             >
+              <Trash2 className="size-3.5" />
               Delete guide
             </ContextMenuItem>
           </ContextMenuContent>
