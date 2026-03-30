@@ -149,14 +149,14 @@ export function HorizontalRuler({ scrollLeft, overlayWidth }: RulerProps) {
                 y1={startY}
                 x2={tick.x}
                 y2={RULER_SIZE}
-                stroke="rgba(255,255,255,0.25)"
+                stroke="var(--ruler-tick)"
                 strokeWidth={tick.level === 0 ? 1 : 0.5}
               />
               {tick.label && (
                 <text
                   x={tick.x + 2}
                   y={9}
-                  fill="rgba(255,255,255,0.4)"
+                  fill="var(--ruler-label)"
                   fontSize={8}
                   fontFamily="monospace"
                 >
@@ -298,14 +298,14 @@ export function VerticalRuler({ scrollTop, canvasHeight }: RulerProps) {
                 x1={startX}
                 y2={tick.y}
                 x2={RULER_SIZE}
-                stroke="rgba(255,255,255,0.25)"
+                stroke="var(--ruler-tick)"
                 strokeWidth={tick.level === 0 ? 1 : 0.5}
               />
               {tick.label && (
                 <text
                   x={RULER_SIZE / 2}
                   y={tick.y - 3}
-                  fill="rgba(255,255,255,0.55)"
+                  fill="var(--ruler-label)"
                   fontSize={8}
                   fontFamily="monospace"
                   textAnchor="middle"

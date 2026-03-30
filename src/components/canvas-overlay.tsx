@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/context-menu";
 import { Trash2 } from "lucide-react";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
+import { getElementStyleConfig, getElementStyleConfigByType } from "@/lib/element-style-map";
 
 function getElementName(el: FormElement): string {
   if (el.type === "radio" && "groupName" in el) return el.groupName || el.value;
@@ -757,26 +758,8 @@ export function CanvasOverlay() {
       >
         <div
           className={`h-full w-full flex items-center justify-center ${
-            isSelected
-              ? "ring-1 ring-field-text/30"
-              : ""
-          } ${
-            el.type === "checkbox"
-              ? isSelected
-                ? "border-2 border-field-checkbox bg-field-checkbox-bg"
-                : "border border-field-checkbox-dim bg-field-checkbox-bg"
-              : el.type === "radio"
-                ? isSelected
-                  ? "border-2 border-field-radio bg-field-radio-bg"
-                  : "border border-field-radio-dim bg-field-radio-bg"
-                : el.type === "text" && el.multiline
-                  ? isSelected
-                    ? "border-2 border-field-multiline bg-field-multiline-bg"
-                    : "border border-field-multiline-dim bg-field-multiline-bg"
-                  : isSelected
-                    ? "border-2 border-field-text bg-field-text-bg"
-                    : "border border-field-text-dim bg-field-text-bg"
-          }`}
+            isSelected ? "ring-1 ring-field-text/30" : ""
+          } ${getElementStyleConfig(el).borderBgClass(isSelected)}`}
           style={
             draggingId.current === el.id && dragSnapCorrection
               ? { transform: `translate(${dragSnapCorrection.dx}px, ${dragSnapCorrection.dy}px)` }
@@ -784,7 +767,7 @@ export function CanvasOverlay() {
           }
         >
           {el.type === "checkbox" && (
-            <svg viewBox="0 0 10 10" className="h-3/5 w-3/5 text-field-checkbox">
+            <svg viewBox="0 0 10 10" className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`}>
               <path
                 d="M2 5L4 7L8 3"
                 fill="none"
@@ -796,21 +779,19 @@ export function CanvasOverlay() {
             </svg>
           )}
           {el.type === "radio" && (
-            <svg viewBox="0 0 10 10" className="h-3/5 w-3/5 text-field-radio">
+            <svg viewBox="0 0 10 10" className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`}>
               <circle cx="5" cy="5" r="3.5" fill="none" stroke="currentColor" strokeWidth="1" />
               <circle cx="5" cy="5" r="1.5" fill="currentColor" />
             </svg>
           )}
           {el.type === "text" && el.multiline && (
-            <svg viewBox="0 0 12 12" className="h-3/5 w-3/5 text-field-multiline opacity-50">
+            <svg viewBox="0 0 12 12" className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass} opacity-50`}>
               <line x1="2" y1="3" x2="10" y2="3" stroke="currentColor" strokeWidth="1" />
               <line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" strokeWidth="1" />
               <line x1="2" y1="9" x2="7" y2="9" stroke="currentColor" strokeWidth="1" />
             </svg>
           )}
-          <span className={`absolute -top-4 left-0 truncate text-[10px] select-none ${
-            el.type === "checkbox" ? "text-field-checkbox" : el.type === "radio" ? "text-field-radio" : el.type === "text" && el.multiline ? "text-field-multiline" : "text-field-text"
-          }`}>
+          <span className={`absolute -top-4 left-0 truncate text-[10px] select-none ${getElementStyleConfig(el).textColorClass}`}>
             {getElementName(el)}
           </span>
         </div>
@@ -1121,8 +1102,8 @@ export function CanvasOverlay() {
         <div
           className={`pointer-events-none absolute ${
             HORIZONTAL_DRAW_TOOLS.has(activeTool)
-              ? "border-2 border-field-text/60 bg-field-text-bg"
-              : "border-2 border-field-multiline/60 bg-field-multiline-bg"
+              ? getElementStyleConfigByType("text")!.drawPreviewClass
+              : getElementStyleConfigByType("multiline")!.drawPreviewClass
           }`}
           style={{
             left: drawRectStyle.left,

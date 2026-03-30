@@ -89,11 +89,11 @@ function App() {
                   <PdfCanvas>
                     <CanvasOverlay />
                   </PdfCanvas>
+                  <FloatingToolbar />
                 </div>
               </div>
             </div>
           </div>
-          <FloatingToolbar />
         </main>
 
         <aside

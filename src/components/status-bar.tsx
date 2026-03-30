@@ -1,12 +1,5 @@
 import { useEditorStore } from "@/stores/editor-store";
-
-function Kbd({ children }: { children: React.ReactNode }) {
-  return (
-    <kbd className="rounded border border-border bg-muted/50 px-1 py-px text-[10px] font-mono text-muted-foreground">
-      {children}
-    </kbd>
-  );
-}
+import { Kbd } from "@/components/ui/kbd";
 
 export function StatusBar() {
   const pdfBytes = useEditorStore((s) => s.pdfBytes);

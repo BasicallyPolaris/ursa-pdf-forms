@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, type ReactNode } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 import { useEditorStore } from "@/stores/editor-store";
 import { loadPdfDocument } from "@/lib/pdf-loader";
+import { Kbd } from "@/components/ui/kbd";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
@@ -172,15 +173,15 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
           </div>
           <div className="mt-2 flex flex-col gap-1.5 text-[11px] text-muted-foreground/70">
             <div className="flex items-center gap-2">
-              <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">Ctrl+O</kbd>
+              <Kbd>Ctrl+O</Kbd>
               <span>Open PDF</span>
             </div>
             <div className="flex items-center gap-2">
-              <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">Ctrl+Scroll</kbd>
+              <Kbd>Ctrl+Scroll</Kbd>
               <span>Zoom</span>
             </div>
             <div className="flex items-center gap-2">
-              <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">Del</kbd>
+              <Kbd>Del</Kbd>
               <span>Remove field</span>
             </div>
           </div>

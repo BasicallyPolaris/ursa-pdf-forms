@@ -1,5 +1,8 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NumericInput } from "@/components/ui/numeric-input";
+import { EmptyState } from "@/components/ui/empty-state";
+import { getElementStyleConfig, getElementStyleConfigByType } from "@/lib/element-style-map";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -22,20 +25,16 @@ import {
   AlignCenterVertical,
   AlignEndHorizontal,
   AlignEndVertical,
-  AlignLeft,
   AlignStartHorizontal,
   AlignStartVertical,
   BetweenHorizontalStart,
   BetweenVerticalStart,
-  CircleDot,
   Crosshair,
   Expand,
   MoveHorizontal,
   MoveVertical,
   Shrink,
-  Square,
   Trash2,
-  Type,
 } from "lucide-react";
 import { Component } from "react";
 
@@ -90,39 +89,6 @@ function SectionHeader({ label }: { label: string }) {
   );
 }
 
-const TYPE_CONFIG: Record<
-  string,
-  { label: string; icon: typeof Type; colorClass: string; borderClass: string }
-> = {
-  text: {
-    label: "Text Field",
-    icon: Type,
-    colorClass: "text-field-text",
-    borderClass: "border-field-text/30",
-  },
-  checkbox: {
-    label: "Checkbox",
-    icon: Square,
-    colorClass: "text-field-checkbox",
-    borderClass: "border-field-checkbox/30",
-  },
-  radio: {
-    label: "Radio Button",
-    icon: CircleDot,
-    colorClass: "text-field-radio",
-    borderClass: "border-field-radio/30",
-  },
-};
-
-function MultilineConfig() {
-  return {
-    label: "Multiline",
-    icon: AlignLeft,
-    colorClass: "text-field-multiline",
-    borderClass: "border-field-multiline/30",
-  };
-}
-
 function TextFieldProperties({ elementId }: { elementId: string }) {
   const element = useEditorStore((s) =>
     s.elements.find((el) => el.id === elementId),
@@ -166,8 +132,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
       <SectionHeader label="Typography" />
 
       <PropertyField label="Font Size">
-        <Input
-          type="number"
+        <NumericInput
           value={element.fontSize}
           onChange={(e) => {
             const fs = Number(e.target.value);
@@ -177,7 +142,6 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
             }
             updateElement(element.id, updates);
           }}
-          className="h-7 text-xs font-mono tabular-nums"
         />
       </PropertyField>
 
@@ -201,8 +165,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
       </div>
 
       <PropertyField label="Max Length">
-        <Input
-          type="number"
+        <NumericInput
           value={element.maxLength ?? ""}
           onChange={(e) =>
             updateElement(element.id, {
@@ -210,7 +173,6 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
             })
           }
           placeholder="No limit"
-          className="h-7 text-xs font-mono tabular-nums"
         />
       </PropertyField>
 
@@ -220,40 +182,33 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
 
       <div className="grid grid-cols-2 gap-2">
         <PropertyField label="X">
-          <Input
-            type="number"
+          <NumericInput
             value={displayX}
             onChange={(e) =>
               updateElement(element.id, { x: Number(e.target.value) })
             }
-            className="h-7 text-xs font-mono tabular-nums"
           />
         </PropertyField>
         <PropertyField label="Y">
-          <Input
-            type="number"
+          <NumericInput
             value={displayY}
             onChange={(e) =>
               updateElement(element.id, { y: Number(e.target.value) })
             }
-            className="h-7 text-xs font-mono tabular-nums"
           />
         </PropertyField>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <PropertyField label="Width">
-          <Input
-            type="number"
+          <NumericInput
             value={displayW}
             onChange={(e) =>
               updateElement(element.id, { width: Number(e.target.value) })
             }
-            className="h-7 text-xs font-mono tabular-nums"
           />
         </PropertyField>
         <PropertyField label="Height">
-          <Input
-            type="number"
+          <NumericInput
             value={displayH}
             onChange={(e) =>
               updateElement(element.id, {
@@ -261,7 +216,6 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
               })
             }
             disabled={!element.multiline}
-            className="h-7 text-xs font-mono tabular-nums"
           />
         </PropertyField>
       </div>
@@ -309,47 +263,39 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
 
       <div className="grid grid-cols-2 gap-2">
         <PropertyField label="X">
-          <Input
-            type="number"
+          <NumericInput
             value={displayX}
             onChange={(e) =>
               updateElement(element.id, { x: Number(e.target.value) })
             }
-            className="h-7 text-xs font-mono tabular-nums"
           />
         </PropertyField>
         <PropertyField label="Y">
-          <Input
-            type="number"
+          <NumericInput
             value={displayY}
             onChange={(e) =>
               updateElement(element.id, { y: Number(e.target.value) })
             }
-            className="h-7 text-xs font-mono tabular-nums"
           />
         </PropertyField>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <PropertyField label="Width">
-          <Input
-            type="number"
+          <NumericInput
             value={Math.round(element.width)}
             onChange={(e) =>
               updateElement(element.id, { fontSize: Number(e.target.value) })
             }
-            className="h-7 text-xs font-mono tabular-nums"
           />
         </PropertyField>
         <PropertyField label="Height">
-          <Input
-            type="number"
+          <NumericInput
             value={Math.round(element.height)}
             onChange={(e) =>
               updateElement(element.id, {
                 height: Number(e.target.value),
               })
             }
-            className="h-7 text-xs font-mono tabular-nums"
           />
         </PropertyField>
       </div>
@@ -403,47 +349,39 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
 
       <div className="grid grid-cols-2 gap-2">
         <PropertyField label="X">
-          <Input
-            type="number"
+          <NumericInput
             value={displayX}
             onChange={(e) =>
               updateElement(element.id, { x: Number(e.target.value) })
             }
-            className="h-7 text-xs font-mono tabular-nums"
           />
         </PropertyField>
         <PropertyField label="Y">
-          <Input
-            type="number"
+          <NumericInput
             value={displayY}
             onChange={(e) =>
               updateElement(element.id, { y: Number(e.target.value) })
             }
-            className="h-7 text-xs font-mono tabular-nums"
           />
         </PropertyField>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <PropertyField label="Width">
-          <Input
-            type="number"
+          <NumericInput
             value={Math.round(element.width)}
             onChange={(e) =>
               updateElement(element.id, { fontSize: Number(e.target.value) })
             }
-            className="h-7 text-xs font-mono tabular-nums"
           />
         </PropertyField>
         <PropertyField label="Height">
-          <Input
-            type="number"
+          <NumericInput
             value={Math.round(element.height)}
             onChange={(e) =>
               updateElement(element.id, {
                 height: Number(e.target.value),
               })
             }
-            className="h-7 text-xs font-mono tabular-nums"
           />
         </PropertyField>
       </div>
@@ -468,8 +406,7 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
   return (
     <div className="flex flex-col gap-3">
       <PropertyField label="Font Size">
-        <Input
-          type="number"
+        <NumericInput
           value={allSameFontSize ? elements[0].fontSize : ""}
           placeholder={allSameFontSize ? undefined : "Mixed"}
           onChange={(e) => {
@@ -482,7 +419,6 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
               updateElement(el.id, updates);
             }
           }}
-          className="h-7 text-xs font-mono tabular-nums"
         />
       </PropertyField>
 
@@ -732,13 +668,11 @@ function GuideProperties({ guideId }: { guideId: string }) {
       </div>
       <Separator />
       <PropertyField label={`${posLabel} position`}>
-        <Input
-          type="number"
+        <NumericInput
           value={Math.round(guide.position)}
           onChange={(e) =>
             updateGuidePosition(guide.id, Number(e.target.value))
           }
-          className="h-7 text-xs font-mono tabular-nums"
         />
       </PropertyField>
       <button
@@ -771,9 +705,7 @@ function PropertiesPanelContent() {
 
   if (selectedIds.size === 0) {
     return (
-      <div className="flex h-full items-center justify-center p-4">
-        <p className="text-xs text-muted-foreground/50">No selection</p>
-      </div>
+      <EmptyState description="Select an element to edit properties" />
     );
   }
 
@@ -781,7 +713,7 @@ function PropertiesPanelContent() {
     const types = new Set(selectedElements.map((el) => el.type));
     const allSameType = types.size === 1;
     const singleType = allSameType ? [...types][0] : null;
-    const config = singleType ? TYPE_CONFIG[singleType] : null;
+    const config = singleType ? getElementStyleConfigByType(singleType) : null;
 
     return (
       <div className="h-full overflow-y-auto">
@@ -835,17 +767,13 @@ function PropertiesPanelContent() {
 
   if (!element) {
     return (
-      <div className="flex h-full items-center justify-center p-4">
-        <p className="text-xs text-muted-foreground/50">No selection</p>
-      </div>
+      <EmptyState description="Select an element to edit properties" />
     );
   }
 
-  const isMultilineText = isTextField(element) && element.multiline;
-  const config = isMultilineText
-    ? MultilineConfig()
-    : TYPE_CONFIG[element.type];
+  const config = getElementStyleConfig(element);
   const Icon = config.icon;
+  const isMultilineText = isTextField(element) && element.multiline;
 
   return (
     <div className="h-full overflow-y-auto">

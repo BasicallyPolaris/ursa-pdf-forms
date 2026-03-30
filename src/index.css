@@ -96,6 +96,10 @@
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+    --ruler-tick: rgba(0, 0, 0, 0.25);
+    --ruler-tick-major: 1;
+    --ruler-tick-minor: 0.5;
+    --ruler-label: rgba(0, 0, 0, 0.55);
 }
 
 .dark {
@@ -145,6 +149,10 @@
     --guide-ruler: oklch(0.75 0.14 200);
     --guide-snap: oklch(0.68 0.17 55);
     --bounding-rect: oklch(0.65 0.18 345);
+    --ruler-tick: rgba(255, 255, 255, 0.25);
+    --ruler-tick-major: 1;
+    --ruler-tick-minor: 0.5;
+    --ruler-label: rgba(255, 255, 255, 0.55);
 }
 
 @layer base {
