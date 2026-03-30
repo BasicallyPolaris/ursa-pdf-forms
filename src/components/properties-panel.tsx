@@ -346,22 +346,19 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
   );
 }
 
-function MultiTextFieldProperties({ elementIds }: { elementIds: string[] }) {
-  const elements = useEditorStore((s) =>
-    s.elements.filter((el) => elementIds.includes(el.id) && isTextField(el)),
-  );
+function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
   const updateElement = useEditorStore((s) => s.updateElement);
 
   if (elements.length === 0) return null;
 
   const allSameFontSize = elements.every(
-    (el) => (el as TextField).fontSize === (elements[0] as TextField).fontSize,
+    (el) => el.fontSize === elements[0].fontSize,
   );
   const allSameMultiline = elements.every(
-    (el) => (el as TextField).multiline === (elements[0] as TextField).multiline,
+    (el) => el.multiline === elements[0].multiline,
   );
   const allSameRequired = elements.every(
-    (el) => (el as TextField).required === (elements[0] as TextField).required,
+    (el) => el.required === elements[0].required,
   );
 
   return (
@@ -369,7 +366,7 @@ function MultiTextFieldProperties({ elementIds }: { elementIds: string[] }) {
       <PropertyField label="Font Size">
         <Input
           type="number"
-          value={allSameFontSize ? (elements[0] as TextField).fontSize : ""}
+          value={allSameFontSize ? elements[0].fontSize : ""}
           placeholder={allSameFontSize ? undefined : "Mixed"}
           onChange={(e) => {
             const val = Number(e.target.value);
@@ -384,7 +381,7 @@ function MultiTextFieldProperties({ elementIds }: { elementIds: string[] }) {
       <div className="flex items-center justify-between">
         <Label className="text-xs text-muted-foreground">Multiline</Label>
         <Switch
-          checked={allSameMultiline ? (elements[0] as TextField).multiline : false}
+          checked={allSameMultiline ? elements[0].multiline : false}
           onCheckedChange={(checked) => {
             for (const el of elements) {
               updateElement(el.id, { multiline: checked });
@@ -396,7 +393,7 @@ function MultiTextFieldProperties({ elementIds }: { elementIds: string[] }) {
       <div className="flex items-center justify-between">
         <Label className="text-xs text-muted-foreground">Required</Label>
         <Switch
-          checked={allSameRequired ? (elements[0] as TextField).required : false}
+          checked={allSameRequired ? elements[0].required : false}
           onCheckedChange={(checked) => {
             for (const el of elements) {
               updateElement(el.id, { required: checked });
@@ -408,23 +405,20 @@ function MultiTextFieldProperties({ elementIds }: { elementIds: string[] }) {
   );
 }
 
-function MultiRadioProperties({ elementIds }: { elementIds: string[] }) {
-  const elements = useEditorStore((s) =>
-    s.elements.filter((el) => elementIds.includes(el.id) && isRadioButton(el)),
-  );
+function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
   const updateElement = useEditorStore((s) => s.updateElement);
 
   if (elements.length === 0) return null;
 
   const allSameGroup = elements.every(
-    (el) => (el as RadioButton).groupName === (elements[0] as RadioButton).groupName,
+    (el) => el.groupName === elements[0].groupName,
   );
 
   return (
     <div className="flex flex-col gap-3">
       <PropertyField label="Group Name">
         <Input
-          value={allSameGroup ? (elements[0] as RadioButton).groupName : ""}
+          value={allSameGroup ? elements[0].groupName : ""}
           placeholder={allSameGroup ? undefined : "Mixed"}
           onChange={(e) => {
             const val = e.target.value;
@@ -481,10 +475,10 @@ function PropertiesPanelContent() {
           <Separator className="mb-3" />
 
           {singleType === "text" && (
-            <MultiTextFieldProperties elementIds={selectedElements.map((e) => e.id)} />
+            <MultiTextFieldProperties elements={selectedElements.filter(isTextField)} />
           )}
           {singleType === "radio" && (
-            <MultiRadioProperties elementIds={selectedElements.map((e) => e.id)} />
+            <MultiRadioProperties elements={selectedElements.filter(isRadioButton)} />
           )}
         </div>
       </div>
