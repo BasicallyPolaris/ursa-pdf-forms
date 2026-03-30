@@ -11,6 +11,7 @@ import {
 } from "@/lib/coordinates";
 import { rectsOverlap, type Rect } from "@/lib/geometry";
 import { snapPosition, snapResizeBounds, type SnapGuide, type SnapContext } from "@/lib/snap-engine";
+import { computeBoundingRect } from "@/lib/selection-geometry";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -52,6 +53,7 @@ export function CanvasOverlay() {
   const toggleInSelection = useEditorStore((s) => s.toggleInSelection);
   const moveElements = useEditorStore((s) => s.moveElements);
   const setDragLivePositions = useEditorStore((s) => s.setDragLivePositions);
+  const dragLivePositions = useEditorStore((s) => s.dragLivePositions);
   const overlayRef = useRef<HTMLDivElement>(null);
   const [overlayWidth, setOverlayWidth] = useState(0);
 
@@ -135,7 +137,7 @@ export function CanvasOverlay() {
   );
 
   const buildSnapContext = useCallback(
-    (draggedElementId: string | null, pageNumber: number, modifiers: { shiftKey: boolean; ctrlKey: boolean }): SnapContext => {
+    (excludedIds: Set<string>, pageNumber: number, modifiers: { shiftKey: boolean; ctrlKey: boolean }): SnapContext => {
       const page = pages.find((p) => p.pageNumber === pageNumber);
       const freeMovement = modifiers.ctrlKey;
       return {
@@ -144,7 +146,7 @@ export function CanvasOverlay() {
         pageWidth: page?.width ?? 612,
         pageHeight: page?.height ?? 792,
         otherElements: elements
-          .filter((el) => el.id !== draggedElementId && el.pageNumber === pageNumber)
+          .filter((el) => !excludedIds.has(el.id) && el.pageNumber === pageNumber)
           .map((el) => ({ x: el.x, y: el.y, width: el.width, height: el.height })),
         rulerGuides: guides.map((g) => ({ orientation: g.orientation, position: g.position })),
         snapToGrid: modifiers.shiftKey && !freeMovement,
@@ -504,48 +506,87 @@ export function CanvasOverlay() {
           const me = dragEvent as unknown as MouseEvent;
           const deltaX = d.x - screen.x;
           const deltaY = d.y - screen.y;
+          const rawDx = deltaX / zoom;
+          const rawDy = deltaY / zoom;
 
-          const snapCtx = buildSnapContext(el.id, el.pageNumber, { shiftKey: me.shiftKey, ctrlKey: me.ctrlKey || me.metaKey });
-          const proposedPdfX = el.x + deltaX / zoom;
-          const proposedPdfY = el.y + deltaY / zoom;
+          const currentStore = useEditorStore.getState();
+          const currentSelectedIds = currentStore.selectedIds;
+          const isMultiDrag = currentSelectedIds.size > 1 && currentSelectedIds.has(el.id);
 
           const livePositions = new Map<string, { x: number; y: number; width: number; height: number }>();
+          let correctionDx = 0;
+          let correctionDy = 0;
+          let guides: SnapGuide[] = [];
 
-          if (snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides || snapCtx.snapToPageEdges) {
-            const result = snapPosition(proposedPdfX, proposedPdfY, el.width, el.height, snapCtx);
-            const snappedDeltaX = (result.x - el.x) * zoom;
-            const snappedDeltaY = (result.y - el.y) * zoom;
-            setDragOffset({ dx: snappedDeltaX, dy: snappedDeltaY });
-            setDragSnapCorrection({ dx: snappedDeltaX - deltaX, dy: snappedDeltaY - deltaY });
-            setActiveGuides(result.guides);
+          const snapCtx = buildSnapContext(
+            isMultiDrag ? currentSelectedIds : new Set([el.id]),
+            el.pageNumber,
+            { shiftKey: me.shiftKey, ctrlKey: me.ctrlKey || me.metaKey },
+          );
+          const hasSnap = snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides || snapCtx.snapToPageEdges;
 
-            const currentStore = useEditorStore.getState();
-            for (const otherEl of elements) {
-              if (!currentStore.selectedIds.has(otherEl.id)) continue;
-              const startPos = dragStartPositions.current?.get(otherEl.id);
-              if (!startPos) continue;
-              let newX = startPos.x + (d.x - screen.x) / zoom;
-              let newY = startPos.y + (d.y - screen.y) / zoom;
-              if (otherEl.id === el.id) {
-                newX = result.x;
-                newY = result.y;
+          if (hasSnap) {
+            if (isMultiDrag) {
+              const selectedOnPage = elements.filter(
+                (e) => currentSelectedIds.has(e.id) && e.pageNumber === el.pageNumber,
+              );
+              if (selectedOnPage.length >= 2) {
+                let minBX = Infinity, minBY = Infinity, maxBX = -Infinity, maxBY = -Infinity;
+                for (const selEl of selectedOnPage) {
+                  const sp = dragStartPositions.current?.get(selEl.id);
+                  if (!sp) continue;
+                  const px = sp.x + rawDx;
+                  const py = sp.y + rawDy;
+                  if (px < minBX) minBX = px;
+                  if (py < minBY) minBY = py;
+                  if (px + selEl.width > maxBX) maxBX = px + selEl.width;
+                  if (py + selEl.height > maxBY) maxBY = py + selEl.height;
+                }
+                const result = snapPosition(minBX, minBY, maxBX - minBX, maxBY - minBY, snapCtx);
+                correctionDx = result.x - minBX;
+                correctionDy = result.y - minBY;
+                guides = result.guides;
+              } else {
+                const proposedX = el.x + rawDx;
+                const proposedY = el.y + rawDy;
+                const result = snapPosition(proposedX, proposedY, el.width, el.height, snapCtx);
+                correctionDx = result.x - proposedX;
+                correctionDy = result.y - proposedY;
+                guides = result.guides;
               }
-              livePositions.set(otherEl.id, { x: newX, y: newY, width: otherEl.width, height: otherEl.height });
+            } else {
+              const proposedX = el.x + rawDx;
+              const proposedY = el.y + rawDy;
+              const result = snapPosition(proposedX, proposedY, el.width, el.height, snapCtx);
+              correctionDx = result.x - proposedX;
+              correctionDy = result.y - proposedY;
+              guides = result.guides;
+            }
+          }
+
+          setDragOffset({ dx: deltaX + correctionDx * zoom, dy: deltaY + correctionDy * zoom });
+          setDragSnapCorrection(hasSnap ? { dx: correctionDx * zoom, dy: correctionDy * zoom } : null);
+          setActiveGuides(guides);
+
+          if (isMultiDrag) {
+            for (const selEl of elements) {
+              if (!currentSelectedIds.has(selEl.id)) continue;
+              const sp = dragStartPositions.current?.get(selEl.id);
+              if (!sp) continue;
+              livePositions.set(selEl.id, {
+                x: sp.x + rawDx + correctionDx,
+                y: sp.y + rawDy + correctionDy,
+                width: selEl.width,
+                height: selEl.height,
+              });
             }
           } else {
-            setDragOffset({ dx: deltaX, dy: deltaY });
-            setDragSnapCorrection(null);
-            setActiveGuides([]);
-
-            const currentStore = useEditorStore.getState();
-            for (const otherEl of elements) {
-              if (!currentStore.selectedIds.has(otherEl.id)) continue;
-              const startPos = dragStartPositions.current?.get(otherEl.id);
-              if (!startPos) continue;
-              const newX = startPos.x + (d.x - screen.x) / zoom;
-              const newY = startPos.y + (d.y - screen.y) / zoom;
-              livePositions.set(otherEl.id, { x: newX, y: newY, width: otherEl.width, height: otherEl.height });
-            }
+            livePositions.set(el.id, {
+              x: el.x + rawDx + correctionDx,
+              y: el.y + rawDy + correctionDy,
+              width: el.width,
+              height: el.height,
+            });
           }
           setDragLivePositions(livePositions);
         }}
@@ -571,27 +612,59 @@ export function CanvasOverlay() {
           const currentSelectedIds = currentStore.selectedIds;
 
           if (currentSelectedIds.size > 1 && currentSelectedIds.has(el.id)) {
-            const snapCtx = buildSnapContext(null, el.pageNumber, { shiftKey: me.shiftKey, ctrlKey: me.ctrlKey || me.metaKey });
+            const rawDx = (d.x - screen.x) / zoom;
+            const rawDy = (d.y - screen.y) / zoom;
+
+            const selectedOnPage = elements.filter(
+              (e) => currentSelectedIds.has(e.id) && e.pageNumber === el.pageNumber,
+            );
+
+            let correctionDx = 0;
+            let correctionDy = 0;
+
+            const snapCtx = buildSnapContext(currentSelectedIds, el.pageNumber, { shiftKey: me.shiftKey, ctrlKey: me.ctrlKey || me.metaKey });
+            const hasSnap = snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides || snapCtx.snapToPageEdges;
+
+            if (hasSnap) {
+              if (selectedOnPage.length >= 2) {
+                let minBX = Infinity, minBY = Infinity, maxBX = -Infinity, maxBY = -Infinity;
+                for (const selEl of selectedOnPage) {
+                  const sp = dragStartPositions.current?.get(selEl.id);
+                  if (!sp) continue;
+                  const px = sp.x + rawDx;
+                  const py = sp.y + rawDy;
+                  if (px < minBX) minBX = px;
+                  if (py < minBY) minBY = py;
+                  if (px + selEl.width > maxBX) maxBX = px + selEl.width;
+                  if (py + selEl.height > maxBY) maxBY = py + selEl.height;
+                }
+                const result = snapPosition(minBX, minBY, maxBX - minBX, maxBY - minBY, snapCtx);
+                correctionDx = result.x - minBX;
+                correctionDy = result.y - minBY;
+              } else {
+                const proposedX = el.x + rawDx;
+                const proposedY = el.y + rawDy;
+                const result = snapPosition(proposedX, proposedY, el.width, el.height, snapCtx);
+                correctionDx = result.x - proposedX;
+                correctionDy = result.y - proposedY;
+              }
+            }
+
             const updates: Array<{ id: string; x: number; y: number }> = [];
             for (const otherEl of elements) {
               if (!currentSelectedIds.has(otherEl.id)) continue;
               const startPos = dragStartPositions.current?.get(otherEl.id);
               if (startPos) {
-                let newX = startPos.x + (d.x - screen.x) / zoom;
-                let newY = startPos.y + (d.y - screen.y) / zoom;
-
-                if (snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides || snapCtx.snapToPageEdges) {
-                  const result = snapPosition(newX, newY, otherEl.width, otherEl.height, snapCtx);
-                  newX = result.x;
-                  newY = result.y;
-                }
-
-                updates.push({ id: otherEl.id, x: newX, y: newY });
+                updates.push({
+                  id: otherEl.id,
+                  x: startPos.x + rawDx + correctionDx,
+                  y: startPos.y + rawDy + correctionDy,
+                });
               }
             }
             moveElements(updates);
           } else {
-            const snapCtx = buildSnapContext(el.id, el.pageNumber, { shiftKey: me.shiftKey, ctrlKey: me.ctrlKey || me.metaKey });
+            const snapCtx = buildSnapContext(new Set([el.id]), el.pageNumber, { shiftKey: me.shiftKey, ctrlKey: me.ctrlKey || me.metaKey });
             const proposedX = el.x + (d.x - screen.x) / zoom;
             const proposedY = el.y + (d.y - screen.y) / zoom;
 
@@ -626,7 +699,7 @@ export function CanvasOverlay() {
             { zoom, pageX: pl.xOffset, pageY: pl.yOffset },
           );
 
-          const snapCtx = buildSnapContext(el.id, el.pageNumber, { shiftKey: me.shiftKey, ctrlKey: me.ctrlKey || me.metaKey });
+          const snapCtx = buildSnapContext(new Set([el.id]), el.pageNumber, { shiftKey: me.shiftKey, ctrlKey: me.ctrlKey || me.metaKey });
           if (snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides || snapCtx.snapToPageEdges) {
             const result = snapResizeBounds(pdf.x, pdf.y, newWidth, newHeight, dir, snapCtx);
             setResizeOverride({
@@ -658,7 +731,7 @@ export function CanvasOverlay() {
             { zoom, pageX: pl.xOffset, pageY: pl.yOffset },
           );
 
-          const snapCtx = buildSnapContext(el.id, el.pageNumber, { shiftKey: me.shiftKey, ctrlKey: me.ctrlKey || me.metaKey });
+          const snapCtx = buildSnapContext(new Set([el.id]), el.pageNumber, { shiftKey: me.shiftKey, ctrlKey: me.ctrlKey || me.metaKey });
           let finalX = pdfX;
           let finalY = pdfY;
           if (snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides || snapCtx.snapToPageEdges) {
@@ -735,7 +808,7 @@ export function CanvasOverlay() {
               <line x1="2" y1="9" x2="7" y2="9" stroke="currentColor" strokeWidth="1" />
             </svg>
           )}
-          <span className={`absolute -top-4 left-0 truncate text-[10px] ${
+          <span className={`absolute -top-4 left-0 truncate text-[10px] select-none ${
             el.type === "checkbox" ? "text-field-checkbox" : el.type === "radio" ? "text-field-radio" : el.type === "text" && el.multiline ? "text-field-multiline" : "text-field-text"
           }`}>
             {getElementName(el)}
@@ -971,16 +1044,65 @@ export function CanvasOverlay() {
       })()
     : [];
 
+  const boundingRectOverlays = (() => {
+    if (selectedIds.size < 2) return null;
+    const byPage = new Map<number, Array<{ x: number; y: number; width: number; height: number }>>();
+    for (const el of elements) {
+      if (!selectedIds.has(el.id)) continue;
+      if (!byPage.has(el.pageNumber)) byPage.set(el.pageNumber, []);
+      const live = dragLivePositions?.get(el.id);
+      byPage.get(el.pageNumber)!.push({
+        x: live?.x ?? el.x,
+        y: live?.y ?? el.y,
+        width: live?.width ?? el.width,
+        height: live?.height ?? el.height,
+      });
+    }
+    const rects: Array<{ screenX: number; screenY: number; screenWidth: number; screenHeight: number }> = [];
+    for (const [page, items] of byPage) {
+      if (items.length < 2) continue;
+      const rect = computeBoundingRect(items);
+      if (!rect) continue;
+      const layout = layouts.get(page);
+      if (!layout) continue;
+      const topLeft = pdfToScreen({ x: rect.x, y: rect.y }, { zoom, pageX: layout.xOffset, pageY: layout.yOffset });
+      const bottomRight = pdfToScreen({ x: rect.x + rect.width, y: rect.y + rect.height }, { zoom, pageX: layout.xOffset, pageY: layout.yOffset });
+      rects.push({
+        screenX: topLeft.x,
+        screenY: topLeft.y,
+        screenWidth: bottomRight.x - topLeft.x,
+        screenHeight: bottomRight.y - topLeft.y,
+      });
+    }
+    return rects;
+  })();
+
   return (
     <div
       ref={overlayRef}
-      className="absolute inset-0"
+      className="absolute inset-0 select-none"
       onMouseDown={handleCanvasMouseDown}
       onMouseMove={handleCanvasMouseMove}
       onMouseUp={handleCanvasMouseUp}
       style={{ cursor: activeTool !== "select" ? "crosshair" : "default" }}
     >
       {elementOverlays}
+      {boundingRectOverlays?.map((rect, i) => (
+        <div
+          key={`bounding-rect-${i}`}
+          className="pointer-events-none absolute"
+          style={{
+            left: rect.screenX,
+            top: rect.screenY,
+            width: rect.screenWidth,
+            height: rect.screenHeight,
+            border: dragOffset !== null
+              ? "1px dashed var(--bounding-rect)"
+              : "1px dotted var(--bounding-rect)",
+            opacity: dragOffset !== null ? 0.6 : 0.4,
+          }}
+        />
+      ))}
       {persistentGuideElements}
       {previewGuideElements}
       {guideLineElements}
