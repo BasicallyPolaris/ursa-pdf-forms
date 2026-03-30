@@ -275,6 +275,12 @@ export const useEditorStore = create<EditorState>()(
         gridSize: state.gridSize,
         showGrid: state.showGrid,
       }),
+      equality: (pastState, currentState) =>
+        pastState.elements === currentState.elements &&
+        pastState.guides === currentState.guides &&
+        pastState.gridEnabled === currentState.gridEnabled &&
+        pastState.gridSize === currentState.gridSize &&
+        pastState.showGrid === currentState.showGrid,
     },
   ),
 );
