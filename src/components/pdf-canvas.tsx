@@ -157,7 +157,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
 
   if (!pdfBytes) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-full items-center justify-center select-none">
         <div className="flex flex-col items-center gap-5 text-muted-foreground">
           <svg width="48" height="48" viewBox="0 0 48 48" fill="none" className="text-border">
             <rect x="8" y="4" width="32" height="40" rx="3" stroke="currentColor" strokeWidth="2" />
@@ -190,14 +190,12 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   }
 
   return (
-    <div className="h-full overflow-auto" data-pdf-scroll-container>
-      <div className="relative w-fit min-w-full">
-        <div
-          ref={pagesRef}
-          className="flex flex-col items-center gap-2 p-4"
-        />
-        {children}
-      </div>
+    <div className="relative mx-auto w-fit">
+      <div
+        ref={pagesRef}
+        className="flex flex-col items-center gap-2 p-4"
+      />
+      {children}
     </div>
   );
 }
