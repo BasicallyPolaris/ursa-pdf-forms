@@ -52,7 +52,7 @@ export function GridOverlay({ overlayWidth }: { overlayWidth: number }) {
           cx={d.cx}
           cy={d.cy}
           r={1}
-          fill="oklch(1 0 0 / 12%)"
+          fill="oklch(0.55 0.06 250 / 35%)"
         />
       ))}
     </svg>
