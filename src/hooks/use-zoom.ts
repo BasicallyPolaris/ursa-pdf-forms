@@ -16,10 +16,10 @@ export function useZoom() {
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
       if (!e.metaKey && !e.ctrlKey) return;
-      const store = useEditorStore.getState();
-      if (!store.pdfBytes) return;
       e.preventDefault();
       e.stopPropagation();
+      const store = useEditorStore.getState();
+      if (!store.pdfBytes) return;
       const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
       store.setZoom(clampZoom(store.zoom + delta));
     };

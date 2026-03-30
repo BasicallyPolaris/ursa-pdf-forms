@@ -53,6 +53,7 @@
     --color-field-multiline-bg: var(--field-multiline-bg);
     --color-guide-ruler: var(--guide-ruler);
     --color-guide-snap: var(--guide-snap);
+    --color-bounding-rect: var(--bounding-rect);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -143,6 +144,7 @@
     --field-multiline-bg: oklch(0.769 0.167 70 / 10%);
     --guide-ruler: oklch(0.75 0.14 200);
     --guide-snap: oklch(0.68 0.17 55);
+    --bounding-rect: oklch(0.65 0.18 345);
 }
 
 @layer base {
@@ -152,10 +154,12 @@
     }
   body {
     @apply bg-background text-foreground;
-    touch-action: manipulation;
+    touch-action: pan-x pan-y;
+    overscroll-behavior: none;
     }
   html {
-    touch-action: manipulation;
+    touch-action: pan-x pan-y;
+    overscroll-behavior: none;
     color-scheme: dark;
     }
   html {
