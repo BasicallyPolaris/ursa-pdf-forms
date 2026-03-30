@@ -3,6 +3,7 @@ import { FloatingToolbar } from "@/components/floating-toolbar";
 import { PageSidebar } from "@/components/page-sidebar";
 import { PdfCanvas } from "@/components/pdf-canvas";
 import { PropertiesPanel } from "@/components/properties-panel";
+import { StatusBar } from "@/components/status-bar";
 import {
   HorizontalRuler,
   RulerCorner,
@@ -25,11 +26,9 @@ import {
   useEditorStore,
 } from "@/stores/editor-store";
 import {
-  Eye,
   FileDown,
   FileText,
   FolderOpen,
-  Grid3x3,
   Minus,
   Plus,
   Redo2,
@@ -77,14 +76,8 @@ function App() {
   const {
     pdfFileName,
     zoom,
-    gridEnabled,
-    showGrid,
-    gridSize,
   } = useEditorStore();
   const setZoom = useEditorStore((s) => s.setZoom);
-  const toggleGrid = useEditorStore((s) => s.toggleGrid);
-  const setGridSize = useEditorStore((s) => s.setGridSize);
-  const toggleShowGrid = useEditorStore((s) => s.toggleShowGrid);
   useFileDrop();
   useKeyboardShortcuts();
   useZoom();
@@ -159,32 +152,7 @@ function App() {
 
         <ToolbarSeparator />
 
-        <ToolbarButton
-          active={gridEnabled}
-          onClick={() => toggleGrid()}
-          title="Toggle grid snap"
-        >
-          <Grid3x3 className="h-3.5 w-3.5" />
-        </ToolbarButton>
-        <ToolbarButton
-          active={showGrid}
-          onClick={() => toggleShowGrid()}
-          title="Toggle grid visibility"
-        >
-          <Eye className="h-3.5 w-3.5" />
-        </ToolbarButton>
-        <select
-          value={gridSize}
-          onChange={(e) => setGridSize(Number(e.target.value))}
-          className="h-7 rounded-md border border-border bg-card px-1 text-xs text-foreground"
-          title="Grid size"
-        >
-          {[5, 10, 15, 20, 25, 50].map((s) => (
-            <option key={s} value={s}>
-              {s}pt
-            </option>
-          ))}
-        </select>
+        <ToolbarSeparator />
 
         <div className="flex-1" />
 
@@ -289,6 +257,8 @@ function App() {
           <PropertiesPanel />
         </aside>
       </div>
+
+      <StatusBar />
     </div>
   );
 }

@@ -161,6 +161,10 @@
   html {
     @apply font-sans;
     }
+  .cursor-grab * { cursor: grabbing !important; }
+  .cursor-ns * { cursor: ns-resize !important; }
+  .cursor-ew * { cursor: ew-resize !important; }
+  .cursor-nwse * { cursor: nwse-resize !important; }
   select option {
     @apply bg-card text-foreground;
     }

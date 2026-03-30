@@ -89,6 +89,10 @@ function snapAxisToElements(
       { proposed: proposedEnd, target: other.start },
       { proposed: proposedEnd, target: other.end },
       { proposed: proposedCenter, target: otherCenter },
+      { proposed: proposedCenter, target: other.start },
+      { proposed: proposedCenter, target: other.end },
+      { proposed: proposedStart, target: otherCenter },
+      { proposed: proposedEnd, target: otherCenter },
     ];
 
     for (const check of checks) {
@@ -144,6 +148,147 @@ function snapAxisToGuides(
   return candidates;
 }
 
+function findAllAlignmentGuides(
+  snappedX: number,
+  snappedY: number,
+  elementWidth: number,
+  elementHeight: number,
+  context: SnapContext,
+): SnapGuide[] {
+  const guides: SnapGuide[] = [];
+  const seen = new Set<string>();
+
+  const addGuide = (guide: SnapGuide) => {
+    const key = `${guide.orientation}:${guide.position}:${guide.type}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      guides.push(guide);
+    }
+  };
+
+  const elementEdges = {
+    left: snappedX,
+    right: snappedX + elementWidth,
+    top: snappedY,
+    bottom: snappedY + elementHeight,
+    centerX: snappedX + elementWidth / 2,
+    centerY: snappedY + elementHeight / 2,
+  };
+
+  if (context.snapToGrid && context.gridSize > 0) {
+    const gridOnly = !context.snapToElements && !context.snapToGuides && !context.snapToPageEdges;
+    const vEdges = gridOnly
+      ? [elementEdges.left, elementEdges.right]
+      : [elementEdges.left, elementEdges.right, elementEdges.centerX];
+    const hEdges = gridOnly
+      ? [elementEdges.top, elementEdges.bottom]
+      : [elementEdges.top, elementEdges.bottom, elementEdges.centerY];
+    for (const edge of vEdges) {
+      const snapped = snapToGrid(edge, context.gridSize);
+      if (Math.abs(snapped - edge) <= context.snapThreshold) {
+        addGuide({ orientation: "vertical", position: snapped, type: "grid" });
+      }
+    }
+    for (const edge of hEdges) {
+      const snapped = snapToGrid(edge, context.gridSize);
+      if (Math.abs(snapped - edge) <= context.snapThreshold) {
+        addGuide({ orientation: "horizontal", position: snapped, type: "grid" });
+      }
+    }
+  }
+
+  if (context.snapToElements) {
+    for (const other of context.otherElements) {
+      const otherEdges = {
+        left: other.x,
+        right: other.x + other.width,
+        top: other.y,
+        bottom: other.y + other.height,
+        centerX: other.x + other.width / 2,
+        centerY: other.y + other.height / 2,
+      };
+
+      const hChecks: Array<{ val: number; target: number }> = [
+        { val: elementEdges.top, target: otherEdges.top },
+        { val: elementEdges.top, target: otherEdges.bottom },
+        { val: elementEdges.bottom, target: otherEdges.top },
+        { val: elementEdges.bottom, target: otherEdges.bottom },
+        { val: elementEdges.centerY, target: otherEdges.centerY },
+        { val: elementEdges.centerY, target: otherEdges.top },
+        { val: elementEdges.centerY, target: otherEdges.bottom },
+        { val: elementEdges.top, target: otherEdges.centerY },
+        { val: elementEdges.bottom, target: otherEdges.centerY },
+      ];
+
+      const vChecks: Array<{ val: number; target: number }> = [
+        { val: elementEdges.left, target: otherEdges.left },
+        { val: elementEdges.left, target: otherEdges.right },
+        { val: elementEdges.right, target: otherEdges.left },
+        { val: elementEdges.right, target: otherEdges.right },
+        { val: elementEdges.centerX, target: otherEdges.centerX },
+        { val: elementEdges.centerX, target: otherEdges.left },
+        { val: elementEdges.centerX, target: otherEdges.right },
+        { val: elementEdges.left, target: otherEdges.centerX },
+        { val: elementEdges.right, target: otherEdges.centerX },
+      ];
+
+      for (const check of hChecks) {
+        if (Math.abs(check.val - check.target) <= context.snapThreshold) {
+          addGuide({ orientation: "horizontal", position: check.target, type: "element" });
+        }
+      }
+      for (const check of vChecks) {
+        if (Math.abs(check.val - check.target) <= context.snapThreshold) {
+          addGuide({ orientation: "vertical", position: check.target, type: "element" });
+        }
+      }
+    }
+  }
+
+  if (context.snapToGuides) {
+    const vGuidePositions = context.rulerGuides.filter((g) => g.orientation === "vertical").map((g) => g.position);
+    const hGuidePositions = context.rulerGuides.filter((g) => g.orientation === "horizontal").map((g) => g.position);
+
+    for (const guidePos of hGuidePositions) {
+      for (const edge of [elementEdges.top, elementEdges.bottom, elementEdges.centerY]) {
+        if (Math.abs(edge - guidePos) <= context.snapThreshold) {
+          addGuide({ orientation: "horizontal", position: guidePos, type: "ruler" });
+        }
+      }
+    }
+    for (const guidePos of vGuidePositions) {
+      for (const edge of [elementEdges.left, elementEdges.right, elementEdges.centerX]) {
+        if (Math.abs(edge - guidePos) <= context.snapThreshold) {
+          addGuide({ orientation: "vertical", position: guidePos, type: "ruler" });
+        }
+      }
+    }
+  }
+
+  if (context.snapToPageEdges) {
+    if (Math.abs(elementEdges.top) <= context.snapThreshold) {
+      addGuide({ orientation: "horizontal", position: 0, type: "page" });
+    }
+    if (Math.abs(elementEdges.bottom - context.pageHeight) <= context.snapThreshold) {
+      addGuide({ orientation: "horizontal", position: context.pageHeight, type: "page" });
+    }
+    if (Math.abs(elementEdges.centerY - context.pageHeight / 2) <= context.snapThreshold) {
+      addGuide({ orientation: "horizontal", position: context.pageHeight / 2, type: "page" });
+    }
+    if (Math.abs(elementEdges.left) <= context.snapThreshold) {
+      addGuide({ orientation: "vertical", position: 0, type: "page" });
+    }
+    if (Math.abs(elementEdges.right - context.pageWidth) <= context.snapThreshold) {
+      addGuide({ orientation: "vertical", position: context.pageWidth, type: "page" });
+    }
+    if (Math.abs(elementEdges.centerX - context.pageWidth / 2) <= context.snapThreshold) {
+      addGuide({ orientation: "vertical", position: context.pageWidth / 2, type: "page" });
+    }
+  }
+
+  return guides;
+}
+
 export function snapPosition(
   proposedX: number,
   proposedY: number,
@@ -153,19 +298,31 @@ export function snapPosition(
 ): SnapResult {
   let snappedX = proposedX;
   let snappedY = proposedY;
-  const guides: SnapGuide[] = [];
 
   const xCandidates: SnapCandidate[] = [];
   const yCandidates: SnapCandidate[] = [];
 
   if (context.snapToGrid) {
-    const gridX = snapToGrid(proposedX, context.gridSize);
-    const gridY = snapToGrid(proposedY, context.gridSize);
-    if (gridX !== proposedX) {
-      xCandidates.push({ snapped: gridX, guide: { orientation: "vertical", position: gridX, type: "grid" } });
+    const gridLeft = snapToGrid(proposedX, context.gridSize);
+    if (gridLeft !== proposedX) {
+      xCandidates.push({ snapped: gridLeft, guide: { orientation: "vertical", position: gridLeft, type: "grid" } });
     }
-    if (gridY !== proposedY) {
-      yCandidates.push({ snapped: gridY, guide: { orientation: "horizontal", position: gridY, type: "grid" } });
+    const proposedRight = proposedX + elementWidth;
+    const gridRight = snapToGrid(proposedRight, context.gridSize);
+    const snappedXFromRight = gridRight - elementWidth;
+    if (snappedXFromRight !== proposedX) {
+      xCandidates.push({ snapped: snappedXFromRight, guide: { orientation: "vertical", position: gridRight, type: "grid" } });
+    }
+
+    const gridTop = snapToGrid(proposedY, context.gridSize);
+    if (gridTop !== proposedY) {
+      yCandidates.push({ snapped: gridTop, guide: { orientation: "horizontal", position: gridTop, type: "grid" } });
+    }
+    const proposedBottom = proposedY + elementHeight;
+    const gridBottom = snapToGrid(proposedBottom, context.gridSize);
+    const snappedYFromBottom = gridBottom - elementHeight;
+    if (snappedYFromBottom !== proposedY) {
+      yCandidates.push({ snapped: snappedYFromBottom, guide: { orientation: "horizontal", position: gridBottom, type: "grid" } });
     }
   }
 
@@ -177,6 +334,24 @@ export function snapPosition(
     }
     if (pageEdgeY.snapped !== proposedY) {
       yCandidates.push({ snapped: pageEdgeY.snapped, guide: pageEdgeY.guide });
+    }
+
+    const pageCenterX = context.pageWidth / 2;
+    const pageCenterY = context.pageHeight / 2;
+    const proposedCenterX = proposedX + elementWidth / 2;
+    const proposedCenterY = proposedY + elementHeight / 2;
+
+    if (Math.abs(proposedCenterX - pageCenterX) > 0 && Math.abs(proposedCenterX - pageCenterX) <= context.snapThreshold) {
+      xCandidates.push({
+        snapped: pageCenterX - elementWidth / 2,
+        guide: { orientation: "vertical", position: pageCenterX, type: "page" },
+      });
+    }
+    if (Math.abs(proposedCenterY - pageCenterY) > 0 && Math.abs(proposedCenterY - pageCenterY) <= context.snapThreshold) {
+      yCandidates.push({
+        snapped: pageCenterY - elementHeight / 2,
+        guide: { orientation: "horizontal", position: pageCenterY, type: "page" },
+      });
     }
   }
 
@@ -201,14 +376,14 @@ export function snapPosition(
 
   if (bestX.guide) {
     snappedX = bestX.snapped;
-    guides.push(bestX.guide);
   }
   if (bestY.guide) {
     snappedY = bestY.snapped;
-    guides.push(bestY.guide);
   }
 
-  return { x: snappedX, y: snappedY, guides };
+  const allGuides = findAllAlignmentGuides(snappedX, snappedY, elementWidth, elementHeight, context);
+
+  return { x: snappedX, y: snappedY, guides: allGuides };
 }
 
 function snapEdgePosition(

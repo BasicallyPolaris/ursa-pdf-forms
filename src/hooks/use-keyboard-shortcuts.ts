@@ -52,9 +52,13 @@ export function useKeyboardShortcuts() {
 
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
-        const ids = [...store.selectedIds];
-        if (ids.length > 0) {
-          store.removeElements(ids);
+        if (store.selectedGuideId) {
+          store.removeGuide(store.selectedGuideId);
+        } else {
+          const ids = [...store.selectedIds];
+          if (ids.length > 0) {
+            store.removeElements(ids);
+          }
         }
       }
 

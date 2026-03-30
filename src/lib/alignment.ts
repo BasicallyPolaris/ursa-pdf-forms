@@ -110,6 +110,74 @@ export function distributeV<T extends Positionable>(
   });
 }
 
+export function matchWidthToWidest<T extends Positionable>(
+  elements: T[],
+  selectedIds: Set<string>,
+): Array<{ id: string; width: number }> {
+  const selected = elements.filter((e) => selectedIds.has(e.id));
+  if (selected.length < 2) return [];
+  const maxWidth = Math.max(...selected.map((e) => e.width));
+  return selected.map((e) => ({ id: e.id, width: maxWidth }));
+}
+
+export function matchWidthToNarrowest<T extends Positionable>(
+  elements: T[],
+  selectedIds: Set<string>,
+): Array<{ id: string; width: number }> {
+  const selected = elements.filter((e) => selectedIds.has(e.id));
+  if (selected.length < 2) return [];
+  const minWidth = Math.min(...selected.map((e) => e.width));
+  return selected.map((e) => ({ id: e.id, width: minWidth }));
+}
+
+export function matchHeightToTallest<T extends Positionable>(
+  elements: T[],
+  selectedIds: Set<string>,
+): Array<{ id: string; height: number }> {
+  const selected = elements.filter((e) => selectedIds.has(e.id));
+  if (selected.length < 2) return [];
+  const maxHeight = Math.max(...selected.map((e) => e.height));
+  return selected.map((e) => ({ id: e.id, height: maxHeight }));
+}
+
+export function matchHeightToShortest<T extends Positionable>(
+  elements: T[],
+  selectedIds: Set<string>,
+): Array<{ id: string; height: number }> {
+  const selected = elements.filter((e) => selectedIds.has(e.id));
+  if (selected.length < 2) return [];
+  const minHeight = Math.min(...selected.map((e) => e.height));
+  return selected.map((e) => ({ id: e.id, height: minHeight }));
+}
+
+export function centerOnPageH<T extends Positionable>(
+  elements: T[],
+  selectedIds: Set<string>,
+  pageWidth: number,
+): Array<{ id: string; x: number; y: number }> {
+  const selected = elements.filter((e) => selectedIds.has(e.id));
+  if (selected.length === 0) return [];
+  const groupLeft = Math.min(...selected.map((e) => e.x));
+  const groupRight = Math.max(...selected.map((e) => e.x + e.width));
+  const groupWidth = groupRight - groupLeft;
+  const offsetX = (pageWidth - groupWidth) / 2 - groupLeft;
+  return selected.map((e) => ({ id: e.id, x: e.x + offsetX, y: e.y }));
+}
+
+export function centerOnPageV<T extends Positionable>(
+  elements: T[],
+  selectedIds: Set<string>,
+  pageHeight: number,
+): Array<{ id: string; x: number; y: number }> {
+  const selected = elements.filter((e) => selectedIds.has(e.id));
+  if (selected.length === 0) return [];
+  const groupTop = Math.min(...selected.map((e) => e.y));
+  const groupBottom = Math.max(...selected.map((e) => e.y + e.height));
+  const groupHeight = groupBottom - groupTop;
+  const offsetY = (pageHeight - groupHeight) / 2 - groupTop;
+  return selected.map((e) => ({ id: e.id, x: e.x, y: e.y + offsetY }));
+}
+
 export function centerOnPage<T extends Positionable>(
   elements: T[],
   selectedIds: Set<string>,

@@ -15,6 +15,12 @@ import {
   distributeH,
   distributeV,
   centerOnPage,
+  centerOnPageH,
+  centerOnPageV,
+  matchWidthToWidest,
+  matchWidthToNarrowest,
+  matchHeightToTallest,
+  matchHeightToShortest,
 } from "@/lib/alignment";
 
 export type { PageInfo };
@@ -47,12 +53,11 @@ interface EditorState {
   elements: FormElement[];
   selectedIds: Set<string>;
   clipboard: FormElement[];
-  gridEnabled: boolean;
   gridSize: number;
-  showGrid: boolean;
   guides: GuideLine[];
   previewGuide: { orientation: "horizontal" | "vertical"; position: number } | null;
   selectedGuideId: string | null;
+  dragLivePositions: Map<string, { x: number; y: number; width: number; height: number }>;
 
   setPdf: (fileName: string, bytes: Uint8Array, pages: PageInfo[]) => void;
   setZoom: (zoom: number) => void;
@@ -69,17 +74,18 @@ interface EditorState {
   addToSelection: (ids: string[]) => void;
   copySelection: () => void;
   pasteClipboard: () => void;
-  toggleGrid: () => void;
-  setGridSize: (size: number) => void;
-  toggleShowGrid: () => void;
   addGuide: (orientation: "horizontal" | "vertical", position: number) => void;
   removeGuide: (id: string) => void;
   updateGuidePosition: (id: string, position: number) => void;
   setPreviewGuide: (guide: { orientation: "horizontal" | "vertical"; position: number } | null) => void;
   selectGuide: (id: string | null) => void;
+  setDragLivePositions: (positions: Map<string, { x: number; y: number; width: number; height: number }> | null) => void;
   alignElements: (type: "left" | "right" | "top" | "bottom" | "centerH" | "centerV") => void;
   distributeElements: (direction: "horizontal" | "vertical") => void;
   centerSelectionOnPage: () => void;
+  centerSelectionOnPageH: () => void;
+  centerSelectionOnPageV: () => void;
+  matchElementSize: (type: "widthWidest" | "widthNarrowest" | "heightTallest" | "heightShortest") => void;
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -94,12 +100,11 @@ export const useEditorStore = create<EditorState>()(
       elements: [],
       selectedIds: new Set<string>(),
       clipboard: [],
-      gridEnabled: true,
-      gridSize: 10,
-      showGrid: true,
+      gridSize: 5,
       guides: [],
       previewGuide: null,
       selectedGuideId: null,
+      dragLivePositions: new Map(),
 
       setPdf: (fileName, bytes, pages) =>
         set({ pdfFileName: fileName, pdfBytes: bytes, pages }),
@@ -138,7 +143,7 @@ export const useEditorStore = create<EditorState>()(
 
       selectElements: (ids) => set({ selectedIds: ids, selectedGuideId: null }),
 
-      clearSelection: () => set({ selectedIds: new Set<string>(), selectedGuideId: null }),
+      clearSelection: () => set({ selectedIds: new Set<string>(), selectedGuideId: null, dragLivePositions: new Map() }),
 
       toggleInSelection: (id) =>
         set((s) => {
@@ -194,19 +199,16 @@ export const useEditorStore = create<EditorState>()(
           };
         }),
 
-      toggleGrid: () => set((s) => ({ gridEnabled: !s.gridEnabled })),
-
-      setGridSize: (size) => set({ gridSize: size }),
-
-      toggleShowGrid: () => set((s) => ({ showGrid: !s.showGrid })),
-
       addGuide: (orientation, position) =>
         set((s) => ({
           guides: [...s.guides, { id: generateGuideId(), orientation, position }],
         })),
 
       removeGuide: (id) =>
-        set((s) => ({ guides: s.guides.filter((g) => g.id !== id) })),
+        set((s) => ({
+          guides: s.guides.filter((g) => g.id !== id),
+          selectedGuideId: s.selectedGuideId === id ? null : s.selectedGuideId,
+        })),
 
       updateGuidePosition: (id, position) =>
         set((s) => ({
@@ -217,6 +219,9 @@ export const useEditorStore = create<EditorState>()(
 
       selectGuide: (id) =>
         set({ selectedGuideId: id, selectedIds: new Set<string>() }),
+
+      setDragLivePositions: (positions) =>
+        set({ dragLivePositions: positions ?? new Map() }),
 
       alignElements: (type) => {
         const state = get();
@@ -270,22 +275,67 @@ export const useEditorStore = create<EditorState>()(
           }));
         }
       },
+
+      centerSelectionOnPageH: () => {
+        const state = get();
+        if (state.selectedIds.size === 0 || state.pages.length === 0) return;
+        const page = state.pages[0];
+        const updates = centerOnPageH(state.elements, state.selectedIds, page.width);
+        if (updates.length > 0) {
+          set((s) => ({
+            elements: s.elements.map((el) => {
+              const u = updates.find((u) => u.id === el.id);
+              return u ? { ...el, x: u.x, y: u.y } : el;
+            }),
+          }));
+        }
+      },
+
+      centerSelectionOnPageV: () => {
+        const state = get();
+        if (state.selectedIds.size === 0 || state.pages.length === 0) return;
+        const page = state.pages[0];
+        const updates = centerOnPageV(state.elements, state.selectedIds, page.height);
+        if (updates.length > 0) {
+          set((s) => ({
+            elements: s.elements.map((el) => {
+              const u = updates.find((u) => u.id === el.id);
+              return u ? { ...el, x: u.x, y: u.y } : el;
+            }),
+          }));
+        }
+      },
+
+      matchElementSize: (type) => {
+        const state = get();
+        if (state.selectedIds.size < 2) return;
+        let updates: Array<{ id: string; width?: number; height?: number }> = [];
+        switch (type) {
+          case "widthWidest": updates = matchWidthToWidest(state.elements, state.selectedIds); break;
+          case "widthNarrowest": updates = matchWidthToNarrowest(state.elements, state.selectedIds); break;
+          case "heightTallest": updates = matchHeightToTallest(state.elements, state.selectedIds); break;
+          case "heightShortest": updates = matchHeightToShortest(state.elements, state.selectedIds); break;
+        }
+        if (updates.length > 0) {
+          set((s) => ({
+            elements: s.elements.map((el) => {
+              const u = updates.find((u) => u.id === el.id);
+              if (!u) return el;
+              return { ...el, ...("width" in u ? { width: u.width } : {}), ...("height" in u ? { height: u.height } : {}) };
+            }),
+          }));
+        }
+      },
     }),
     {
       limit: 50,
       partialize: (state) => ({
         elements: state.elements,
         guides: state.guides,
-        gridEnabled: state.gridEnabled,
-        gridSize: state.gridSize,
-        showGrid: state.showGrid,
       }),
       equality: (pastState, currentState) =>
         pastState.elements === currentState.elements &&
-        pastState.guides === currentState.guides &&
-        pastState.gridEnabled === currentState.gridEnabled &&
-        pastState.gridSize === currentState.gridSize &&
-        pastState.showGrid === currentState.showGrid,
+        pastState.guides === currentState.guides,
     },
   ),
 );

@@ -7,6 +7,7 @@ import {
   isCheckbox,
   isRadioButton,
   getUniqueName,
+  heightFromFontSize,
 } from "@/lib/form-element-model";
 
 describe("createTextField", () => {
@@ -54,6 +55,25 @@ describe("createTextField", () => {
     expect(el.maxLength).toBe(50);
     expect(el.width).toBe(200);
     expect(el.height).toBe(30);
+  });
+
+  it("auto-derives height from fontSize for single-line fields", () => {
+    const el = createTextField({ x: 0, y: 0, pageNumber: 1, fontSize: 14 });
+    expect(el.height).toBe(heightFromFontSize(14));
+    expect(el.multiline).toBe(false);
+  });
+
+  it("uses default height for multiline when no height specified", () => {
+    const el = createTextField({ x: 0, y: 0, pageNumber: 1, multiline: true });
+    expect(el.height).toBe(60);
+  });
+});
+
+describe("heightFromFontSize", () => {
+  it("returns fontSize * 1.2 rounded to nearest 0.5", () => {
+    expect(heightFromFontSize(12)).toBe(14.5);
+    expect(heightFromFontSize(10)).toBe(12);
+    expect(heightFromFontSize(14)).toBe(17);
   });
 });
 

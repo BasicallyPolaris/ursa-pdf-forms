@@ -1,6 +1,7 @@
 import { useCallback, useRef } from "react";
 import { useEditorStore } from "@/stores/editor-store";
 import { TOP_PADDING, PAGE_GAP, H_PADDING } from "@/lib/coordinates";
+import { lockCursor, unlockCursor } from "@/lib/cursor";
 
 const RULER_SIZE = 36;
 const MAJOR_INTERVAL = 50;
@@ -101,6 +102,7 @@ export function HorizontalRuler({ scrollLeft, overlayWidth }: RulerProps) {
         const pos = e.shiftKey ? snapToGrid(pdfX, SUB_INTERVAL) : pdfX;
         setPreviewGuide({ orientation: "vertical", position: pos });
       }
+      lockCursor("ew");
 
       const shiftHeld = e.shiftKey;
 
@@ -113,6 +115,7 @@ export function HorizontalRuler({ scrollLeft, overlayWidth }: RulerProps) {
       };
 
       const onMouseUp = (upEvent: MouseEvent) => {
+        unlockCursor();
         setPreviewGuide(null);
         const rawPos = getPdfXFromClientX(upEvent.clientX);
         if (rawPos !== null) {
@@ -248,6 +251,7 @@ export function VerticalRuler({ scrollTop, canvasHeight }: RulerProps) {
         const pos = e.shiftKey ? snapToGrid(pdfY, SUB_INTERVAL) : pdfY;
         setPreviewGuide({ orientation: "horizontal", position: pos });
       }
+      lockCursor("ns");
 
       const shiftHeld = e.shiftKey;
 
@@ -260,6 +264,7 @@ export function VerticalRuler({ scrollTop, canvasHeight }: RulerProps) {
       };
 
       const onMouseUp = (upEvent: MouseEvent) => {
+        unlockCursor();
         setPreviewGuide(null);
         const rawPos = getPdfYFromClientY(upEvent.clientY);
         if (rawPos !== null) {

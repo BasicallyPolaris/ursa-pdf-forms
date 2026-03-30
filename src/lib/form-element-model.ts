@@ -46,6 +46,10 @@ function generateId(): string {
   return `el_${nextId++}_${Date.now().toString(36)}`;
 }
 
+export function heightFromFontSize(fontSize: number): number {
+  return Math.round(fontSize * 1.2 * 2) / 2;
+}
+
 export function getUniqueName(
   baseName: string,
   existingElements: FormElement[],
@@ -85,18 +89,20 @@ interface TextFieldOptions {
 }
 
 export function createTextField(opts: TextFieldOptions): TextField {
+  const fontSize = opts.fontSize ?? 12;
+  const multiline = opts.multiline ?? false;
   return {
     type: "text",
     id: generateId(),
     x: opts.x,
     y: opts.y,
     width: opts.width ?? 150,
-    height: opts.height ?? 20,
+    height: opts.height ?? (multiline ? 60 : heightFromFontSize(fontSize)),
     pageNumber: opts.pageNumber,
     name: opts.name ?? "",
     defaultValue: opts.defaultValue ?? "",
-    fontSize: opts.fontSize ?? 12,
-    multiline: opts.multiline ?? false,
+    fontSize,
+    multiline,
     required: opts.required ?? false,
     maxLength: opts.maxLength,
   };
