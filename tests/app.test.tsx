@@ -61,12 +61,12 @@ describe("App layout", () => {
     await waitFor(() => {
       expect(screen.getByText("Select")).toBeInTheDocument();
     });
-    expect(screen.getByText("Text")).toBeInTheDocument();
-    expect(screen.getByText("Multiline")).toBeInTheDocument();
+    expect(screen.getByText("Input")).toBeInTheDocument();
+    expect(screen.getByText("Textarea")).toBeInTheDocument();
   });
 
   it("renders export button", () => {
     render(<App />);
-    expect(screen.getByText("Export PDF")).toBeInTheDocument();
+    expect(screen.getByText("Export")).toBeInTheDocument();
   });
 });

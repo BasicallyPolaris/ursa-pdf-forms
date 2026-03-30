@@ -9,8 +9,8 @@ import {
 
 const TOOLS = [
   { id: "select" as const, label: "Select", icon: MousePointer2 },
-  { id: "input" as const, label: "Text", icon: Type },
-  { id: "textarea" as const, label: "Multiline", icon: AlignLeft },
+  { id: "input" as const, label: "Input", icon: Type },
+  { id: "textarea" as const, label: "Textarea", icon: AlignLeft },
   { id: "checkbox" as const, label: "Checkbox", icon: Square },
   { id: "radio" as const, label: "Radio", icon: CircleDot },
 ];
