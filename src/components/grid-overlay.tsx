@@ -1,5 +1,5 @@
 import { useEditorStore } from "@/stores/editor-store";
-import { TOP_PADDING, PAGE_GAP } from "@/lib/coordinates";
+import { TOP_PADDING, PAGE_GAP, H_PADDING } from "@/lib/coordinates";
 
 export function GridOverlay({ overlayWidth }: { overlayWidth: number }) {
   const showGrid = useEditorStore((s) => s.showGrid);
@@ -23,7 +23,7 @@ export function GridOverlay({ overlayWidth }: { overlayWidth: number }) {
   for (const page of pages) {
     const screenWidth = page.width * zoom;
     const screenHeight = page.height * zoom;
-    const xOffset = Math.max(0, (overlayWidth - screenWidth) / 2);
+    const xOffset = Math.max(H_PADDING, (overlayWidth - screenWidth) / 2);
 
     const startX = xOffset + Math.ceil((xOffset % screenGridSize) / screenGridSize) * screenGridSize;
     const startY = currentY + Math.ceil((currentY % screenGridSize) / screenGridSize) * screenGridSize;

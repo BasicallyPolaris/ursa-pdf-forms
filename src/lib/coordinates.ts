@@ -5,6 +5,7 @@ export interface Point {
 
 export const TOP_PADDING = 16;
 export const PAGE_GAP = 8;
+export const H_PADDING = 16;
 
 export interface TransformOptions {
   zoom: number;

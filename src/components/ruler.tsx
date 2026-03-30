@@ -1,6 +1,6 @@
 import { useCallback, useRef } from "react";
 import { useEditorStore } from "@/stores/editor-store";
-import { TOP_PADDING, PAGE_GAP } from "@/lib/coordinates";
+import { TOP_PADDING, PAGE_GAP, H_PADDING } from "@/lib/coordinates";
 
 const RULER_SIZE = 36;
 const MAJOR_INTERVAL = 50;
@@ -30,7 +30,7 @@ export function HorizontalRuler({ scrollLeft, overlayWidth }: RulerProps) {
 
   for (const page of pages) {
     const screenWidth = page.width * zoom;
-    const xOffset = Math.max(0, (overlayWidth - screenWidth) / 2);
+    const xOffset = Math.max(H_PADDING, (overlayWidth - screenWidth) / 2);
     const screenSubInterval = SUB_INTERVAL * zoom;
 
     if (screenSubInterval >= 2.5) {
@@ -68,12 +68,11 @@ export function HorizontalRuler({ scrollLeft, overlayWidth }: RulerProps) {
       if (pages.length === 0) return null;
       const page = pages[0];
       const screenWidth = page.width * zoom;
-      const xOffset = Math.max(0, (overlayWidth - screenWidth) / 2);
+      const xOffset = Math.max(H_PADDING, (overlayWidth - screenWidth) / 2);
       const rulerLeft = rulerRef.current?.getBoundingClientRect().left ?? 0;
       const relX = clientX - rulerLeft + scrollLeft;
       const pdfX = (relX - xOffset) / zoom;
-      if (pdfX < 0 || pdfX > page.width) return null;
-      return pdfX;
+      return Math.max(0, Math.min(page.width, pdfX));
     },
     [pages, zoom, overlayWidth, scrollLeft],
   );
@@ -87,7 +86,7 @@ export function HorizontalRuler({ scrollLeft, overlayWidth }: RulerProps) {
         const page = pages[0];
         if (!page) return false;
         const screenWidth = page.width * zoom;
-        const xOffset = Math.max(0, (overlayWidth - screenWidth) / 2);
+        const xOffset = Math.max(H_PADDING, (overlayWidth - screenWidth) / 2);
         const screenGuideX = xOffset + g.position * zoom - scrollLeft;
         return Math.abs(e.clientX - rulerLeft - screenGuideX) < 6;
       });
@@ -223,8 +222,7 @@ export function VerticalRuler({ scrollTop, canvasHeight }: RulerProps) {
       const rulerTop = rulerRef.current?.getBoundingClientRect().top ?? 0;
       const relY = clientY - rulerTop + scrollTop;
       const pdfY = (relY - TOP_PADDING) / zoom;
-      if (pdfY < 0 || pdfY > page.height) return null;
-      return pdfY;
+      return Math.max(0, Math.min(page.height, pdfY));
     },
     [pages, zoom, scrollTop],
   );

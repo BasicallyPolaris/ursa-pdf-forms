@@ -7,10 +7,17 @@ import {
   screenToPdf,
   TOP_PADDING,
   PAGE_GAP,
+  H_PADDING,
 } from "@/lib/coordinates";
 import { rectsOverlap, type Rect } from "@/lib/geometry";
 import { snapPosition, snapResizeBounds, type SnapGuide, type SnapContext } from "@/lib/snap-engine";
 import { GridOverlay } from "./grid-overlay";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 function getElementName(el: FormElement): string {
   if (el.type === "radio" && "groupName" in el) return el.groupName || el.value;
@@ -92,7 +99,7 @@ export function CanvasOverlay() {
     for (const page of pages) {
       const screenWidth = page.width * zoom;
       const screenHeight = page.height * zoom;
-      const xOffset = Math.max(0, (overlayWidth - screenWidth) / 2);
+      const xOffset = Math.max(H_PADDING, (overlayWidth - screenWidth) / 2);
       layouts.set(page.pageNumber, {
         xOffset,
         yOffset: currentY,
@@ -655,7 +662,7 @@ export function CanvasOverlay() {
       );
     } else {
       const screenX = layouts.get(1)
-        ? Math.max(0, (overlayWidth - pages[0].width * zoom) / 2) + guide.position * zoom
+        ? Math.max(H_PADDING, (overlayWidth - pages[0].width * zoom) / 2) + guide.position * zoom
         : guide.position * zoom;
       return (
         <div
@@ -673,22 +680,91 @@ export function CanvasOverlay() {
     }
   });
 
+  const removeGuide = useEditorStore((s) => s.removeGuide);
+  const updateGuidePosition = useEditorStore((s) => s.updateGuidePosition);
+
   const persistentGuideElements = guides.map((guide) => {
+    const handleGuideMouseDown = (e: React.MouseEvent) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const overlayEl = overlayRef.current;
+      if (!overlayEl) return;
+      const overlayRect = overlayEl.getBoundingClientRect();
+      const scrollEl = overlayEl.parentElement as HTMLElement;
+      const sLeft = scrollEl?.scrollLeft ?? 0;
+      const sTop = scrollEl?.scrollTop ?? 0;
+      const shiftHeld = e.shiftKey;
+
+      const cursor = guide.orientation === "horizontal" ? "ns-resize" : "ew-resize";
+      document.body.style.cursor = cursor;
+      document.body.style.userSelect = "none";
+
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        const page = pages[0];
+        if (!page) return;
+
+        if (guide.orientation === "horizontal") {
+          const relY = moveEvent.clientY - overlayRect.top + sTop;
+          let pdfY = Math.max(0, Math.min(page.height, (relY - TOP_PADDING) / zoom));
+          if (shiftHeld || moveEvent.shiftKey) {
+            pdfY = Math.round(pdfY / 5) * 5;
+          }
+          updateGuidePosition(guide.id, Math.round(pdfY * 10) / 10);
+        } else {
+          const relX = moveEvent.clientX - overlayRect.left + sLeft;
+          const xOff = Math.max(H_PADDING, (overlayWidth - page.width * zoom) / 2);
+          let pdfX = Math.max(0, Math.min(page.width, (relX - xOff) / zoom));
+          if (shiftHeld || moveEvent.shiftKey) {
+            pdfX = Math.round(pdfX / 5) * 5;
+          }
+          updateGuidePosition(guide.id, Math.round(pdfX * 10) / 10);
+        }
+      };
+
+      const onMouseUp = () => {
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      };
+
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    };
+
     if (guide.orientation === "horizontal") {
       const screenY = TOP_PADDING + guide.position * zoom;
       return (
-        <div
-          key={`${guide.id}-h`}
-          className="pointer-events-none absolute z-40"
-          style={{
-            left: 0,
-            top: screenY,
-            width: overlayWidth,
-            height: 1,
-            backgroundColor: "var(--guide-ruler)",
-            opacity: 0.6,
-          }}
-        />
+        <ContextMenu key={guide.id}>
+          <ContextMenuTrigger>
+            <div
+              className="absolute z-40 cursor-ns-resize group"
+              style={{ left: 0, top: screenY - 4, width: overlayWidth, height: 9 }}
+              onMouseDown={handleGuideMouseDown}
+            >
+              <div
+                className="w-full group-hover:opacity-100"
+                style={{
+                  position: "absolute",
+                  top: 4,
+                  height: 1,
+                  backgroundColor: "var(--guide-ruler)",
+                  opacity: 0.6,
+                }}
+              />
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem
+              className="text-xs"
+              onSelect={() => removeGuide(guide.id)}
+            >
+              Delete guide
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
       );
     } else {
       const firstLayout = layouts.get(1);
@@ -696,18 +772,34 @@ export function CanvasOverlay() {
         ? firstLayout.xOffset + guide.position * zoom
         : guide.position * zoom;
       return (
-        <div
-          key={`${guide.id}-v`}
-          className="pointer-events-none absolute z-40"
-          style={{
-            left: screenX,
-            top: 0,
-            width: 1,
-            height: totalContentHeight,
-            backgroundColor: "var(--guide-ruler)",
-            opacity: 0.6,
-          }}
-        />
+        <ContextMenu key={guide.id}>
+          <ContextMenuTrigger>
+            <div
+              className="absolute z-40 cursor-ew-resize group"
+              style={{ left: screenX - 4, top: 0, width: 9, height: totalContentHeight }}
+              onMouseDown={handleGuideMouseDown}
+            >
+              <div
+                className="h-full group-hover:opacity-100"
+                style={{
+                  position: "absolute",
+                  left: 4,
+                  width: 1,
+                  backgroundColor: "var(--guide-ruler)",
+                  opacity: 0.6,
+                }}
+              />
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem
+              className="text-xs"
+              onSelect={() => removeGuide(guide.id)}
+            >
+              Delete guide
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
       );
     }
   });
