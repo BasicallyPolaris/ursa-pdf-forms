@@ -43,7 +43,7 @@ interface EditorState {
   pages: PageInfo[];
   zoom: number;
   activeTool: "select" | "input" | "textarea" | "checkbox" | "radio";
-  sidebarCollapsed: boolean;
+
   elements: FormElement[];
   selectedIds: Set<string>;
   clipboard: FormElement[];
@@ -56,7 +56,7 @@ interface EditorState {
   setPdf: (fileName: string, bytes: Uint8Array, pages: PageInfo[]) => void;
   setZoom: (zoom: number) => void;
   setActiveTool: (tool: EditorState["activeTool"]) => void;
-  toggleSidebar: () => void;
+
   clearPdf: () => void;
   addElement: (element: FormElement) => void;
   updateElement: (id: string, updates: Partial<FormElement>) => void;
@@ -88,7 +88,7 @@ export const useEditorStore = create<EditorState>()(
       pages: [],
       zoom: 1,
       activeTool: "select",
-      sidebarCollapsed: false,
+
       elements: [],
       selectedIds: new Set<string>(),
       clipboard: [],
@@ -105,7 +105,6 @@ export const useEditorStore = create<EditorState>()(
 
       setActiveTool: (activeTool) => set({ activeTool }),
 
-      toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
       clearPdf: () =>
         set({ pdfFileName: null, pdfBytes: null, pages: [] }),

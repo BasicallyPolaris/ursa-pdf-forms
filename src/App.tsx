@@ -284,7 +284,7 @@ function App() {
         <aside
           data-testid="properties-panel"
           className="border-l border-border bg-card"
-          style={{ width: "calc(16rem + 36px)" }}
+          style={{ width: "calc(11rem + 36px)" }}
         >
           <PropertiesPanel />
         </aside>

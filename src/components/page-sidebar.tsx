@@ -1,15 +1,14 @@
 import { useEffect, useRef } from "react";
 import { useEditorStore } from "@/stores/editor-store";
 import { loadPdfDocument } from "@/lib/pdf-loader";
-import { PanelLeftClose, PanelLeft } from "lucide-react";
 
 export function PageSidebar() {
-  const { pdfBytes, pages, sidebarCollapsed, toggleSidebar } = useEditorStore();
+  const { pdfBytes, pages } = useEditorStore();
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!pdfBytes || sidebarCollapsed || pages.length === 0) return;
+    if (!pdfBytes || pages.length === 0) return;
 
     let cancelled = false;
     const renderThumbnails = async () => {
@@ -40,7 +39,7 @@ export function PageSidebar() {
     return () => {
       cancelled = true;
     };
-  }, [pdfBytes, sidebarCollapsed, pages]);
+  }, [pdfBytes, pages]);
 
   const scrollToPage = (pageNumber: number) => {
     const scrollContainer = document.querySelector("[data-pdf-scroll-container]");
@@ -59,42 +58,13 @@ export function PageSidebar() {
     scrollContainer.scrollTo({ top: offset, behavior: "smooth" });
   };
 
-  if (sidebarCollapsed) {
-    return (
-      <aside
-        data-testid="left-sidebar"
-        className="flex w-10 flex-col items-center border-r border-border bg-card py-2"
-      >
-        <button
-          onClick={() => toggleSidebar()}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground"
-          title="Expand sidebar"
-        >
-          <PanelLeft className="h-3.5 w-3.5" />
-        </button>
-        {pdfBytes && pages.length > 0 && (
-          <span className="mt-2 text-[10px] tabular-nums text-muted-foreground">
-            {pages.length}
-          </span>
-        )}
-      </aside>
-    );
-  }
-
   return (
     <aside
       data-testid="left-sidebar"
       className="flex w-44 flex-col border-r border-border bg-card"
     >
-      <div className="flex items-center justify-between px-2.5 py-1.5">
+      <div className="px-2.5 py-1.5">
         <span className="text-[11px] font-medium text-muted-foreground">Pages</span>
-        <button
-          onClick={() => toggleSidebar()}
-          className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground"
-          title="Collapse sidebar"
-        >
-          <PanelLeftClose className="h-3.5 w-3.5" />
-        </button>
       </div>
       {pdfBytes && (
         <div
