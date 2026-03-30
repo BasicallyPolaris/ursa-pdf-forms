@@ -1,11 +1,10 @@
+import { useStore } from "zustand";
 import { exportPdf } from "@/lib/export-pdf";
 import {
   openPdfFile,
   saveProjectFile,
 } from "@/lib/file-operations";
 import {
-  canRedo,
-  canUndo,
   redo,
   undo,
   useEditorStore,
@@ -100,6 +99,10 @@ function ZoomControls() {
 }
 
 export function AppHeader() {
+  const hasPast = useStore(useEditorStore.temporal, (s) => s.pastStates.length > 0);
+  const hasFuture = useStore(useEditorStore.temporal, (s) => s.futureStates.length > 0);
+  const hasPdf = useEditorStore((s) => !!s.pdfBytes);
+
   return (
     <header className="grid h-11 grid-cols-[1fr_auto_1fr] items-center gap-0.5 border-b border-border bg-card px-2">
       <div className="flex items-center gap-0.5">
@@ -121,14 +124,14 @@ export function AppHeader() {
       <div className="flex items-center justify-end gap-0.5">
         <ToolbarButton
           onClick={() => undo()}
-          disabled={!canUndo()}
+          disabled={!(hasPdf && hasPast)}
           title="Undo (Ctrl+Z)"
         >
           <Undo2 className="h-3.5 w-3.5" />
         </ToolbarButton>
         <ToolbarButton
           onClick={() => redo()}
-          disabled={!canRedo()}
+          disabled={!(hasPdf && hasFuture)}
           title="Redo (Ctrl+Y)"
         >
           <Redo2 className="h-3.5 w-3.5" />
