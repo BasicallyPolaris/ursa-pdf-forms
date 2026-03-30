@@ -633,36 +633,39 @@ export function CanvasOverlay() {
       }
     : null;
 
+  const totalContentHeight = pages.length > 0
+    ? pages.reduce((acc, p) => acc + p.height * zoom, 0) + TOP_PADDING + PAGE_GAP * (pages.length - 1)
+    : 0;
+
   const guideLineElements = activeGuides.map((guide, i) => {
-    const draggedEl = draggingId.current ? elements.find((e) => e.id === draggingId.current) : null;
-    const layout = draggedEl ? layouts.get(draggedEl.pageNumber) : layouts.get(1);
-    if (!layout) return null;
     if (guide.orientation === "horizontal") {
-      const screenY = layout.yOffset + guide.position * zoom;
+      const screenY = TOP_PADDING + guide.position * zoom;
       return (
         <div
           key={`guide-${i}`}
           className="pointer-events-none absolute z-50"
           style={{
-            left: layout.xOffset,
+            left: 0,
             top: screenY,
-            width: layout.screenWidth,
+            width: overlayWidth,
             height: 1,
             backgroundColor: guide.type === "element" ? "var(--guide-snap)" : "var(--guide-ruler)",
           }}
         />
       );
     } else {
-      const screenX = layout.xOffset + guide.position * zoom;
+      const screenX = layouts.get(1)
+        ? Math.max(0, (overlayWidth - pages[0].width * zoom) / 2) + guide.position * zoom
+        : guide.position * zoom;
       return (
         <div
           key={`guide-${i}`}
           className="pointer-events-none absolute z-50"
           style={{
             left: screenX,
-            top: layout.yOffset,
+            top: 0,
             width: 1,
-            height: layout.screenHeight,
+            height: totalContentHeight,
             backgroundColor: guide.type === "element" ? "var(--guide-snap)" : "var(--guide-ruler)",
           }}
         />
@@ -670,82 +673,82 @@ export function CanvasOverlay() {
     }
   });
 
-  const persistentGuideElements = pages.flatMap((page) => {
-    const layout = layouts.get(page.pageNumber);
-    if (!layout) return [];
-    return guides.map((guide) => {
-      if (guide.orientation === "horizontal") {
-        const screenY = layout.yOffset + guide.position * zoom;
-        return (
-          <div
-            key={`${guide.id}-${page.pageNumber}`}
-            className="pointer-events-none absolute z-40"
-            style={{
-              left: layout.xOffset,
-              top: screenY,
-              width: layout.screenWidth,
-              height: 1,
-              backgroundColor: "var(--guide-ruler)",
-              opacity: 0.6,
-            }}
-          />
-        );
-      } else {
-        const screenX = layout.xOffset + guide.position * zoom;
-        return (
-          <div
-            key={`${guide.id}-${page.pageNumber}`}
-            className="pointer-events-none absolute z-40"
-            style={{
-              left: screenX,
-              top: layout.yOffset,
-              width: 1,
-              height: layout.screenHeight,
-              backgroundColor: "var(--guide-ruler)",
-              opacity: 0.6,
-            }}
-          />
-        );
-      }
-    });
+  const persistentGuideElements = guides.map((guide) => {
+    if (guide.orientation === "horizontal") {
+      const screenY = TOP_PADDING + guide.position * zoom;
+      return (
+        <div
+          key={`${guide.id}-h`}
+          className="pointer-events-none absolute z-40"
+          style={{
+            left: 0,
+            top: screenY,
+            width: overlayWidth,
+            height: 1,
+            backgroundColor: "var(--guide-ruler)",
+            opacity: 0.6,
+          }}
+        />
+      );
+    } else {
+      const firstLayout = layouts.get(1);
+      const screenX = firstLayout
+        ? firstLayout.xOffset + guide.position * zoom
+        : guide.position * zoom;
+      return (
+        <div
+          key={`${guide.id}-v`}
+          className="pointer-events-none absolute z-40"
+          style={{
+            left: screenX,
+            top: 0,
+            width: 1,
+            height: totalContentHeight,
+            backgroundColor: "var(--guide-ruler)",
+            opacity: 0.6,
+          }}
+        />
+      );
+    }
   });
 
   const previewGuideElements = previewGuide
-    ? pages.flatMap((page) => {
-        const layout = layouts.get(page.pageNumber);
-        if (!layout) return [];
+    ? (() => {
         if (previewGuide.orientation === "horizontal") {
-          const screenY = layout.yOffset + previewGuide.position * zoom;
+          const screenY = TOP_PADDING + previewGuide.position * zoom;
           return [
             <div
               key="preview-guide"
               className="pointer-events-none absolute z-50"
               style={{
-                left: layout.xOffset,
+                left: 0,
                 top: screenY,
-                width: layout.screenWidth,
+                width: overlayWidth,
                 height: 1,
                 backgroundColor: "var(--guide-ruler)",
               }}
             />,
           ];
         } else {
-          const screenX = layout.xOffset + previewGuide.position * zoom;
+          const firstLayout = layouts.get(1);
+          const screenX = firstLayout
+            ? firstLayout.xOffset + previewGuide.position * zoom
+            : previewGuide.position * zoom;
           return [
             <div
               key="preview-guide"
               className="pointer-events-none absolute z-50"
               style={{
                 left: screenX,
-                top: layout.yOffset,
+                top: 0,
                 width: 1,
-                height: layout.screenHeight,
+                height: totalContentHeight,
                 backgroundColor: "var(--guide-ruler)",
               }}
             />,
           ];
         }
-      })
+      })()
     : [];
 
   return (

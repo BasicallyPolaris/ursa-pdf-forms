@@ -249,7 +249,7 @@ function App() {
           className="relative flex-1 overflow-hidden bg-background"
         >
           <div className="flex h-full">
-            <div className="flex flex-col flex-1">
+            <div className="flex flex-col flex-1 min-w-0">
               <div className="flex">
                 <RulerCorner />
                 <HorizontalRuler
@@ -268,7 +268,7 @@ function App() {
                 />
                 <div
                   ref={scrollContainerRef}
-                  className="relative flex-1 overflow-auto"
+                  className="relative flex-1 min-w-0 min-h-0 overflow-auto"
                   data-pdf-scroll-container
                 >
                   <PdfCanvas>
@@ -283,7 +283,8 @@ function App() {
 
         <aside
           data-testid="properties-panel"
-          className="w-64 border-l border-border bg-card"
+          className="border-l border-border bg-card"
+          style={{ width: "calc(16rem + 36px)" }}
         >
           <PropertiesPanel />
         </aside>

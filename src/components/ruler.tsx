@@ -7,6 +7,10 @@ const MAJOR_INTERVAL = 50;
 const MINOR_INTERVAL = 10;
 const SUB_INTERVAL = 5;
 
+function snapToGrid(value: number, gridSize: number): number {
+  return Math.round(value / gridSize) * gridSize;
+}
+
 interface RulerProps {
   scrollLeft: number;
   scrollTop: number;
@@ -95,20 +99,25 @@ export function HorizontalRuler({ scrollLeft, overlayWidth }: RulerProps) {
 
       const pdfX = getPdfXFromClientX(e.clientX);
       if (pdfX !== null) {
-        setPreviewGuide({ orientation: "vertical", position: pdfX });
+        const pos = e.shiftKey ? snapToGrid(pdfX, SUB_INTERVAL) : pdfX;
+        setPreviewGuide({ orientation: "vertical", position: pos });
       }
 
+      const shiftHeld = e.shiftKey;
+
       const onMouseMove = (moveEvent: MouseEvent) => {
-        const pos = getPdfXFromClientX(moveEvent.clientX);
-        if (pos !== null) {
+        const rawPos = getPdfXFromClientX(moveEvent.clientX);
+        if (rawPos !== null) {
+          const pos = (shiftHeld || moveEvent.shiftKey) ? snapToGrid(rawPos, SUB_INTERVAL) : rawPos;
           setPreviewGuide({ orientation: "vertical", position: pos });
         }
       };
 
       const onMouseUp = (upEvent: MouseEvent) => {
         setPreviewGuide(null);
-        const pos = getPdfXFromClientX(upEvent.clientX);
-        if (pos !== null) {
+        const rawPos = getPdfXFromClientX(upEvent.clientX);
+        if (rawPos !== null) {
+          const pos = (shiftHeld || upEvent.shiftKey) ? snapToGrid(rawPos, SUB_INTERVAL) : rawPos;
           addGuide("vertical", Math.round(pos * 10) / 10);
         }
         document.removeEventListener("mousemove", onMouseMove);
@@ -238,20 +247,25 @@ export function VerticalRuler({ scrollTop, canvasHeight }: RulerProps) {
 
       const pdfY = getPdfYFromClientY(e.clientY);
       if (pdfY !== null) {
-        setPreviewGuide({ orientation: "horizontal", position: pdfY });
+        const pos = e.shiftKey ? snapToGrid(pdfY, SUB_INTERVAL) : pdfY;
+        setPreviewGuide({ orientation: "horizontal", position: pos });
       }
 
+      const shiftHeld = e.shiftKey;
+
       const onMouseMove = (moveEvent: MouseEvent) => {
-        const pos = getPdfYFromClientY(moveEvent.clientY);
-        if (pos !== null) {
+        const rawPos = getPdfYFromClientY(moveEvent.clientY);
+        if (rawPos !== null) {
+          const pos = (shiftHeld || moveEvent.shiftKey) ? snapToGrid(rawPos, SUB_INTERVAL) : rawPos;
           setPreviewGuide({ orientation: "horizontal", position: pos });
         }
       };
 
       const onMouseUp = (upEvent: MouseEvent) => {
         setPreviewGuide(null);
-        const pos = getPdfYFromClientY(upEvent.clientY);
-        if (pos !== null) {
+        const rawPos = getPdfYFromClientY(upEvent.clientY);
+        if (rawPos !== null) {
+          const pos = (shiftHeld || upEvent.shiftKey) ? snapToGrid(rawPos, SUB_INTERVAL) : rawPos;
           addGuide("horizontal", Math.round(pos * 10) / 10);
         }
         document.removeEventListener("mousemove", onMouseMove);

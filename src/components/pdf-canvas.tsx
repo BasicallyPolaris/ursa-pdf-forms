@@ -190,7 +190,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   }
 
   return (
-    <div className="relative mx-auto w-fit">
+    <div className="relative min-w-full w-fit">
       <div
         ref={pagesRef}
         className="flex flex-col items-center gap-2 p-4"
