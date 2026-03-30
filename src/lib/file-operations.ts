@@ -29,7 +29,7 @@ export async function openPdfFile() {
 }
 
 export async function saveProjectFile() {
-  const { pdfFileName, pdfBytes, elements } = useEditorStore.getState();
+  const { pdfFileName, pdfBytes, elements, guides, gridSize, gridEnabled, showGrid } = useEditorStore.getState();
   if (!pdfBytes) return;
 
   const encoder = new TextEncoder();
@@ -43,6 +43,10 @@ export async function saveProjectFile() {
     schemaVersion: 1,
     pdfBase64,
     elements,
+    guides,
+    gridSize,
+    gridEnabled,
+    showGrid,
   });
 
   const filePath = await save({
@@ -77,6 +81,21 @@ export async function openProjectFile() {
 
   for (const el of project.elements) {
     useEditorStore.getState().addElement(el);
+  }
+
+  if (project.guides) {
+    for (const guide of project.guides) {
+      useEditorStore.getState().addGuide(guide.orientation, guide.position);
+    }
+  }
+  if (project.gridSize !== undefined) {
+    useEditorStore.getState().setGridSize(project.gridSize);
+  }
+  if (project.gridEnabled !== undefined && !project.gridEnabled) {
+    useEditorStore.getState().toggleGrid();
+  }
+  if (project.showGrid !== undefined && !project.showGrid) {
+    useEditorStore.getState().toggleShowGrid();
   }
 }
 

@@ -5,7 +5,6 @@
 - **Dev server**: `bun run dev`
 - **Build**: `bun run build`
 - **Tests**: `bun run test`
-- **Lint**: `bun run lint`
 
 ## Architecture Overview
 
@@ -30,13 +29,18 @@ tests/              — Test files mirroring src/ structure
 - `src/stores/editor-store.ts` — Central Zustand store with undo/redo (zundo). All state flows through here. Re-exports `PageInfo` from `pdf-loader`.
 - `src/lib/pdf-loader.ts` — Centralized PDF parsing with caching. Owns the `PageInfo` type. All PDF entry points call `loadPdfDocument()`.
 - `src/lib/pdf-export-engine.ts` — Pure function: takes `(Uint8Array, FormElement[])` and returns modified PDF with AcroForm fields. No store dependency.
-- `src/lib/form-element-model.ts` — Domain type (`TextField`), factory functions, type guard. Pure, no store dependency.
+- `src/lib/form-element-model.ts` — Domain types (`TextField`, `Checkbox`, `RadioButton`), factory functions, type guards. Pure, no store dependency.
 - `src/lib/coordinates.ts` — Pure coordinate transforms between PDF space and screen space. Owns `TOP_PADDING` and `PAGE_GAP` layout constants used by `CanvasOverlay`.
 - `src/lib/project-file-io.ts` — JSON serialization/deserialization for `.pfm` project files. Pure.
 - `src/lib/file-operations.ts` — Orchestrates Tauri dialog + fs for open/save operations. Exports `loadPdfIntoStore()` and `extractFileName()` shared helpers.
 - `src/components/pdf-canvas.tsx` — Renders full-size PDF pages. Uses cached document from `pdf-loader`.
 - `src/components/page-sidebar.tsx` — Page thumbnails in left sidebar. Uses cached document from `pdf-loader`.
-- `src/components/canvas-overlay.tsx` — Form field positioning/drag/resize via `react-rnd`. Uses `coordinates.ts` for transforms.
+- `src/components/canvas-overlay.tsx` — Form field positioning/drag/resize via `react-rnd`. Uses `coordinates.ts` for transforms. Integrates snap engine for grid/element/guide snapping during drag.
+- `src/lib/snap-engine.ts` — Pure snap/alignment engine. `snapPosition()` composes grid, page-edge, element-to-element, and ruler-guide snapping. Returns snapped position + visual guide lines.
+- `src/lib/alignment.ts` — Pure alignment functions: align left/right/top/bottom/center, distribute horizontally/vertically, center on page. Operates on positionable elements.
+- `src/components/grid-overlay.tsx` — Renders grid dots on canvas. Reads grid settings from store.
+- `src/components/ruler.tsx` — Horizontal and vertical rulers with PDF point tick marks. Drag from ruler to create guide lines.
+- `src/components/properties-panel.tsx` — Right sidebar with type-specific property editors, multi-selection batch editing, and alignment tool buttons.
 
 ### State Flow
 
@@ -63,11 +67,7 @@ These modules import Tauri dialog/fs plugins and reach into the global store via
 
 **Proposed direction**: Define a persistence interface with methods like `pickAndLoadPdf()`, `saveProject()`, `exportPdf()`. Implement with Tauri plugins for production and in-memory adapters for testing. This would make file operations testable end-to-end.
 
-### 2. Properties Panel
-
-The properties panel (right sidebar in `App.tsx`) is an empty `<aside>` with no content.
-
-### 3. Page Layout Sync
+### 2. Page Layout Sync
 
 `CanvasOverlay` layout constants (`TOP_PADDING`, `PAGE_GAP`) in `coordinates.ts` must match `PdfCanvas`'s `p-4` padding and `gap-2` spacing. If `PdfCanvas` changes its gap/spacing, the overlay silently breaks. A shared layout module that both components query would eliminate this coupling.
 

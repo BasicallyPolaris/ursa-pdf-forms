@@ -5,6 +5,17 @@ import {
   getUniqueName,
 } from "@/lib/form-element-model";
 import type { PageInfo } from "@/lib/pdf-loader";
+import {
+  alignLeft,
+  alignRight,
+  alignTop,
+  alignBottom,
+  alignCenterH,
+  alignCenterV,
+  distributeH,
+  distributeV,
+  centerOnPage,
+} from "@/lib/alignment";
 
 export type { PageInfo };
 
@@ -13,7 +24,18 @@ function generatePastedId(): string {
   return `el_paste_${nextPasteId++}_${Date.now().toString(36)}`;
 }
 
+let nextGuideId = 1;
+function generateGuideId(): string {
+  return `guide_${nextGuideId++}_${Date.now().toString(36)}`;
+}
+
 const PASTE_OFFSET = 10;
+
+export interface GuideLine {
+  id: string;
+  orientation: "horizontal" | "vertical";
+  position: number;
+}
 
 interface EditorState {
   pdfFileName: string | null;
@@ -25,6 +47,11 @@ interface EditorState {
   elements: FormElement[];
   selectedIds: Set<string>;
   clipboard: FormElement[];
+  gridEnabled: boolean;
+  gridSize: number;
+  showGrid: boolean;
+  guides: GuideLine[];
+  previewGuide: { orientation: "horizontal" | "vertical"; position: number } | null;
 
   setPdf: (fileName: string, bytes: Uint8Array, pages: PageInfo[]) => void;
   setZoom: (zoom: number) => void;
@@ -41,11 +68,21 @@ interface EditorState {
   addToSelection: (ids: string[]) => void;
   copySelection: () => void;
   pasteClipboard: () => void;
+  toggleGrid: () => void;
+  setGridSize: (size: number) => void;
+  toggleShowGrid: () => void;
+  addGuide: (orientation: "horizontal" | "vertical", position: number) => void;
+  removeGuide: (id: string) => void;
+  updateGuidePosition: (id: string, position: number) => void;
+  setPreviewGuide: (guide: { orientation: "horizontal" | "vertical"; position: number } | null) => void;
+  alignElements: (type: "left" | "right" | "top" | "bottom" | "centerH" | "centerV") => void;
+  distributeElements: (direction: "horizontal" | "vertical") => void;
+  centerSelectionOnPage: () => void;
 }
 
 export const useEditorStore = create<EditorState>()(
   temporal(
-    (set) => ({
+    (set, get) => ({
       pdfFileName: null,
       pdfBytes: null,
       pages: [],
@@ -55,6 +92,11 @@ export const useEditorStore = create<EditorState>()(
       elements: [],
       selectedIds: new Set<string>(),
       clipboard: [],
+      gridEnabled: true,
+      gridSize: 10,
+      showGrid: true,
+      guides: [],
+      previewGuide: null,
 
       setPdf: (fileName, bytes, pages) =>
         set({ pdfFileName: fileName, pdfBytes: bytes, pages }),
@@ -149,11 +191,89 @@ export const useEditorStore = create<EditorState>()(
             selectedIds: newIds,
           };
         }),
+
+      toggleGrid: () => set((s) => ({ gridEnabled: !s.gridEnabled })),
+
+      setGridSize: (size) => set({ gridSize: size }),
+
+      toggleShowGrid: () => set((s) => ({ showGrid: !s.showGrid })),
+
+      addGuide: (orientation, position) =>
+        set((s) => ({
+          guides: [...s.guides, { id: generateGuideId(), orientation, position }],
+        })),
+
+      removeGuide: (id) =>
+        set((s) => ({ guides: s.guides.filter((g) => g.id !== id) })),
+
+      updateGuidePosition: (id, position) =>
+        set((s) => ({
+          guides: s.guides.map((g) => (g.id === id ? { ...g, position } : g)),
+        })),
+
+      setPreviewGuide: (guide) => set({ previewGuide: guide }),
+
+      alignElements: (type) => {
+        const state = get();
+        if (state.selectedIds.size < 2) return;
+        let updates: Array<{ id: string; x: number; y: number }> = [];
+        switch (type) {
+          case "left": updates = alignLeft(state.elements, state.selectedIds); break;
+          case "right": updates = alignRight(state.elements, state.selectedIds); break;
+          case "top": updates = alignTop(state.elements, state.selectedIds); break;
+          case "bottom": updates = alignBottom(state.elements, state.selectedIds); break;
+          case "centerH": updates = alignCenterH(state.elements, state.selectedIds); break;
+          case "centerV": updates = alignCenterV(state.elements, state.selectedIds); break;
+        }
+        if (updates.length > 0) {
+          set((s) => ({
+            elements: s.elements.map((el) => {
+              const u = updates.find((u) => u.id === el.id);
+              return u ? { ...el, x: u.x, y: u.y } : el;
+            }),
+          }));
+        }
+      },
+
+      distributeElements: (direction) => {
+        const state = get();
+        if (state.selectedIds.size < 3) return;
+        const updates = direction === "horizontal"
+          ? distributeH(state.elements, state.selectedIds)
+          : distributeV(state.elements, state.selectedIds);
+        if (updates.length > 0) {
+          set((s) => ({
+            elements: s.elements.map((el) => {
+              const u = updates.find((u) => u.id === el.id);
+              return u ? { ...el, x: u.x, y: u.y } : el;
+            }),
+          }));
+        }
+      },
+
+      centerSelectionOnPage: () => {
+        const state = get();
+        if (state.selectedIds.size === 0 || state.pages.length === 0) return;
+        const page = state.pages[0];
+        const updates = centerOnPage(state.elements, state.selectedIds, page.width, page.height);
+        if (updates.length > 0) {
+          set((s) => ({
+            elements: s.elements.map((el) => {
+              const u = updates.find((u) => u.id === el.id);
+              return u ? { ...el, x: u.x, y: u.y } : el;
+            }),
+          }));
+        }
+      },
     }),
     {
       limit: 50,
       partialize: (state) => ({
         elements: state.elements,
+        guides: state.guides,
+        gridEnabled: state.gridEnabled,
+        gridSize: state.gridSize,
+        showGrid: state.showGrid,
       }),
     },
   ),

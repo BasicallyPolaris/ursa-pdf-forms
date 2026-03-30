@@ -1,9 +1,14 @@
 import type { FormElement } from "./form-element-model";
+import type { GuideLine } from "@/stores/editor-store";
 
 export interface ProjectFile {
   schemaVersion: number;
   pdfBase64: string;
   elements: FormElement[];
+  guides?: GuideLine[];
+  gridSize?: number;
+  gridEnabled?: boolean;
+  showGrid?: boolean;
 }
 
 export function serializeProject(project: ProjectFile): string {
@@ -21,5 +26,9 @@ export function parseProject(json: string): ProjectFile {
     schemaVersion: parsed.schemaVersion,
     pdfBase64: parsed.pdfBase64,
     elements: parsed.elements ?? [],
+    guides: parsed.guides ?? [],
+    gridSize: parsed.gridSize,
+    gridEnabled: parsed.gridEnabled,
+    showGrid: parsed.showGrid,
   };
 }

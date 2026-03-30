@@ -9,6 +9,8 @@ import {
   PAGE_GAP,
 } from "@/lib/coordinates";
 import { rectsOverlap, type Rect } from "@/lib/geometry";
+import { snapPosition, snapResizeBounds, type SnapGuide, type SnapContext } from "@/lib/snap-engine";
+import { GridOverlay } from "./grid-overlay";
 
 function getElementName(el: FormElement): string {
   if (el.type === "radio" && "groupName" in el) return el.groupName || el.value;
@@ -29,6 +31,10 @@ export function CanvasOverlay() {
     pages,
     pdfBytes,
     selectedIds,
+    gridEnabled,
+    gridSize,
+    guides,
+    previewGuide,
   } = useEditorStore();
   const addElement = useEditorStore((s) => s.addElement);
   const updateElement = useEditorStore((s) => s.updateElement);
@@ -60,6 +66,8 @@ export function CanvasOverlay() {
   const dragStartPositions = useRef<Map<string, { x: number; y: number }> | null>(null);
   const draggingId = useRef<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ dx: number; dy: number } | null>(null);
+  const [dragSnapCorrection, setDragSnapCorrection] = useState<{ dx: number; dy: number } | null>(null);
+  const [activeGuides, setActiveGuides] = useState<SnapGuide[]>([]);
 
   useEffect(() => {
     const el = overlayRef.current;
@@ -113,6 +121,27 @@ export function CanvasOverlay() {
     [],
   );
 
+  const buildSnapContext = useCallback(
+    (draggedElementId: string | null, pageNumber: number): SnapContext => {
+      const page = pages.find((p) => p.pageNumber === pageNumber);
+      return {
+        gridSize,
+        snapThreshold: 5,
+        pageWidth: page?.width ?? 612,
+        pageHeight: page?.height ?? 792,
+        otherElements: elements
+          .filter((el) => el.id !== draggedElementId && el.pageNumber === pageNumber)
+          .map((el) => ({ x: el.x, y: el.y, width: el.width, height: el.height })),
+        rulerGuides: guides.map((g) => ({ orientation: g.orientation, position: g.position })),
+        snapToGrid: gridEnabled,
+        snapToPageEdges: gridEnabled,
+        snapToElements: true,
+        snapToGuides: true,
+      };
+    },
+    [elements, pages, gridSize, gridEnabled, guides],
+  );
+
   const handleCanvasMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (e.button !== 0) return;
@@ -134,6 +163,11 @@ export function CanvasOverlay() {
           { x: screenX, y: screenY },
           { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
         );
+
+        if (gridEnabled) {
+          pdf.x = Math.round(pdf.x / gridSize) * gridSize;
+          pdf.y = Math.round(pdf.y / gridSize) * gridSize;
+        }
 
         let newEl: FormElement;
         if (activeTool === "checkbox") {
@@ -191,7 +225,7 @@ export function CanvasOverlay() {
         setMarquee(null);
       }
     },
-    [activeTool, zoom, elements.length, addElement, selectElements, clearSelection, getPageLayouts, findPageAtPoint],
+    [activeTool, zoom, elements.length, addElement, selectElements, clearSelection, getPageLayouts, findPageAtPoint, gridEnabled, gridSize],
   );
 
   const handleCanvasMouseMove = useCallback(
@@ -400,46 +434,79 @@ export function CanvasOverlay() {
           dragStartPositions.current = positions;
           draggingId.current = el.id;
           setDragOffset(null);
+          setDragSnapCorrection(null);
+          setActiveGuides([]);
         }}
         onDrag={(_e, d) => {
           const deltaX = d.x - screen.x;
           const deltaY = d.y - screen.y;
-          setDragOffset({ dx: deltaX, dy: deltaY });
+
+          const snapCtx = buildSnapContext(el.id, el.pageNumber);
+          const proposedPdfX = el.x + deltaX / zoom;
+          const proposedPdfY = el.y + deltaY / zoom;
+
+          if (snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides) {
+            const result = snapPosition(proposedPdfX, proposedPdfY, el.width, el.height, snapCtx);
+            const snappedDeltaX = (result.x - el.x) * zoom;
+            const snappedDeltaY = (result.y - el.y) * zoom;
+            setDragOffset({ dx: snappedDeltaX, dy: snappedDeltaY });
+            setDragSnapCorrection({ dx: snappedDeltaX - deltaX, dy: snappedDeltaY - deltaY });
+            setActiveGuides(result.guides);
+          } else {
+            setDragOffset({ dx: deltaX, dy: deltaY });
+            setDragSnapCorrection(null);
+            setActiveGuides([]);
+          }
         }}
         onDragStop={(_e, d) => {
           const pl = layouts.get(el.pageNumber);
           if (!pl) return;
-          const deltaX = d.x - screen.x;
-          const deltaY = d.y - screen.y;
-          const pdfDeltaX = deltaX / zoom;
-          const pdfDeltaY = deltaY / zoom;
 
-          if (selectedIds.size > 1 && isSelected) {
+          const currentStore = useEditorStore.getState();
+          const currentSelectedIds = currentStore.selectedIds;
+
+          if (currentSelectedIds.size > 1 && currentSelectedIds.has(el.id)) {
+            const snapCtx = buildSnapContext(null, el.pageNumber);
             const updates: Array<{ id: string; x: number; y: number }> = [];
             for (const otherEl of elements) {
-              if (!selectedIds.has(otherEl.id)) continue;
+              if (!currentSelectedIds.has(otherEl.id)) continue;
               const startPos = dragStartPositions.current?.get(otherEl.id);
               if (startPos) {
-                updates.push({
-                  id: otherEl.id,
-                  x: startPos.x + pdfDeltaX,
-                  y: startPos.y + pdfDeltaY,
-                });
+                let newX = startPos.x + (d.x - screen.x) / zoom;
+                let newY = startPos.y + (d.y - screen.y) / zoom;
+
+                if (snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides) {
+                  const result = snapPosition(newX, newY, otherEl.width, otherEl.height, snapCtx);
+                  newX = result.x;
+                  newY = result.y;
+                }
+
+                updates.push({ id: otherEl.id, x: newX, y: newY });
               }
             }
             moveElements(updates);
           } else {
-            const pdf = screenToPdf(
-              { x: d.x, y: d.y },
-              { zoom, pageX: pl.xOffset, pageY: pl.yOffset },
-            );
-            updateElement(el.id, { x: pdf.x, y: pdf.y });
+            const snapCtx = buildSnapContext(el.id, el.pageNumber);
+            const proposedX = el.x + (d.x - screen.x) / zoom;
+            const proposedY = el.y + (d.y - screen.y) / zoom;
+
+            let finalX = proposedX;
+            let finalY = proposedY;
+            if (snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides) {
+              const result = snapPosition(proposedX, proposedY, el.width, el.height, snapCtx);
+              finalX = result.x;
+              finalY = result.y;
+            }
+
+            updateElement(el.id, { x: finalX, y: finalY });
           }
           dragStartPositions.current = null;
           draggingId.current = null;
           setDragOffset(null);
+          setDragSnapCorrection(null);
+          setActiveGuides([]);
         }}
-        onResizeStop={(_e, _dir, ref, _delta, position) => {
+        onResize={(_e, dir, ref, _delta, position) => {
           const pl = layouts.get(el.pageNumber);
           if (!pl) return;
           const newWidth = parseFloat(ref.style.width) / zoom;
@@ -448,12 +515,41 @@ export function CanvasOverlay() {
             { x: position.x, y: position.y },
             { zoom, pageX: pl.xOffset, pageY: pl.yOffset },
           );
+
+          const snapCtx = buildSnapContext(el.id, el.pageNumber);
+          if (snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides) {
+            const result = snapResizeBounds(pdf.x, pdf.y, newWidth, newHeight, dir, snapCtx);
+            setActiveGuides(result.guides);
+          }
+        }}
+        onResizeStop={(_e, dir, ref, _delta, position) => {
+          const pl = layouts.get(el.pageNumber);
+          if (!pl) return;
+          let newWidth = parseFloat(ref.style.width) / zoom;
+          let newHeight = parseFloat(ref.style.height) / zoom;
+          const { x: pdfX, y: pdfY } = screenToPdf(
+            { x: position.x, y: position.y },
+            { zoom, pageX: pl.xOffset, pageY: pl.yOffset },
+          );
+
+          const snapCtx = buildSnapContext(el.id, el.pageNumber);
+          let finalX = pdfX;
+          let finalY = pdfY;
+          if (snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides) {
+            const result = snapResizeBounds(pdfX, pdfY, newWidth, newHeight, dir, snapCtx);
+            finalX = result.x;
+            finalY = result.y;
+            newWidth = result.width;
+            newHeight = result.height;
+          }
+
           updateElement(el.id, {
-            x: pdf.x,
-            y: pdf.y,
+            x: finalX,
+            y: finalY,
             width: Math.max(MIN_SIZE / zoom, newWidth),
             height: Math.max(MIN_SIZE / zoom, newHeight),
           });
+          setActiveGuides([]);
         }}
       >
         <div
@@ -478,6 +574,11 @@ export function CanvasOverlay() {
                     ? "border-2 border-blue-400 bg-blue-500/15"
                     : "border border-blue-500/50 bg-blue-500/10"
           }`}
+          style={
+            draggingId.current === el.id && dragSnapCorrection
+              ? { transform: `translate(${dragSnapCorrection.dx}px, ${dragSnapCorrection.dy}px)` }
+              : undefined
+          }
         >
           {el.type === "checkbox" && (
             <svg viewBox="0 0 10 10" className="h-3/5 w-3/5 text-green-500">
@@ -532,6 +633,121 @@ export function CanvasOverlay() {
       }
     : null;
 
+  const guideLineElements = activeGuides.map((guide, i) => {
+    const draggedEl = draggingId.current ? elements.find((e) => e.id === draggingId.current) : null;
+    const layout = draggedEl ? layouts.get(draggedEl.pageNumber) : layouts.get(1);
+    if (!layout) return null;
+    if (guide.orientation === "horizontal") {
+      const screenY = layout.yOffset + guide.position * zoom;
+      return (
+        <div
+          key={`guide-${i}`}
+          className="pointer-events-none absolute z-50"
+          style={{
+            left: layout.xOffset,
+            top: screenY,
+            width: layout.screenWidth,
+            height: 1,
+            backgroundColor: guide.type === "element" ? "#f97316" : "#22d3ee",
+          }}
+        />
+      );
+    } else {
+      const screenX = layout.xOffset + guide.position * zoom;
+      return (
+        <div
+          key={`guide-${i}`}
+          className="pointer-events-none absolute z-50"
+          style={{
+            left: screenX,
+            top: layout.yOffset,
+            width: 1,
+            height: layout.screenHeight,
+            backgroundColor: guide.type === "element" ? "#f97316" : "#22d3ee",
+          }}
+        />
+      );
+    }
+  });
+
+  const persistentGuideElements = pages.flatMap((page) => {
+    const layout = layouts.get(page.pageNumber);
+    if (!layout) return [];
+    return guides.map((guide) => {
+      if (guide.orientation === "horizontal") {
+        const screenY = layout.yOffset + guide.position * zoom;
+        return (
+          <div
+            key={`${guide.id}-${page.pageNumber}`}
+            className="pointer-events-none absolute z-40"
+            style={{
+              left: layout.xOffset,
+              top: screenY,
+              width: layout.screenWidth,
+              height: 1,
+              backgroundColor: "#22d3ee",
+              opacity: 0.6,
+            }}
+          />
+        );
+      } else {
+        const screenX = layout.xOffset + guide.position * zoom;
+        return (
+          <div
+            key={`${guide.id}-${page.pageNumber}`}
+            className="pointer-events-none absolute z-40"
+            style={{
+              left: screenX,
+              top: layout.yOffset,
+              width: 1,
+              height: layout.screenHeight,
+              backgroundColor: "#22d3ee",
+              opacity: 0.6,
+            }}
+          />
+        );
+      }
+    });
+  });
+
+  const previewGuideElements = previewGuide
+    ? pages.flatMap((page) => {
+        const layout = layouts.get(page.pageNumber);
+        if (!layout) return [];
+        if (previewGuide.orientation === "horizontal") {
+          const screenY = layout.yOffset + previewGuide.position * zoom;
+          return [
+            <div
+              key="preview-guide"
+              className="pointer-events-none absolute z-50"
+              style={{
+                left: layout.xOffset,
+                top: screenY,
+                width: layout.screenWidth,
+                height: 1,
+                backgroundColor: "#22d3ee",
+              }}
+            />,
+          ];
+        } else {
+          const screenX = layout.xOffset + previewGuide.position * zoom;
+          return [
+            <div
+              key="preview-guide"
+              className="pointer-events-none absolute z-50"
+              style={{
+                left: screenX,
+                top: layout.yOffset,
+                width: 1,
+                height: layout.screenHeight,
+                backgroundColor: "#22d3ee",
+              }}
+            />,
+          ];
+        }
+      })
+    : [];
+
   return (
     <div
       ref={overlayRef}
@@ -541,7 +757,11 @@ export function CanvasOverlay() {
       onMouseUp={handleCanvasMouseUp}
       style={{ cursor: activeTool !== "select" ? "crosshair" : "default" }}
     >
+      <GridOverlay overlayWidth={overlayWidth} />
       {elementOverlays}
+      {persistentGuideElements}
+      {previewGuideElements}
+      {guideLineElements}
       {marqueeRect && marqueeRect.width > 0 && marqueeRect.height > 0 && (
         <div
           className="pointer-events-none absolute border border-blue-400/60 bg-blue-400/10"

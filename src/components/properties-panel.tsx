@@ -433,6 +433,49 @@ function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
   );
 }
 
+function AlignmentButtons() {
+  const alignElements = useEditorStore((s) => s.alignElements);
+  const distributeElements = useEditorStore((s) => s.distributeElements);
+  const centerSelectionOnPage = useEditorStore((s) => s.centerSelectionOnPage);
+  const selectedIds = useEditorStore((s) => s.selectedIds);
+
+  if (selectedIds.size < 2) return null;
+
+  const btnClass =
+    "flex h-7 w-7 items-center justify-center rounded text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground";
+
+  return (
+    <div className="mb-3 flex flex-col gap-2">
+      <span className="text-xs text-muted-foreground">Align</span>
+      <div className="flex gap-1">
+        <button className={btnClass} onClick={() => alignElements("left")} title="Align left">⫷</button>
+        <button className={btnClass} onClick={() => alignElements("centerH")} title="Align center H">⫿</button>
+        <button className={btnClass} onClick={() => alignElements("right")} title="Align right">⫸</button>
+        <button className={btnClass} onClick={() => alignElements("top")} title="Align top">⊤</button>
+        <button className={btnClass} onClick={() => alignElements("centerV")} title="Align center V">⊕</button>
+        <button className={btnClass} onClick={() => alignElements("bottom")} title="Align bottom">⊥</button>
+      </div>
+      {selectedIds.size >= 3 && (
+        <>
+          <span className="text-xs text-muted-foreground">Distribute</span>
+          <div className="flex gap-1">
+            <button className={btnClass + " w-auto px-2"} onClick={() => distributeElements("horizontal")} title="Distribute horizontally">H ≡</button>
+            <button className={btnClass + " w-auto px-2"} onClick={() => distributeElements("vertical")} title="Distribute vertically">V ≡</button>
+          </div>
+        </>
+      )}
+      <button
+        className="w-full rounded bg-accent px-2 py-1 text-xs text-accent-foreground hover:bg-accent/80"
+        onClick={() => centerSelectionOnPage()}
+        title="Center on page"
+      >
+        Center on page
+      </button>
+      <Separator />
+    </div>
+  );
+}
+
 export function PropertiesPanel() {
   return (
     <ErrorBoundary>
@@ -473,6 +516,8 @@ function PropertiesPanelContent() {
             </span>
           </div>
           <Separator className="mb-3" />
+
+          <AlignmentButtons />
 
           {singleType === "text" && (
             <MultiTextFieldProperties elements={selectedElements.filter(isTextField)} />
