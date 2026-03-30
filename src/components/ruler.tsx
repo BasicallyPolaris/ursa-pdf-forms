@@ -2,9 +2,10 @@ import { useCallback, useRef } from "react";
 import { useEditorStore } from "@/stores/editor-store";
 import { TOP_PADDING, PAGE_GAP } from "@/lib/coordinates";
 
-const RULER_SIZE = 24;
+const RULER_SIZE = 36;
 const MAJOR_INTERVAL = 50;
 const MINOR_INTERVAL = 10;
+const SUB_INTERVAL = 5;
 
 interface RulerProps {
   scrollLeft: number;
@@ -14,30 +15,46 @@ interface RulerProps {
 }
 
 export function HorizontalRuler({ scrollLeft, overlayWidth }: RulerProps) {
-  const { pages, zoom } = useEditorStore();
+  const { pages, zoom, pdfBytes } = useEditorStore();
   const addGuide = useEditorStore((s) => s.addGuide);
   const removeGuide = useEditorStore((s) => s.removeGuide);
   const setPreviewGuide = useEditorStore((s) => s.setPreviewGuide);
   const guides = useEditorStore((s) => s.guides);
   const rulerRef = useRef<HTMLDivElement>(null);
 
-  const ticks: Array<{ x: number; isMajor: boolean; label?: string }> = [];
+  const ticks: Array<{ x: number; level: number; label?: string }> = [];
 
   for (const page of pages) {
     const screenWidth = page.width * zoom;
     const xOffset = Math.max(0, (overlayWidth - screenWidth) / 2);
-    const screenMinorInterval = MINOR_INTERVAL * zoom;
+    const screenSubInterval = SUB_INTERVAL * zoom;
 
-    if (screenMinorInterval >= 3) {
-      for (let px = 0; px <= screenWidth; px += screenMinorInterval) {
+    if (screenSubInterval >= 2.5) {
+      for (let px = 0; px <= screenWidth; px += screenSubInterval) {
         const screenX = xOffset + px - scrollLeft;
         if (screenX < -RULER_SIZE || screenX > overlayWidth + RULER_SIZE) continue;
-        const isMajor = Math.abs(Math.round(px / zoom) % MAJOR_INTERVAL) < 1;
+        const pdfVal = Math.round(px / zoom);
+        const isMajor = pdfVal % MAJOR_INTERVAL === 0;
+        const isMinor = pdfVal % MINOR_INTERVAL === 0;
         ticks.push({
           x: screenX,
-          isMajor,
-          label: isMajor ? String(Math.round(px / zoom)) : undefined,
+          level: isMajor ? 0 : isMinor ? 1 : 2,
+          label: isMajor ? String(pdfVal) : undefined,
         });
+      }
+    } else {
+      const screenMinorInterval = MINOR_INTERVAL * zoom;
+      if (screenMinorInterval >= 3) {
+        for (let px = 0; px <= screenWidth; px += screenMinorInterval) {
+          const screenX = xOffset + px - scrollLeft;
+          if (screenX < -RULER_SIZE || screenX > overlayWidth + RULER_SIZE) continue;
+          const isMajor = Math.abs(Math.round(px / zoom) % MAJOR_INTERVAL) < 1;
+          ticks.push({
+            x: screenX,
+            level: isMajor ? 0 : 1,
+            label: isMajor ? String(Math.round(px / zoom)) : undefined,
+          });
+        }
       }
     }
   }
@@ -107,64 +124,83 @@ export function HorizontalRuler({ scrollLeft, overlayWidth }: RulerProps) {
   return (
     <div
       ref={rulerRef}
-      className="flex-shrink-0 bg-neutral-900 border-b border-border relative overflow-hidden cursor-ew-resize"
+      className={`flex-shrink-0 bg-neutral-900 border-b border-border relative overflow-hidden ${pdfBytes ? "cursor-ew-resize" : "cursor-default"}`}
       style={{ height: RULER_SIZE, width: overlayWidth }}
       onMouseDown={handleMouseDown}
     >
       <svg width={overlayWidth} height={RULER_SIZE} className="block">
-        {ticks.map((tick, i) => (
-          <g key={i}>
-            <line
-              x1={tick.x}
-              y1={tick.isMajor ? 0 : RULER_SIZE * 0.6}
-              x2={tick.x}
-              y2={RULER_SIZE}
-              stroke="rgba(255,255,255,0.25)"
-              strokeWidth={tick.isMajor ? 1 : 0.5}
-            />
-            {tick.label && (
-              <text
-                x={tick.x + 2}
-                y={9}
-                fill="rgba(255,255,255,0.4)"
-                fontSize={8}
-                fontFamily="monospace"
-              >
-                {tick.label}
-              </text>
-            )}
-          </g>
-        ))}
+        {ticks.map((tick, i) => {
+          const startY = tick.level === 0 ? 0 : tick.level === 1 ? RULER_SIZE * 0.6 : RULER_SIZE * 0.78;
+          return (
+            <g key={i}>
+              <line
+                x1={tick.x}
+                y1={startY}
+                x2={tick.x}
+                y2={RULER_SIZE}
+                stroke="rgba(255,255,255,0.25)"
+                strokeWidth={tick.level === 0 ? 1 : 0.5}
+              />
+              {tick.label && (
+                <text
+                  x={tick.x + 2}
+                  y={9}
+                  fill="rgba(255,255,255,0.4)"
+                  fontSize={8}
+                  fontFamily="monospace"
+                >
+                  {tick.label}
+                </text>
+              )}
+            </g>
+          );
+        })}
       </svg>
     </div>
   );
 }
 
 export function VerticalRuler({ scrollTop, canvasHeight }: RulerProps) {
-  const { pages, zoom } = useEditorStore();
+  const { pages, zoom, pdfBytes } = useEditorStore();
   const addGuide = useEditorStore((s) => s.addGuide);
   const removeGuide = useEditorStore((s) => s.removeGuide);
   const setPreviewGuide = useEditorStore((s) => s.setPreviewGuide);
   const guides = useEditorStore((s) => s.guides);
   const rulerRef = useRef<HTMLDivElement>(null);
 
-  const ticks: Array<{ y: number; isMajor: boolean; label?: string }> = [];
+  const ticks: Array<{ y: number; level: number; label?: string }> = [];
   let currentY = TOP_PADDING;
 
   for (const page of pages) {
     const screenHeight = page.height * zoom;
-    const screenMinorInterval = MINOR_INTERVAL * zoom;
+    const screenSubInterval = SUB_INTERVAL * zoom;
 
-    if (screenMinorInterval >= 3) {
-      for (let py = 0; py <= screenHeight; py += screenMinorInterval) {
+    if (screenSubInterval >= 2.5) {
+      for (let py = 0; py <= screenHeight; py += screenSubInterval) {
         const screenY = currentY + py - scrollTop;
         if (screenY < -RULER_SIZE || screenY > canvasHeight + RULER_SIZE) continue;
-        const isMajor = Math.abs(Math.round(py / zoom) % MAJOR_INTERVAL) < 1;
+        const pdfVal = Math.round(py / zoom);
+        const isMajor = pdfVal % MAJOR_INTERVAL === 0;
+        const isMinor = pdfVal % MINOR_INTERVAL === 0;
         ticks.push({
           y: screenY,
-          isMajor,
-          label: isMajor ? String(Math.round(py / zoom)) : undefined,
+          level: isMajor ? 0 : isMinor ? 1 : 2,
+          label: isMajor ? String(pdfVal) : undefined,
         });
+      }
+    } else {
+      const screenMinorInterval = MINOR_INTERVAL * zoom;
+      if (screenMinorInterval >= 3) {
+        for (let py = 0; py <= screenHeight; py += screenMinorInterval) {
+          const screenY = currentY + py - scrollTop;
+          if (screenY < -RULER_SIZE || screenY > canvasHeight + RULER_SIZE) continue;
+          const isMajor = Math.abs(Math.round(py / zoom) % MAJOR_INTERVAL) < 1;
+          ticks.push({
+            y: screenY,
+            level: isMajor ? 0 : 1,
+            label: isMajor ? String(Math.round(py / zoom)) : undefined,
+          });
+        }
       }
     }
 
@@ -231,35 +267,38 @@ export function VerticalRuler({ scrollTop, canvasHeight }: RulerProps) {
   return (
     <div
       ref={rulerRef}
-      className="flex-shrink-0 bg-neutral-900 border-r border-border relative overflow-hidden cursor-ns-resize"
-      style={{ width: RULER_SIZE, height: canvasHeight }}
+      className={`flex-shrink-0 bg-neutral-900 border-r border-border relative ${pdfBytes ? "cursor-ns-resize" : "cursor-default"}`}
+      style={{ width: RULER_SIZE, height: canvasHeight, overflow: "hidden" }}
       onMouseDown={handleMouseDown}
     >
       <svg width={RULER_SIZE} height={canvasHeight}>
-        {ticks.map((tick, i) => (
-          <g key={i}>
-            <line
-              y1={tick.y}
-              x1={tick.isMajor ? 0 : RULER_SIZE * 0.6}
-              y2={tick.y}
-              x2={RULER_SIZE}
-              stroke="rgba(255,255,255,0.25)"
-              strokeWidth={tick.isMajor ? 1 : 0.5}
-            />
-            {tick.label && (
-              <text
-                x={2}
-                y={tick.y + 3}
-                fill="rgba(255,255,255,0.4)"
-                fontSize={7}
-                fontFamily="monospace"
-                transform={`rotate(-90, 2, ${tick.y + 3})`}
-              >
-                {tick.label}
-              </text>
-            )}
-          </g>
-        ))}
+        {ticks.map((tick, i) => {
+          const startX = tick.level === 0 ? 0 : tick.level === 1 ? RULER_SIZE * 0.6 : RULER_SIZE * 0.78;
+          return (
+            <g key={i}>
+              <line
+                y1={tick.y}
+                x1={startX}
+                y2={tick.y}
+                x2={RULER_SIZE}
+                stroke="rgba(255,255,255,0.25)"
+                strokeWidth={tick.level === 0 ? 1 : 0.5}
+              />
+              {tick.label && (
+                <text
+                  x={RULER_SIZE / 2}
+                  y={tick.y - 3}
+                  fill="rgba(255,255,255,0.55)"
+                  fontSize={8}
+                  fontFamily="monospace"
+                  textAnchor="middle"
+                >
+                  {tick.label}
+                </text>
+              )}
+            </g>
+          );
+        })}
       </svg>
     </div>
   );
