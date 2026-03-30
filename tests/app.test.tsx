@@ -42,14 +42,14 @@ describe("App layout", () => {
 
   it("shows empty state when no PDF is loaded", () => {
     render(<App />);
-    expect(screen.getByText("Open a PDF file to get started")).toBeInTheDocument();
+    expect(screen.getByText("Open a PDF to get started")).toBeInTheDocument();
   });
 
   it("renders tool buttons", () => {
     render(<App />);
     expect(screen.getByText("Select")).toBeInTheDocument();
-    expect(screen.getByText("Input")).toBeInTheDocument();
-    expect(screen.getByText("Textarea")).toBeInTheDocument();
+    expect(screen.getByText("Text")).toBeInTheDocument();
+    expect(screen.getByText("Multiline")).toBeInTheDocument();
   });
 
   it("renders export button", () => {

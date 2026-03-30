@@ -78,3 +78,25 @@ These modules import Tauri dialog/fs plugins and reach into the global store via
 - Pure functions in `lib/` with no store dependencies are preferred.
 - Components read from store via `useEditorStore()` hook selector pattern; non-React code uses `useEditorStore.getState()`.
 - Tests live in `tests/` mirroring the `src/` structure.
+
+## Design Context
+
+### Users
+Office workers and administrators who need to make existing PDF documents fillable. They are not designers or developers — they want a straightforward tool to place form fields (text inputs, checkboxes, radio buttons) onto PDFs and export them as fillable forms. Task-driven: open a PDF, place fields quickly, export, move on. Speed, clarity, and reliability over advanced features.
+
+### Brand Personality
+**Clean, precise, professional.** A well-made instrument — minimal, purposeful, trustworthy. No unnecessary decoration. Voice is direct, helpful, unassuming. Plain language, no jargon.
+
+### Aesthetic Direction
+- **Dark mode only** (enforced via `.dark` class)
+- **Canvas-focused**: PDF document dominates the viewport; UI chrome is compact and collapsible
+- **Typography**: Geist Variable. text-xs for labels, text-sm for headings, monospace for numeric values
+- **Color**: Neutral base (oklch, no hue) for structure. Semantic accents: blue=text input, green=checkbox, purple=radio, amber=multiline. Cyan for ruler guides, orange for snap lines
+- **References**: Figma (canvas editing, snap guides, compact property panels). Anti-reference: cluttered enterprise software, old-school PDF tools
+
+### Design Principles
+1. **Canvas first**: PDF document dominates. UI chrome is compact and collapsible, never competing for attention.
+2. **Efficient interactions**: Fewest possible steps. Prefer direct manipulation over multi-step workflows. Discoverable keyboard shortcuts.
+3. **Precision without complexity**: Exact positioning (snap, grid, numeric inputs) without requiring users to understand PDF coordinates. Optional and unobtrusive.
+4. **Calm restraint**: Color used sparingly for semantic coding. No gradients, shadows, animations, or decoration. Quiet and purposeful.
+5. **Accessible by default**: WCAG AA contrast. Keyboard-navigable. Visible focus states.

@@ -555,24 +555,24 @@ export function CanvasOverlay() {
         <div
           className={`h-full w-full flex items-center justify-center ${
             isSelected
-              ? "ring-1 ring-blue-400/30"
+              ? "ring-1 ring-field-text/30"
               : ""
           } ${
             el.type === "checkbox"
               ? isSelected
-                ? "border-2 border-green-400 bg-green-500/15"
-                : "border border-green-500/50 bg-green-500/10"
+                ? "border-2 border-field-checkbox bg-field-checkbox-bg"
+                : "border border-field-checkbox-dim bg-field-checkbox-bg"
               : el.type === "radio"
                 ? isSelected
-                  ? "border-2 border-purple-400 bg-purple-500/15"
-                  : "border border-purple-500/50 bg-purple-500/10"
+                  ? "border-2 border-field-radio bg-field-radio-bg"
+                  : "border border-field-radio-dim bg-field-radio-bg"
                 : el.type === "text" && el.multiline
                   ? isSelected
-                    ? "border-2 border-amber-400 bg-amber-500/15"
-                    : "border border-amber-500/50 bg-amber-500/10"
+                    ? "border-2 border-field-multiline bg-field-multiline-bg"
+                    : "border border-field-multiline-dim bg-field-multiline-bg"
                   : isSelected
-                    ? "border-2 border-blue-400 bg-blue-500/15"
-                    : "border border-blue-500/50 bg-blue-500/10"
+                    ? "border-2 border-field-text bg-field-text-bg"
+                    : "border border-field-text-dim bg-field-text-bg"
           }`}
           style={
             draggingId.current === el.id && dragSnapCorrection
@@ -581,7 +581,7 @@ export function CanvasOverlay() {
           }
         >
           {el.type === "checkbox" && (
-            <svg viewBox="0 0 10 10" className="h-3/5 w-3/5 text-green-500">
+            <svg viewBox="0 0 10 10" className="h-3/5 w-3/5 text-field-checkbox">
               <path
                 d="M2 5L4 7L8 3"
                 fill="none"
@@ -593,20 +593,20 @@ export function CanvasOverlay() {
             </svg>
           )}
           {el.type === "radio" && (
-            <svg viewBox="0 0 10 10" className="h-3/5 w-3/5 text-purple-500">
+            <svg viewBox="0 0 10 10" className="h-3/5 w-3/5 text-field-radio">
               <circle cx="5" cy="5" r="3.5" fill="none" stroke="currentColor" strokeWidth="1" />
               <circle cx="5" cy="5" r="1.5" fill="currentColor" />
             </svg>
           )}
           {el.type === "text" && el.multiline && (
-            <svg viewBox="0 0 12 12" className="h-3/5 w-3/5 text-amber-500 opacity-50">
+            <svg viewBox="0 0 12 12" className="h-3/5 w-3/5 text-field-multiline opacity-50">
               <line x1="2" y1="3" x2="10" y2="3" stroke="currentColor" strokeWidth="1" />
               <line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" strokeWidth="1" />
               <line x1="2" y1="9" x2="7" y2="9" stroke="currentColor" strokeWidth="1" />
             </svg>
           )}
           <span className={`absolute -top-4 left-0 truncate text-[10px] ${
-            el.type === "checkbox" ? "text-green-400" : el.type === "radio" ? "text-purple-400" : el.type === "text" && el.multiline ? "text-amber-400" : "text-blue-400"
+            el.type === "checkbox" ? "text-field-checkbox" : el.type === "radio" ? "text-field-radio" : el.type === "text" && el.multiline ? "text-field-multiline" : "text-field-text"
           }`}>
             {getElementName(el)}
           </span>
@@ -648,7 +648,7 @@ export function CanvasOverlay() {
             top: screenY,
             width: layout.screenWidth,
             height: 1,
-            backgroundColor: guide.type === "element" ? "#f97316" : "#22d3ee",
+            backgroundColor: guide.type === "element" ? "var(--guide-snap)" : "var(--guide-ruler)",
           }}
         />
       );
@@ -663,7 +663,7 @@ export function CanvasOverlay() {
             top: layout.yOffset,
             width: 1,
             height: layout.screenHeight,
-            backgroundColor: guide.type === "element" ? "#f97316" : "#22d3ee",
+            backgroundColor: guide.type === "element" ? "var(--guide-snap)" : "var(--guide-ruler)",
           }}
         />
       );
@@ -685,7 +685,7 @@ export function CanvasOverlay() {
               top: screenY,
               width: layout.screenWidth,
               height: 1,
-              backgroundColor: "#22d3ee",
+              backgroundColor: "var(--guide-ruler)",
               opacity: 0.6,
             }}
           />
@@ -701,7 +701,7 @@ export function CanvasOverlay() {
               top: layout.yOffset,
               width: 1,
               height: layout.screenHeight,
-              backgroundColor: "#22d3ee",
+              backgroundColor: "var(--guide-ruler)",
               opacity: 0.6,
             }}
           />
@@ -725,7 +725,7 @@ export function CanvasOverlay() {
                 top: screenY,
                 width: layout.screenWidth,
                 height: 1,
-                backgroundColor: "#22d3ee",
+                backgroundColor: "var(--guide-ruler)",
               }}
             />,
           ];
@@ -740,7 +740,7 @@ export function CanvasOverlay() {
                 top: layout.yOffset,
                 width: 1,
                 height: layout.screenHeight,
-                backgroundColor: "#22d3ee",
+                backgroundColor: "var(--guide-ruler)",
               }}
             />,
           ];
@@ -764,7 +764,7 @@ export function CanvasOverlay() {
       {guideLineElements}
       {marqueeRect && marqueeRect.width > 0 && marqueeRect.height > 0 && (
         <div
-          className="pointer-events-none absolute border border-blue-400/60 bg-blue-400/10"
+          className="pointer-events-none absolute border border-field-text/50 bg-field-text-bg"
           style={{
             left: marqueeRect.left,
             top: marqueeRect.top,
@@ -775,7 +775,7 @@ export function CanvasOverlay() {
       )}
       {drawRectStyle && drawRectStyle.width > 0 && drawRectStyle.height > 0 && (
         <div
-          className="pointer-events-none absolute border-2 border-amber-400/70 bg-amber-400/10"
+          className="pointer-events-none absolute border-2 border-field-multiline/60 bg-field-multiline-bg"
           style={{
             left: drawRectStyle.left,
             top: drawRectStyle.top,

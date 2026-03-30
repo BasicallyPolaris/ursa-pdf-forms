@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useEditorStore } from "@/stores/editor-store";
 import { loadPdfDocument } from "@/lib/pdf-loader";
+import { PanelLeftClose, PanelLeft } from "lucide-react";
 
 export function PageSidebar() {
   const { pdfBytes, pages, sidebarCollapsed, toggleSidebar } = useEditorStore();
@@ -66,14 +67,14 @@ export function PageSidebar() {
       >
         <button
           onClick={() => toggleSidebar()}
-          className="text-xs text-muted-foreground hover:text-foreground"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground"
           title="Expand sidebar"
         >
-          &laquo;
+          <PanelLeft className="h-3.5 w-3.5" />
         </button>
         {pdfBytes && pages.length > 0 && (
-          <span className="mt-2 text-xs text-muted-foreground">
-            1/{pages.length}
+          <span className="mt-2 text-[10px] tabular-nums text-muted-foreground">
+            {pages.length}
           </span>
         )}
       </aside>
@@ -83,36 +84,38 @@ export function PageSidebar() {
   return (
     <aside
       data-testid="left-sidebar"
-      className="flex w-48 flex-col border-r border-border bg-card"
+      className="flex w-44 flex-col border-r border-border bg-card"
     >
-      <div className="flex items-center justify-between px-2 py-1">
-        <span className="text-xs font-medium text-muted-foreground">Pages</span>
+      <div className="flex items-center justify-between px-2.5 py-1.5">
+        <span className="text-[11px] font-medium text-muted-foreground">Pages</span>
         <button
           onClick={() => toggleSidebar()}
-          className="text-xs text-muted-foreground hover:text-foreground"
+          className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground"
           title="Collapse sidebar"
         >
-          &raquo;
+          <PanelLeftClose className="h-3.5 w-3.5" />
         </button>
       </div>
       {pdfBytes && (
         <div
           ref={containerRef}
-          className="flex flex-col gap-2 overflow-auto p-2"
+          className="flex flex-col gap-1.5 overflow-auto px-2 pb-2"
         >
           {pages.map((page) => (
             <button
               key={page.pageNumber}
               onClick={() => scrollToPage(page.pageNumber)}
-              className="flex flex-col items-center gap-1 rounded border border-border p-1 hover:bg-accent"
+              className="group flex flex-col items-center gap-1 rounded-md border border-transparent p-1.5 hover:border-border hover:bg-accent/40"
             >
-              <canvas
-                ref={(el) => {
-                  if (el) canvasRefs.current.set(page.pageNumber, el);
-                }}
-                className="max-w-full"
-              />
-              <span className="text-xs text-muted-foreground">
+              <div className="overflow-hidden rounded-sm border border-border/50">
+                <canvas
+                  ref={(el) => {
+                    if (el) canvasRefs.current.set(page.pageNumber, el);
+                  }}
+                  className="max-w-full"
+                />
+              </div>
+              <span className="text-[10px] tabular-nums text-muted-foreground group-hover:text-foreground">
                 {page.pageNumber}
               </span>
             </button>

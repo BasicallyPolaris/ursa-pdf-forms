@@ -11,6 +11,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import {
+  Type,
+  Square,
+  CircleDot,
+  AlignLeft,
+} from "lucide-react";
 
 class ErrorBoundary extends Component<
   { children: React.ReactNode },
@@ -26,7 +32,7 @@ class ErrorBoundary extends Component<
     if (this.state.hasError) {
       return (
         <div className="p-4">
-          <p className="text-xs text-red-400">Panel error</p>
+          <p className="text-xs text-destructive">Panel error</p>
           <p className="mt-1 text-[10px] text-muted-foreground break-all">
             {this.state.error?.message}
           </p>
@@ -46,10 +52,28 @@ function PropertyField({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Label className="text-[11px] text-muted-foreground">{label}</Label>
       {children}
     </div>
   );
+}
+
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <span className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+      {label}
+    </span>
+  );
+}
+
+const TYPE_CONFIG: Record<string, { label: string; icon: typeof Type; colorClass: string; borderClass: string }> = {
+  text: { label: "Text Field", icon: Type, colorClass: "text-field-text", borderClass: "border-field-text/30" },
+  checkbox: { label: "Checkbox", icon: Square, colorClass: "text-field-checkbox", borderClass: "border-field-checkbox/30" },
+  radio: { label: "Radio Button", icon: CircleDot, colorClass: "text-field-radio", borderClass: "border-field-radio/30" },
+};
+
+function MultilineConfig() {
+  return { label: "Multiline", icon: AlignLeft, colorClass: "text-field-multiline", borderClass: "border-field-multiline/30" };
 }
 
 function TextFieldProperties({ elementId }: { elementId: string }) {
@@ -80,6 +104,10 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
         />
       </PropertyField>
 
+      <Separator />
+
+      <SectionHeader label="Typography" />
+
       <PropertyField label="Font Size">
         <Input
           type="number"
@@ -87,12 +115,12 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
           onChange={(e) =>
             updateElement(element.id, { fontSize: Number(e.target.value) })
           }
-          className="h-7 text-xs"
+          className="h-7 text-xs font-mono tabular-nums"
         />
       </PropertyField>
 
       <div className="flex items-center justify-between">
-        <Label className="text-xs text-muted-foreground">Multiline</Label>
+        <Label className="text-[11px] text-muted-foreground">Multiline</Label>
         <Switch
           checked={element.multiline}
           onCheckedChange={(checked) =>
@@ -102,7 +130,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
       </div>
 
       <div className="flex items-center justify-between">
-        <Label className="text-xs text-muted-foreground">Required</Label>
+        <Label className="text-[11px] text-muted-foreground">Required</Label>
         <Switch
           checked={element.required}
           onCheckedChange={(checked) =>
@@ -121,57 +149,60 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
             })
           }
           placeholder="No limit"
-          className="h-7 text-xs"
+          className="h-7 text-xs font-mono tabular-nums"
         />
       </PropertyField>
 
       <Separator />
 
-      <PropertyField label="Width">
-        <Input
-          type="number"
-          value={Math.round(element.width)}
-          onChange={(e) =>
-            updateElement(element.id, { width: Number(e.target.value) })
-          }
-          className="h-7 text-xs"
-        />
-      </PropertyField>
+      <SectionHeader label="Position" />
 
-      <PropertyField label="Height">
-        <Input
-          type="number"
-          value={Math.round(element.height)}
-          onChange={(e) =>
-            updateElement(element.id, {
-              height: Number(e.target.value),
-            })
-          }
-          className="h-7 text-xs"
-        />
-      </PropertyField>
-
-      <PropertyField label="X">
-        <Input
-          type="number"
-          value={Math.round(element.x)}
-          onChange={(e) =>
-            updateElement(element.id, { x: Number(e.target.value) })
-          }
-          className="h-7 text-xs"
-        />
-      </PropertyField>
-
-      <PropertyField label="Y">
-        <Input
-          type="number"
-          value={Math.round(element.y)}
-          onChange={(e) =>
-            updateElement(element.id, { y: Number(e.target.value) })
-          }
-          className="h-7 text-xs"
-        />
-      </PropertyField>
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField label="X">
+          <Input
+            type="number"
+            value={Math.round(element.x)}
+            onChange={(e) =>
+              updateElement(element.id, { x: Number(e.target.value) })
+            }
+            className="h-7 text-xs font-mono tabular-nums"
+          />
+        </PropertyField>
+        <PropertyField label="Y">
+          <Input
+            type="number"
+            value={Math.round(element.y)}
+            onChange={(e) =>
+              updateElement(element.id, { y: Number(e.target.value) })
+            }
+            className="h-7 text-xs font-mono tabular-nums"
+          />
+        </PropertyField>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField label="Width">
+          <Input
+            type="number"
+            value={Math.round(element.width)}
+            onChange={(e) =>
+              updateElement(element.id, { width: Number(e.target.value) })
+            }
+            className="h-7 text-xs font-mono tabular-nums"
+          />
+        </PropertyField>
+        <PropertyField label="Height">
+          <Input
+            type="number"
+            value={Math.round(element.height)}
+            onChange={(e) =>
+              updateElement(element.id, {
+                height: Number(e.target.value),
+              })
+            }
+            className="h-7 text-xs font-mono tabular-nums"
+          />
+        </PropertyField>
+      </div>
     </div>
   );
 }
@@ -195,7 +226,7 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
       </PropertyField>
 
       <div className="flex items-center justify-between">
-        <Label className="text-xs text-muted-foreground">Default Checked</Label>
+        <Label className="text-[11px] text-muted-foreground">Default Checked</Label>
         <Switch
           checked={element.defaultChecked}
           onCheckedChange={(checked) =>
@@ -206,51 +237,54 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
 
       <Separator />
 
-      <PropertyField label="Width">
-        <Input
-          type="number"
-          value={Math.round(element.width)}
-          onChange={(e) =>
-            updateElement(element.id, { fontSize: Number(e.target.value) })
-          }
-          className="h-7 text-xs"
-        />
-      </PropertyField>
+      <SectionHeader label="Position" />
 
-      <PropertyField label="Height">
-        <Input
-          type="number"
-          value={Math.round(element.height)}
-          onChange={(e) =>
-            updateElement(element.id, {
-              height: Number(e.target.value),
-            })
-          }
-          className="h-7 text-xs"
-        />
-      </PropertyField>
-
-      <PropertyField label="X">
-        <Input
-          type="number"
-          value={Math.round(element.x)}
-          onChange={(e) =>
-            updateElement(element.id, { x: Number(e.target.value) })
-          }
-          className="h-7 text-xs"
-        />
-      </PropertyField>
-
-      <PropertyField label="Y">
-        <Input
-          type="number"
-          value={Math.round(element.y)}
-          onChange={(e) =>
-            updateElement(element.id, { y: Number(e.target.value) })
-          }
-          className="h-7 text-xs"
-        />
-      </PropertyField>
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField label="X">
+          <Input
+            type="number"
+            value={Math.round(element.x)}
+            onChange={(e) =>
+              updateElement(element.id, { x: Number(e.target.value) })
+            }
+            className="h-7 text-xs font-mono tabular-nums"
+          />
+        </PropertyField>
+        <PropertyField label="Y">
+          <Input
+            type="number"
+            value={Math.round(element.y)}
+            onChange={(e) =>
+              updateElement(element.id, { y: Number(e.target.value) })
+            }
+            className="h-7 text-xs font-mono tabular-nums"
+          />
+        </PropertyField>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField label="Width">
+          <Input
+            type="number"
+            value={Math.round(element.width)}
+            onChange={(e) =>
+              updateElement(element.id, { fontSize: Number(e.target.value) })
+            }
+            className="h-7 text-xs font-mono tabular-nums"
+          />
+        </PropertyField>
+        <PropertyField label="Height">
+          <Input
+            type="number"
+            value={Math.round(element.height)}
+            onChange={(e) =>
+              updateElement(element.id, {
+                height: Number(e.target.value),
+              })
+            }
+            className="h-7 text-xs font-mono tabular-nums"
+          />
+        </PropertyField>
+      </div>
     </div>
   );
 }
@@ -297,51 +331,54 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
 
       <Separator />
 
-      <PropertyField label="Width">
-        <Input
-          type="number"
-          value={Math.round(element.width)}
-          onChange={(e) =>
-            updateElement(element.id, { fontSize: Number(e.target.value) })
-          }
-          className="h-7 text-xs"
-        />
-      </PropertyField>
+      <SectionHeader label="Position" />
 
-      <PropertyField label="Height">
-        <Input
-          type="number"
-          value={Math.round(element.height)}
-          onChange={(e) =>
-            updateElement(element.id, {
-              height: Number(e.target.value),
-            })
-          }
-          className="h-7 text-xs"
-        />
-      </PropertyField>
-
-      <PropertyField label="X">
-        <Input
-          type="number"
-          value={Math.round(element.x)}
-          onChange={(e) =>
-            updateElement(element.id, { x: Number(e.target.value) })
-          }
-          className="h-7 text-xs"
-        />
-      </PropertyField>
-
-      <PropertyField label="Y">
-        <Input
-          type="number"
-          value={Math.round(element.y)}
-          onChange={(e) =>
-            updateElement(element.id, { y: Number(e.target.value) })
-          }
-          className="h-7 text-xs"
-        />
-      </PropertyField>
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField label="X">
+          <Input
+            type="number"
+            value={Math.round(element.x)}
+            onChange={(e) =>
+              updateElement(element.id, { x: Number(e.target.value) })
+            }
+            className="h-7 text-xs font-mono tabular-nums"
+          />
+        </PropertyField>
+        <PropertyField label="Y">
+          <Input
+            type="number"
+            value={Math.round(element.y)}
+            onChange={(e) =>
+              updateElement(element.id, { y: Number(e.target.value) })
+            }
+            className="h-7 text-xs font-mono tabular-nums"
+          />
+        </PropertyField>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField label="Width">
+          <Input
+            type="number"
+            value={Math.round(element.width)}
+            onChange={(e) =>
+              updateElement(element.id, { fontSize: Number(e.target.value) })
+            }
+            className="h-7 text-xs font-mono tabular-nums"
+          />
+        </PropertyField>
+        <PropertyField label="Height">
+          <Input
+            type="number"
+            value={Math.round(element.height)}
+            onChange={(e) =>
+              updateElement(element.id, {
+                height: Number(e.target.value),
+              })
+            }
+            className="h-7 text-xs font-mono tabular-nums"
+          />
+        </PropertyField>
+      </div>
     </div>
   );
 }
@@ -374,12 +411,12 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
               updateElement(el.id, { fontSize: val });
             }
           }}
-          className="h-7 text-xs"
+          className="h-7 text-xs font-mono tabular-nums"
         />
       </PropertyField>
 
       <div className="flex items-center justify-between">
-        <Label className="text-xs text-muted-foreground">Multiline</Label>
+        <Label className="text-[11px] text-muted-foreground">Multiline</Label>
         <Switch
           checked={allSameMultiline ? elements[0].multiline : false}
           onCheckedChange={(checked) => {
@@ -391,7 +428,7 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
       </div>
 
       <div className="flex items-center justify-between">
-        <Label className="text-xs text-muted-foreground">Required</Label>
+        <Label className="text-[11px] text-muted-foreground">Required</Label>
         <Switch
           checked={allSameRequired ? elements[0].required : false}
           onCheckedChange={(checked) => {
@@ -446,7 +483,7 @@ function AlignmentButtons() {
 
   return (
     <div className="mb-3 flex flex-col gap-2">
-      <span className="text-xs text-muted-foreground">Align</span>
+      <SectionHeader label="Alignment" />
       <div className="flex gap-1">
         <button className={btnClass} onClick={() => alignElements("left")} title="Align left">⫷</button>
         <button className={btnClass} onClick={() => alignElements("centerH")} title="Align center H">⫿</button>
@@ -457,7 +494,7 @@ function AlignmentButtons() {
       </div>
       {selectedIds.size >= 3 && (
         <>
-          <span className="text-xs text-muted-foreground">Distribute</span>
+          <SectionHeader label="Distribute" />
           <div className="flex gap-1">
             <button className={btnClass + " w-auto px-2"} onClick={() => distributeElements("horizontal")} title="Distribute horizontally">H ≡</button>
             <button className={btnClass + " w-auto px-2"} onClick={() => distributeElements("vertical")} title="Distribute vertically">V ≡</button>
@@ -492,7 +529,7 @@ function PropertiesPanelContent() {
   if (selectedIds.size === 0) {
     return (
       <div className="flex h-full items-center justify-center p-4">
-        <p className="text-xs text-muted-foreground">No selection</p>
+        <p className="text-xs text-muted-foreground/50">No selection</p>
       </div>
     );
   }
@@ -501,19 +538,27 @@ function PropertiesPanelContent() {
     const types = new Set(selectedElements.map((el) => el.type));
     const allSameType = types.size === 1;
     const singleType = allSameType ? [...types][0] : null;
+    const config = singleType ? TYPE_CONFIG[singleType] : null;
 
     return (
       <div className="h-full overflow-y-auto">
-        <div className="p-4">
-          <div className="mb-3">
-            <span className="text-xs font-medium text-foreground">
-              {selectedIds.size} selected
-            </span>
-            <span className="ml-2 text-[10px] text-muted-foreground">
-              {singleType
-                ? { text: "Text Fields", checkbox: "Checkboxes", radio: "Radio Buttons" }[singleType]
-                : "Mixed types"}
-            </span>
+        <div className="p-3">
+          <div className="mb-3 flex items-center gap-2">
+            {config && (
+              <span className={`flex h-5 w-5 items-center justify-center rounded ${config.colorClass}`}>
+                <config.icon className="h-3 w-3" />
+              </span>
+            )}
+            <div>
+              <span className="text-xs font-medium text-foreground">
+                {selectedIds.size} selected
+              </span>
+              <span className="ml-2 text-[10px] text-muted-foreground">
+                {singleType
+                  ? { text: "Text Fields", checkbox: "Checkboxes", radio: "Radio Buttons" }[singleType]
+                  : "Mixed types"}
+              </span>
+            </div>
           </div>
           <Separator className="mb-3" />
 
@@ -536,18 +581,27 @@ function PropertiesPanelContent() {
   if (!element) {
     return (
       <div className="flex h-full items-center justify-center p-4">
-        <p className="text-xs text-muted-foreground">No selection</p>
+        <p className="text-xs text-muted-foreground/50">No selection</p>
       </div>
     );
   }
 
+  const isMultilineText = isTextField(element) && element.multiline;
+  const config = isMultilineText ? MultilineConfig() : TYPE_CONFIG[element.type];
+  const Icon = config.icon;
+
   return (
     <div className="h-full overflow-y-auto">
-      <div className="p-4">
+      <div className="p-3">
         <div className="mb-3 flex items-center justify-between">
-          <span className="text-xs font-medium text-foreground">
-            {{ text: "Text Field", checkbox: "Checkbox", radio: "Radio Button" }[element.type] ?? element.type}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`flex h-5 w-5 items-center justify-center rounded ${config.colorClass}`}>
+              <Icon className="h-3 w-3" />
+            </span>
+            <span className="text-xs font-medium text-foreground">
+              {isMultilineText ? "Multiline" : config.label}
+            </span>
+          </div>
           <span className="text-[10px] text-muted-foreground">Page {element.pageNumber}</span>
         </div>
         <Separator className="mb-3" />
