@@ -14,26 +14,19 @@ function clampZoom(z: number): number {
 
 export function useZoom() {
   useEffect(() => {
-    const handleWheel = (e: Event) => {
-      const wheelEvent = e as WheelEvent;
-      if (!wheelEvent.metaKey && !wheelEvent.ctrlKey) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (!e.metaKey && !e.ctrlKey) return;
       const store = useEditorStore.getState();
       if (!store.pdfBytes) return;
       e.preventDefault();
-      const delta = wheelEvent.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+      e.stopPropagation();
+      const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
       store.setZoom(clampZoom(store.zoom + delta));
     };
 
-    const container = document.querySelector(
-      '[data-testid="canvas-area"]',
-    );
-    if (container) {
-      container.addEventListener("wheel", handleWheel, { passive: false });
-    }
+    window.addEventListener("wheel", handleWheel, { passive: false });
     return () => {
-      if (container) {
-        container.removeEventListener("wheel", handleWheel);
-      }
+      window.removeEventListener("wheel", handleWheel);
     };
   }, []);
 

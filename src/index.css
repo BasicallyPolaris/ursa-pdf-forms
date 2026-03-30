@@ -123,6 +123,10 @@
     }
   body {
     @apply bg-background text-foreground;
+    touch-action: manipulation;
+    }
+  html {
+    touch-action: manipulation;
     }
   html {
     @apply font-sans;
