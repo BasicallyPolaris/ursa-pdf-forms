@@ -321,7 +321,8 @@ export const useEditorStore = create<EditorState>()(
             elements: s.elements.map((el) => {
               const u = updates.find((u) => u.id === el.id);
               if (!u) return el;
-              return { ...el, ...("width" in u ? { width: u.width } : {}), ...("height" in u ? { height: u.height } : {}) };
+              const heightLocked = el.type === "text" && !(el as import("@/lib/form-element-model").TextField).multiline;
+              return { ...el, ...("width" in u ? { width: u.width } : {}), ...("height" in u && !heightLocked ? { height: u.height } : {}) };
             }),
           }));
         }
