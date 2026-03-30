@@ -33,6 +33,7 @@ interface EditorState {
   clearPdf: () => void;
   addElement: (element: FormElement) => void;
   updateElement: (id: string, updates: Partial<FormElement>) => void;
+  moveElements: (updates: Array<{ id: string; x: number; y: number }>) => void;
   removeElements: (ids: string[]) => void;
   selectElements: (ids: Set<string>) => void;
   clearSelection: () => void;
@@ -75,6 +76,14 @@ export const useEditorStore = create<EditorState>()(
           elements: s.elements.map((el) =>
             el.id === id ? ({ ...el, ...updates } as FormElement) : el,
           ),
+        })),
+
+      moveElements: (updates) =>
+        set((s) => ({
+          elements: s.elements.map((el) => {
+            const u = updates.find((u) => u.id === el.id);
+            return u ? { ...el, x: u.x, y: u.y } : el;
+          }),
         })),
 
       removeElements: (ids) =>

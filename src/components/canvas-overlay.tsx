@@ -35,6 +35,7 @@ export function CanvasOverlay() {
   const selectElements = useEditorStore((s) => s.selectElements);
   const clearSelection = useEditorStore((s) => s.clearSelection);
   const addToSelection = useEditorStore((s) => s.addToSelection);
+  const moveElements = useEditorStore((s) => s.moveElements);
   const overlayRef = useRef<HTMLDivElement>(null);
   const [overlayWidth, setOverlayWidth] = useState(0);
 
@@ -57,6 +58,8 @@ export function CanvasOverlay() {
   const isDrawingRef = useRef(false);
 
   const dragStartPositions = useRef<Map<string, { x: number; y: number }> | null>(null);
+  const draggingId = useRef<string | null>(null);
+  const [dragOffset, setDragOffset] = useState<{ dx: number; dy: number } | null>(null);
 
   useEffect(() => {
     const el = overlayRef.current;
@@ -349,13 +352,17 @@ export function CanvasOverlay() {
     const layout = layouts.get(el.pageNumber);
     if (!layout) return null;
 
+    const isSelected = selectedIds.has(el.id);
     const screen = pdfToScreen(
       { x: el.x, y: el.y },
       { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
     );
+    if (isSelected && dragOffset && draggingId.current !== el.id) {
+      screen.x += dragOffset.dx;
+      screen.y += dragOffset.dy;
+    }
     const screenWidth = el.width * zoom;
     const screenHeight = el.height * zoom;
-    const isSelected = selectedIds.has(el.id);
 
     const isSingleInput = isInputEl(el);
 
@@ -391,6 +398,13 @@ export function CanvasOverlay() {
             positions.set(e.id, { x: e.x, y: e.y });
           }
           dragStartPositions.current = positions;
+          draggingId.current = el.id;
+          setDragOffset(null);
+        }}
+        onDrag={(_e, d) => {
+          const deltaX = d.x - screen.x;
+          const deltaY = d.y - screen.y;
+          setDragOffset({ dx: deltaX, dy: deltaY });
         }}
         onDragStop={(_e, d) => {
           const pl = layouts.get(el.pageNumber);
@@ -401,16 +415,19 @@ export function CanvasOverlay() {
           const pdfDeltaY = deltaY / zoom;
 
           if (selectedIds.size > 1 && isSelected) {
+            const updates: Array<{ id: string; x: number; y: number }> = [];
             for (const otherEl of elements) {
               if (!selectedIds.has(otherEl.id)) continue;
               const startPos = dragStartPositions.current?.get(otherEl.id);
               if (startPos) {
-                updateElement(otherEl.id, {
+                updates.push({
+                  id: otherEl.id,
                   x: startPos.x + pdfDeltaX,
                   y: startPos.y + pdfDeltaY,
                 });
               }
             }
+            moveElements(updates);
           } else {
             const pdf = screenToPdf(
               { x: d.x, y: d.y },
@@ -419,6 +436,8 @@ export function CanvasOverlay() {
             updateElement(el.id, { x: pdf.x, y: pdf.y });
           }
           dragStartPositions.current = null;
+          draggingId.current = null;
+          setDragOffset(null);
         }}
         onResizeStop={(_e, _dir, ref, _delta, position) => {
           const pl = layouts.get(el.pageNumber);
