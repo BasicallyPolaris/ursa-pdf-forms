@@ -574,18 +574,24 @@ function ToolButton({
 
 function CenterOnPageButtons() {
   const centerSelectionOnPage = useEditorStore((s) => s.centerSelectionOnPage);
+  const centerSelectionOnPageH = useEditorStore((s) => s.centerSelectionOnPageH);
+  const centerSelectionOnPageV = useEditorStore((s) => s.centerSelectionOnPageV);
 
   return (
     <div className="flex flex-col gap-1.5">
-      <SectionHeader label="Center on Page" />
-      <button
-        className="flex h-7 w-full items-center justify-center gap-1.5 rounded text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-        onClick={() => centerSelectionOnPage()}
-        title="Center selection on page"
-      >
-        <Crosshair className="h-3.5 w-3.5" />
-        Center
-      </button>
+      <SectionHeader label="Center" />
+      <div className="flex gap-1">
+        <ToolButton onClick={() => centerSelectionOnPageH()} title="Center horizontally">
+          <AlignCenterVertical className="h-3.5 w-3.5" />
+        </ToolButton>
+        <ToolButton onClick={() => centerSelectionOnPageV()} title="Center vertically">
+          <AlignCenterHorizontal className="h-3.5 w-3.5" />
+        </ToolButton>
+        <span className="w-px bg-border" />
+        <ToolButton onClick={() => centerSelectionOnPage()} title="Center on page">
+          <Crosshair className="h-3.5 w-3.5" />
+        </ToolButton>
+      </div>
     </div>
   );
 }
