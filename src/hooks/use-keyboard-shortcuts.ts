@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useEditorStore, undo, redo } from "@/stores/editor-store";
+import { openPdfFile } from "@/lib/file-operations";
 
 function isInputElement(e: KeyboardEvent): boolean {
   return (
@@ -13,10 +14,16 @@ export function useKeyboardShortcuts() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isInputElement(e)) return;
 
+      const mod = e.metaKey || e.ctrlKey;
+
+      if (mod && e.key === "o") {
+        e.preventDefault();
+        openPdfFile();
+        return;
+      }
+
       const store = useEditorStore.getState();
       if (!store.pdfBytes) return;
-
-      const mod = e.metaKey || e.ctrlKey;
 
       if (mod && e.key === "c") {
         e.preventDefault();
