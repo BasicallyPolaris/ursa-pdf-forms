@@ -1,8 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("pdfjs-dist", () => ({
   GlobalWorkerOptions: { workerSrc: "" },
-  getDocument: vi.fn(),
+  getDocument: vi.fn().mockReturnValue({ promise: Promise.resolve({ numPages: 0 }) }),
 }));
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
@@ -21,14 +21,19 @@ vi.mock("@tauri-apps/api/webview", () => ({
   }),
 }));
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import App from "@/App";
+import { useEditorStore } from "@/stores/editor-store";
 
 describe("App layout", () => {
+  beforeEach(() => {
+    useEditorStore.getState().clearPdf();
+  });
+
   it("renders 3-panel layout with toolbar, sidebar, canvas, and properties panel", () => {
     render(<App />);
 
-    expect(screen.getByText("PDF Form Maker")).toBeInTheDocument();
+    expect(screen.getByText("Open")).toBeInTheDocument();
     expect(screen.getByTestId("left-sidebar")).toBeInTheDocument();
     expect(screen.getByTestId("canvas-area")).toBeInTheDocument();
     expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
@@ -45,9 +50,17 @@ describe("App layout", () => {
     expect(screen.getByText("Open a PDF to get started")).toBeInTheDocument();
   });
 
-  it("renders tool buttons", () => {
+  it("renders tool buttons in floating toolbar when PDF is loaded", async () => {
     render(<App />);
-    expect(screen.getByText("Select")).toBeInTheDocument();
+    expect(screen.queryByText("Select")).not.toBeInTheDocument();
+
+    useEditorStore.getState().setPdf("test.pdf", new Uint8Array([1, 2, 3]), [
+      { pageNumber: 1, width: 612, height: 792 },
+    ]);
+
+    await waitFor(() => {
+      expect(screen.getByText("Select")).toBeInTheDocument();
+    });
     expect(screen.getByText("Text")).toBeInTheDocument();
     expect(screen.getByText("Multiline")).toBeInTheDocument();
   });

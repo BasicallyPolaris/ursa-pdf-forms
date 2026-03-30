@@ -1,40 +1,42 @@
-import { useRef, useEffect, useState, useCallback } from "react";
-import {
-  MousePointer2,
-  Type,
-  AlignLeft,
-  Square,
-  CircleDot,
-  Undo2,
-  Redo2,
-  Grid3x3,
-  Eye,
-  FolderOpen,
-  FileDown,
-  FileText,
-  Save,
-  Minus,
-  Plus,
-} from "lucide-react";
-import { PdfCanvas } from "@/components/pdf-canvas";
-import { PageSidebar } from "@/components/page-sidebar";
 import { CanvasOverlay } from "@/components/canvas-overlay";
+import { FloatingToolbar } from "@/components/floating-toolbar";
+import { PageSidebar } from "@/components/page-sidebar";
+import { PdfCanvas } from "@/components/pdf-canvas";
 import { PropertiesPanel } from "@/components/properties-panel";
-import { HorizontalRuler, VerticalRuler, RulerCorner } from "@/components/ruler";
-import { useEditorStore, undo, redo, canUndo, canRedo } from "@/stores/editor-store";
-import { openPdfFile, saveProjectFile, openProjectFile } from "@/lib/file-operations";
-import { exportPdf } from "@/lib/export-pdf";
+import {
+  HorizontalRuler,
+  RulerCorner,
+  VerticalRuler,
+} from "@/components/ruler";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useZoom, ZOOM_PRESETS } from "@/hooks/use-zoom";
-
-const TOOLS = [
-  { id: "select" as const, label: "Select", icon: MousePointer2 },
-  { id: "input" as const, label: "Text", icon: Type },
-  { id: "textarea" as const, label: "Multiline", icon: AlignLeft },
-  { id: "checkbox" as const, label: "Checkbox", icon: Square },
-  { id: "radio" as const, label: "Radio", icon: CircleDot },
-];
+import { exportPdf } from "@/lib/export-pdf";
+import {
+  openPdfFile,
+  openProjectFile,
+  saveProjectFile,
+} from "@/lib/file-operations";
+import {
+  canRedo,
+  canUndo,
+  redo,
+  undo,
+  useEditorStore,
+} from "@/stores/editor-store";
+import {
+  Eye,
+  FileDown,
+  FileText,
+  FolderOpen,
+  Grid3x3,
+  Minus,
+  Plus,
+  Redo2,
+  Save,
+  Undo2,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 function ToolbarSeparator() {
   return <div className="mx-1 h-6 w-px bg-border" />;
@@ -72,7 +74,13 @@ function ToolbarButton({
 }
 
 function App() {
-  const { pdfFileName, activeTool, setActiveTool, zoom, gridEnabled, showGrid, gridSize } = useEditorStore();
+  const {
+    pdfFileName,
+    zoom,
+    gridEnabled,
+    showGrid,
+    gridSize,
+  } = useEditorStore();
   const setZoom = useEditorStore((s) => s.setZoom);
   const toggleGrid = useEditorStore((s) => s.toggleGrid);
   const setGridSize = useEditorStore((s) => s.setGridSize);
@@ -116,14 +124,10 @@ function App() {
   return (
     <div className="dark flex h-screen flex-col">
       <header className="flex h-11 items-center gap-0.5 border-b border-border bg-card px-2">
-        <span className="mr-2 flex items-center gap-1.5 px-1">
-          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-xs font-semibold tracking-tight text-foreground">PDF Form Maker</span>
-        </span>
-
-        <ToolbarSeparator />
-
-        <ToolbarButton onClick={() => openPdfFile()} className="text-primary-foreground bg-primary hover:bg-primary/90 px-2.5">
+        <ToolbarButton
+          onClick={() => openPdfFile()}
+          className="text-primary-foreground bg-primary hover:bg-primary/90 px-2.5"
+        >
           <FolderOpen className="h-3.5 w-3.5" />
           <span>Open</span>
         </ToolbarButton>
@@ -138,26 +142,20 @@ function App() {
 
         <ToolbarSeparator />
 
-        <ToolbarButton onClick={() => undo()} disabled={!canUndo()} title="Undo (Ctrl+Z)">
+        <ToolbarButton
+          onClick={() => undo()}
+          disabled={!canUndo()}
+          title="Undo (Ctrl+Z)"
+        >
           <Undo2 className="h-3.5 w-3.5" />
         </ToolbarButton>
-        <ToolbarButton onClick={() => redo()} disabled={!canRedo()} title="Redo (Ctrl+Y)">
+        <ToolbarButton
+          onClick={() => redo()}
+          disabled={!canRedo()}
+          title="Redo (Ctrl+Y)"
+        >
           <Redo2 className="h-3.5 w-3.5" />
         </ToolbarButton>
-
-        <ToolbarSeparator />
-
-        {TOOLS.map(({ id, label, icon: Icon }) => (
-          <ToolbarButton
-            key={id}
-            active={activeTool === id}
-            onClick={() => setActiveTool(id)}
-            title={label}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            <span>{label}</span>
-          </ToolbarButton>
-        ))}
 
         <ToolbarSeparator />
 
@@ -192,7 +190,9 @@ function App() {
 
         <div className="flex items-center gap-0.5">
           <button
-            onClick={() => setZoom(Math.round(Math.max(0.5, zoom - 0.1) * 100) / 100)}
+            onClick={() =>
+              setZoom(Math.round(Math.max(0.5, zoom - 0.1) * 100) / 100)
+            }
             className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground"
             title="Zoom out"
           >
@@ -204,6 +204,9 @@ function App() {
             className="h-7 rounded-md border border-border bg-card px-1 text-xs tabular-nums text-foreground"
             title="Zoom level"
           >
+            {!ZOOM_PRESETS.includes(zoom) && (
+              <option value={zoom}>{Math.round(zoom * 100)}%</option>
+            )}
             {ZOOM_PRESETS.map((z) => (
               <option key={z} value={z}>
                 {Math.round(z * 100)}%
@@ -211,7 +214,9 @@ function App() {
             ))}
           </select>
           <button
-            onClick={() => setZoom(Math.round(Math.min(4, zoom + 0.1) * 100) / 100)}
+            onClick={() =>
+              setZoom(Math.round(Math.min(4, zoom + 0.1) * 100) / 100)
+            }
             className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground"
             title="Zoom in"
           >
@@ -230,14 +235,19 @@ function App() {
         </button>
 
         {pdfFileName && (
-          <span className="ml-2 max-w-32 truncate text-[10px] text-muted-foreground">{pdfFileName}</span>
+          <span className="ml-2 max-w-32 truncate text-[10px] text-muted-foreground">
+            {pdfFileName}
+          </span>
         )}
       </header>
 
       <div className="flex flex-1 overflow-hidden">
         <PageSidebar />
 
-        <main data-testid="canvas-area" className="relative flex-1 overflow-hidden bg-background">
+        <main
+          data-testid="canvas-area"
+          className="relative flex-1 overflow-hidden bg-background"
+        >
           <div className="flex h-full">
             <div className="flex flex-col flex-1">
               <div className="flex">
@@ -268,6 +278,7 @@ function App() {
               </div>
             </div>
           </div>
+          <FloatingToolbar />
         </main>
 
         <aside
