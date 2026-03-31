@@ -21,23 +21,21 @@ function App() {
   useZoom();
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [scrollLeft, setScrollLeft] = useState(0);
-  const [scrollTop, setScrollTop] = useState(0);
+  const hRulerRef = useRef<HTMLDivElement>(null);
+  const vRulerRef = useRef<HTMLDivElement>(null);
   const [overlayWidth, setOverlayWidth] = useState(0);
   const [canvasHeight, setCanvasHeight] = useState(0);
 
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
-    setScrollLeft(el.scrollLeft);
-    setScrollTop(el.scrollTop);
+    if (hRulerRef.current) hRulerRef.current.scrollLeft = el.scrollLeft;
+    if (vRulerRef.current) vRulerRef.current.scrollTop = el.scrollTop;
   }, []);
 
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
-    setScrollLeft(el.scrollLeft);
-    setScrollTop(el.scrollTop);
     setOverlayWidth(el.clientWidth);
     setCanvasHeight(el.clientHeight);
     const observer = new ResizeObserver((entries) => {
@@ -68,18 +66,14 @@ function App() {
               <div className="flex">
                 <RulerCorner />
                 <HorizontalRuler
-                  scrollLeft={scrollLeft}
-                  scrollTop={scrollTop}
                   overlayWidth={overlayWidth}
-                  canvasHeight={canvasHeight}
+                  containerRef={hRulerRef}
                 />
               </div>
               <div className="flex flex-1 overflow-hidden">
                 <VerticalRuler
-                  scrollTop={scrollTop}
                   canvasHeight={canvasHeight}
-                  overlayWidth={overlayWidth}
-                  scrollLeft={scrollLeft}
+                  containerRef={vRulerRef}
                 />
                 <div
                   ref={scrollContainerRef}

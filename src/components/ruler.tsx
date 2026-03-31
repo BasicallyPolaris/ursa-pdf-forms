@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, type RefObject } from "react";
 import { useEditorStore } from "@/stores/editor-store";
 import { TOP_PADDING, PAGE_GAP, H_PADDING } from "@/lib/coordinates";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
@@ -12,32 +12,32 @@ function snapToGrid(value: number, gridSize: number): number {
   return Math.round(value / gridSize) * gridSize;
 }
 
-interface RulerProps {
-  scrollLeft: number;
-  scrollTop: number;
+interface HorizontalRulerProps {
   overlayWidth: number;
-  canvasHeight: number;
+  containerRef: RefObject<HTMLDivElement | null>;
 }
 
-export function HorizontalRuler({ scrollLeft, overlayWidth }: RulerProps) {
+export function HorizontalRuler({ overlayWidth, containerRef }: HorizontalRulerProps) {
   const { pages, zoom, pdfBytes } = useEditorStore();
   const addGuide = useEditorStore((s) => s.addGuide);
   const removeGuide = useEditorStore((s) => s.removeGuide);
   const setPreviewGuide = useEditorStore((s) => s.setPreviewGuide);
   const guides = useEditorStore((s) => s.guides);
-  const rulerRef = useRef<HTMLDivElement>(null);
+
+  const maxScreenWidth =
+    pages.length > 0 ? Math.max(...pages.map((p) => p.width * zoom)) : 0;
+  const contentWidth = Math.max(maxScreenWidth + 2 * H_PADDING, overlayWidth);
 
   const ticks: Array<{ x: number; level: number; label?: string }> = [];
 
   for (const page of pages) {
     const screenWidth = page.width * zoom;
-    const xOffset = Math.max(H_PADDING, (overlayWidth - screenWidth) / 2);
+    const xOffset = (contentWidth - screenWidth) / 2;
     const screenSubInterval = SUB_INTERVAL * zoom;
 
     if (screenSubInterval >= 2.5) {
       for (let px = 0; px <= screenWidth; px += screenSubInterval) {
-        const screenX = xOffset + px - scrollLeft;
-        if (screenX < -RULER_SIZE || screenX > overlayWidth + RULER_SIZE) continue;
+        const screenX = xOffset + px;
         const pdfVal = Math.round(px / zoom);
         const isMajor = pdfVal % MAJOR_INTERVAL === 0;
         const isMinor = pdfVal % MINOR_INTERVAL === 0;
@@ -51,8 +51,7 @@ export function HorizontalRuler({ scrollLeft, overlayWidth }: RulerProps) {
       const screenMinorInterval = MINOR_INTERVAL * zoom;
       if (screenMinorInterval >= 3) {
         for (let px = 0; px <= screenWidth; px += screenMinorInterval) {
-          const screenX = xOffset + px - scrollLeft;
-          if (screenX < -RULER_SIZE || screenX > overlayWidth + RULER_SIZE) continue;
+          const screenX = xOffset + px;
           const isMajor = Math.abs(Math.round(px / zoom) % MAJOR_INTERVAL) < 1;
           ticks.push({
             x: screenX,
@@ -69,27 +68,35 @@ export function HorizontalRuler({ scrollLeft, overlayWidth }: RulerProps) {
       if (pages.length === 0) return null;
       const page = pages[0];
       const screenWidth = page.width * zoom;
-      const xOffset = Math.max(H_PADDING, (overlayWidth - screenWidth) / 2);
-      const rulerLeft = rulerRef.current?.getBoundingClientRect().left ?? 0;
-      const relX = clientX - rulerLeft + scrollLeft;
-      const pdfX = (relX - xOffset) / zoom;
+      const xOff = (contentWidth - screenWidth) / 2;
+      const rulerEl = containerRef.current;
+      if (!rulerEl) return null;
+      const rulerLeft = rulerEl.getBoundingClientRect().left;
+      const currentScrollLeft = rulerEl.scrollLeft;
+      const relX = clientX - rulerLeft + currentScrollLeft;
+      const pdfX = (relX - xOff) / zoom;
       return Math.max(0, Math.min(page.width, pdfX));
     },
-    [pages, zoom, overlayWidth, scrollLeft],
+    [pages, zoom, contentWidth, containerRef],
   );
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
-      const rulerLeft = rulerRef.current?.getBoundingClientRect().left ?? 0;
+      const rulerEl = containerRef.current;
+      if (!rulerEl) return;
+      const rulerLeft = rulerEl.getBoundingClientRect().left;
+      const currentScrollLeft = rulerEl.scrollLeft;
+
       const existingGuideHit = guides.find((g) => {
         if (g.orientation !== "vertical") return false;
         const page = pages[0];
         if (!page) return false;
         const screenWidth = page.width * zoom;
-        const xOffset = Math.max(H_PADDING, (overlayWidth - screenWidth) / 2);
-        const screenGuideX = xOffset + g.position * zoom - scrollLeft;
-        return Math.abs(e.clientX - rulerLeft - screenGuideX) < 6;
+        const xOff = (contentWidth - screenWidth) / 2;
+        const contentGuideX = xOff + g.position * zoom;
+        const visibleGuideX = contentGuideX - currentScrollLeft;
+        return Math.abs(e.clientX - rulerLeft - visibleGuideX) < 6;
       });
 
       if (existingGuideHit) {
@@ -109,7 +116,10 @@ export function HorizontalRuler({ scrollLeft, overlayWidth }: RulerProps) {
       const onMouseMove = (moveEvent: MouseEvent) => {
         const rawPos = getPdfXFromClientX(moveEvent.clientX);
         if (rawPos !== null) {
-          const pos = (shiftHeld || moveEvent.shiftKey) ? snapToGrid(rawPos, SUB_INTERVAL) : rawPos;
+          const pos =
+            shiftHeld || moveEvent.shiftKey
+              ? snapToGrid(rawPos, SUB_INTERVAL)
+              : rawPos;
           setPreviewGuide({ orientation: "vertical", position: pos });
         }
       };
@@ -119,7 +129,10 @@ export function HorizontalRuler({ scrollLeft, overlayWidth }: RulerProps) {
         setPreviewGuide(null);
         const rawPos = getPdfXFromClientX(upEvent.clientX);
         if (rawPos !== null) {
-          const pos = (shiftHeld || upEvent.shiftKey) ? snapToGrid(rawPos, SUB_INTERVAL) : rawPos;
+          const pos =
+            shiftHeld || upEvent.shiftKey
+              ? snapToGrid(rawPos, SUB_INTERVAL)
+              : rawPos;
           addGuide("vertical", Math.round(pos * 10) / 10);
         }
         document.removeEventListener("mousemove", onMouseMove);
@@ -129,19 +142,34 @@ export function HorizontalRuler({ scrollLeft, overlayWidth }: RulerProps) {
       document.addEventListener("mousemove", onMouseMove);
       document.addEventListener("mouseup", onMouseUp);
     },
-    [addGuide, removeGuide, setPreviewGuide, guides, pages, zoom, overlayWidth, scrollLeft, getPdfXFromClientX],
+    [
+      addGuide,
+      removeGuide,
+      setPreviewGuide,
+      guides,
+      pages,
+      zoom,
+      contentWidth,
+      containerRef,
+      getPdfXFromClientX,
+    ],
   );
 
   return (
     <div
-      ref={rulerRef}
+      ref={containerRef}
       className={`flex-shrink-0 bg-neutral-900 border-b border-border relative overflow-hidden ${pdfBytes ? "cursor-ew-resize" : "cursor-default"}`}
       style={{ height: RULER_SIZE, width: overlayWidth }}
       onMouseDown={handleMouseDown}
     >
-      <svg width={overlayWidth} height={RULER_SIZE} className="block">
+      <svg width={contentWidth} height={RULER_SIZE} className="block">
         {ticks.map((tick, i) => {
-          const startY = tick.level === 0 ? 0 : tick.level === 1 ? RULER_SIZE * 0.6 : RULER_SIZE * 0.78;
+          const startY =
+            tick.level === 0
+              ? 0
+              : tick.level === 1
+                ? RULER_SIZE * 0.6
+                : RULER_SIZE * 0.78;
           return (
             <g key={i}>
               <line
@@ -171,13 +199,25 @@ export function HorizontalRuler({ scrollLeft, overlayWidth }: RulerProps) {
   );
 }
 
-export function VerticalRuler({ scrollTop, canvasHeight }: RulerProps) {
+interface VerticalRulerProps {
+  canvasHeight: number;
+  containerRef: RefObject<HTMLDivElement | null>;
+}
+
+export function VerticalRuler({ canvasHeight, containerRef }: VerticalRulerProps) {
   const { pages, zoom, pdfBytes } = useEditorStore();
   const addGuide = useEditorStore((s) => s.addGuide);
   const removeGuide = useEditorStore((s) => s.removeGuide);
   const setPreviewGuide = useEditorStore((s) => s.setPreviewGuide);
   const guides = useEditorStore((s) => s.guides);
-  const rulerRef = useRef<HTMLDivElement>(null);
+
+  let contentHeight = TOP_PADDING;
+  for (let i = 0; i < pages.length; i++) {
+    contentHeight += pages[i].height * zoom;
+    if (i < pages.length - 1) contentHeight += PAGE_GAP;
+  }
+  contentHeight += TOP_PADDING;
+  contentHeight = Math.max(contentHeight, canvasHeight);
 
   const ticks: Array<{ y: number; level: number; label?: string }> = [];
   let currentY = TOP_PADDING;
@@ -188,8 +228,7 @@ export function VerticalRuler({ scrollTop, canvasHeight }: RulerProps) {
 
     if (screenSubInterval >= 2.5) {
       for (let py = 0; py <= screenHeight; py += screenSubInterval) {
-        const screenY = currentY + py - scrollTop;
-        if (screenY < -RULER_SIZE || screenY > canvasHeight + RULER_SIZE) continue;
+        const screenY = currentY + py;
         const pdfVal = Math.round(py / zoom);
         const isMajor = pdfVal % MAJOR_INTERVAL === 0;
         const isMinor = pdfVal % MINOR_INTERVAL === 0;
@@ -203,8 +242,7 @@ export function VerticalRuler({ scrollTop, canvasHeight }: RulerProps) {
       const screenMinorInterval = MINOR_INTERVAL * zoom;
       if (screenMinorInterval >= 3) {
         for (let py = 0; py <= screenHeight; py += screenMinorInterval) {
-          const screenY = currentY + py - scrollTop;
-          if (screenY < -RULER_SIZE || screenY > canvasHeight + RULER_SIZE) continue;
+          const screenY = currentY + py;
           const isMajor = Math.abs(Math.round(py / zoom) % MAJOR_INTERVAL) < 1;
           ticks.push({
             y: screenY,
@@ -221,8 +259,11 @@ export function VerticalRuler({ scrollTop, canvasHeight }: RulerProps) {
   const getPdfYFromClientY = useCallback(
     (clientY: number): number | null => {
       if (pages.length === 0) return null;
-      const rulerTop = rulerRef.current?.getBoundingClientRect().top ?? 0;
-      const relY = clientY - rulerTop + scrollTop;
+      const rulerEl = containerRef.current;
+      if (!rulerEl) return null;
+      const rulerTop = rulerEl.getBoundingClientRect().top;
+      const currentScrollTop = rulerEl.scrollTop;
+      const relY = clientY - rulerTop + currentScrollTop;
       let pageYOffset = TOP_PADDING;
       for (const page of pages) {
         const pageScreenHeight = page.height * zoom;
@@ -233,23 +274,33 @@ export function VerticalRuler({ scrollTop, canvasHeight }: RulerProps) {
         pageYOffset += pageScreenHeight + PAGE_GAP;
       }
       const lastPage = pages[pages.length - 1];
-      return Math.max(0, Math.min(lastPage.height, (relY - pageYOffset + lastPage.height * zoom + PAGE_GAP) / zoom));
+      return Math.max(
+        0,
+        Math.min(
+          lastPage.height,
+          (relY - pageYOffset + lastPage.height * zoom + PAGE_GAP) / zoom,
+        ),
+      );
     },
-    [pages, zoom, scrollTop],
+    [pages, zoom, containerRef],
   );
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
-      const rulerTop = rulerRef.current?.getBoundingClientRect().top ?? 0;
+      const rulerEl = containerRef.current;
+      if (!rulerEl) return;
+      const rulerTop = rulerEl.getBoundingClientRect().top;
+      const currentScrollTop = rulerEl.scrollTop;
 
       const existingGuideHit = guides.find((g) => {
         if (g.orientation !== "horizontal") return false;
         let pageYOffset = TOP_PADDING;
         for (const page of pages) {
           const pageScreenHeight = page.height * zoom;
-          const screenGuideY = pageYOffset + g.position * zoom - scrollTop;
-          if (Math.abs(e.clientY - rulerTop - screenGuideY) < 6) return true;
+          const contentGuideY = pageYOffset + g.position * zoom;
+          const visibleGuideY = contentGuideY - currentScrollTop;
+          if (Math.abs(e.clientY - rulerTop - visibleGuideY) < 6) return true;
           pageYOffset += pageScreenHeight + PAGE_GAP;
         }
         return false;
@@ -272,7 +323,10 @@ export function VerticalRuler({ scrollTop, canvasHeight }: RulerProps) {
       const onMouseMove = (moveEvent: MouseEvent) => {
         const rawPos = getPdfYFromClientY(moveEvent.clientY);
         if (rawPos !== null) {
-          const pos = (shiftHeld || moveEvent.shiftKey) ? snapToGrid(rawPos, SUB_INTERVAL) : rawPos;
+          const pos =
+            shiftHeld || moveEvent.shiftKey
+              ? snapToGrid(rawPos, SUB_INTERVAL)
+              : rawPos;
           setPreviewGuide({ orientation: "horizontal", position: pos });
         }
       };
@@ -282,7 +336,10 @@ export function VerticalRuler({ scrollTop, canvasHeight }: RulerProps) {
         setPreviewGuide(null);
         const rawPos = getPdfYFromClientY(upEvent.clientY);
         if (rawPos !== null) {
-          const pos = (shiftHeld || upEvent.shiftKey) ? snapToGrid(rawPos, SUB_INTERVAL) : rawPos;
+          const pos =
+            shiftHeld || upEvent.shiftKey
+              ? snapToGrid(rawPos, SUB_INTERVAL)
+              : rawPos;
           addGuide("horizontal", Math.round(pos * 10) / 10);
         }
         document.removeEventListener("mousemove", onMouseMove);
@@ -292,19 +349,33 @@ export function VerticalRuler({ scrollTop, canvasHeight }: RulerProps) {
       document.addEventListener("mousemove", onMouseMove);
       document.addEventListener("mouseup", onMouseUp);
     },
-    [addGuide, removeGuide, setPreviewGuide, guides, pages, zoom, scrollTop, getPdfYFromClientY],
+    [
+      addGuide,
+      removeGuide,
+      setPreviewGuide,
+      guides,
+      pages,
+      zoom,
+      containerRef,
+      getPdfYFromClientY,
+    ],
   );
 
   return (
     <div
-      ref={rulerRef}
+      ref={containerRef}
       className={`flex-shrink-0 bg-neutral-900 border-r border-border relative ${pdfBytes ? "cursor-ns-resize" : "cursor-default"}`}
       style={{ width: RULER_SIZE, height: canvasHeight, overflow: "hidden" }}
       onMouseDown={handleMouseDown}
     >
-      <svg width={RULER_SIZE} height={canvasHeight}>
+      <svg width={RULER_SIZE} height={contentHeight}>
         {ticks.map((tick, i) => {
-          const startX = tick.level === 0 ? 0 : tick.level === 1 ? RULER_SIZE * 0.6 : RULER_SIZE * 0.78;
+          const startX =
+            tick.level === 0
+              ? 0
+              : tick.level === 1
+                ? RULER_SIZE * 0.6
+                : RULER_SIZE * 0.78;
           return (
             <g key={i}>
               <line
