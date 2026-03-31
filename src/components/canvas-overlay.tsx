@@ -459,6 +459,20 @@ export function CanvasOverlay() {
     const screenHeight = el.height * zoom;
 
     const isSingleInput = isInputEl(el);
+    const isSmallElement = screenWidth < 40 || screenHeight < 40;
+
+    const smallHandleOverride = isSmallElement
+      ? {
+          topLeft: { width: "8px", height: "8px", left: "-4px", top: "-4px" },
+          topRight: { width: "8px", height: "8px", right: "-4px", top: "-4px" },
+          bottomLeft: { width: "8px", height: "8px", left: "-4px", bottom: "-4px" },
+          bottomRight: { width: "8px", height: "8px", right: "-4px", bottom: "-4px" },
+          top: { width: "100%", height: "4px", top: "-2px", left: "0px", cursor: "row-resize" },
+          bottom: { width: "100%", height: "4px", bottom: "-2px", left: "0px", cursor: "row-resize" },
+          left: { width: "4px", height: "100%", left: "-2px", top: "0px", cursor: "col-resize" },
+          right: { width: "4px", height: "100%", right: "-2px", top: "0px", cursor: "col-resize" },
+        }
+      : undefined;
 
     return (
       <Rnd
@@ -469,11 +483,13 @@ export function CanvasOverlay() {
         position={{ x: screen.x, y: screen.y }}
         minWidth={MIN_SIZE}
         minHeight={MIN_SIZE}
+        bounds="parent"
         enableResizing={
           isSingleInput
             ? { left: true, right: true, topLeft: false, topRight: false, bottomLeft: false, bottomRight: false, top: false, bottom: false }
             : undefined
         }
+        resizeHandleStyles={smallHandleOverride}
         onDragStart={(e) => {
           const mouseEvent = e as React.MouseEvent;
           const shiftOrCtrl = mouseEvent.shiftKey || mouseEvent.ctrlKey || mouseEvent.metaKey;
@@ -689,6 +705,7 @@ export function CanvasOverlay() {
           unlockCursor();
         }}
         onResize={(resizeEvent, dir, ref, _delta, position) => {
+          resizeHappenedRef.current = true;
           const me = resizeEvent as unknown as MouseEvent;
           lockCursor(isSingleInput ? "ew" : "nwse");
           resizingId.current = el.id;
@@ -733,6 +750,16 @@ export function CanvasOverlay() {
           }
         }}
         onResizeStop={() => {
+          if (!resizeHappenedRef.current) {
+            resizeHappenedRef.current = false;
+            if (!isSelected) {
+              selectElements(new Set([el.id]));
+            }
+            resizingId.current = null;
+            unlockCursor();
+            return;
+          }
+          resizeHappenedRef.current = false;
           const snap = lastResizeSnap.current;
           if (snap) {
             updateElement(el.id, {
