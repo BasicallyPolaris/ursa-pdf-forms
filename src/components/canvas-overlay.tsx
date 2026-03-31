@@ -84,7 +84,8 @@ export function CanvasOverlay() {
   const resizingId = useRef<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ dx: number; dy: number } | null>(null);
   const [dragSnapCorrection, setDragSnapCorrection] = useState<{ dx: number; dy: number } | null>(null);
-  const [resizeOverride, setResizeOverride] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const lastResizeSnap = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [resizeSnapCorrection, setResizeSnapCorrection] = useState<{ dx: number; dy: number; dw: number; dh: number } | null>(null);
   const [activeGuides, setActiveGuides] = useState<SnapGuide[]>([]);
 
   useEffect(() => {
@@ -452,25 +453,13 @@ export function CanvasOverlay() {
 
     const isSingleInput = isInputEl(el);
 
-    const ro = resizeOverride;
-    const isResizingThis = ro !== null && resizingId.current === el.id;
-    const rndSize = isResizingThis
-      ? { width: ro.width * zoom, height: ro.height * zoom }
-      : { width: screenWidth, height: screenHeight };
-    const rndPosition = isResizingThis
-      ? (() => {
-          const pl = layouts.get(el.pageNumber);
-          return pl ? pdfToScreen({ x: ro.x, y: ro.y }, { zoom, pageX: pl.xOffset, pageY: pl.yOffset }) : { x: screen.x, y: screen.y };
-        })()
-      : { x: screen.x, y: screen.y };
-
     return (
       <Rnd
         key={el.id}
         data-element-overlay
         data-element-id={el.id}
-        size={rndSize}
-        position={rndPosition}
+        size={{ width: screenWidth, height: screenHeight }}
+        position={{ x: screen.x, y: screen.y }}
         minWidth={MIN_SIZE}
         minHeight={MIN_SIZE}
         bounds="parent"
@@ -504,7 +493,8 @@ export function CanvasOverlay() {
           setDragOffset(null);
           setDragSnapCorrection(null);
           setActiveGuides([]);
-          setResizeOverride(null);
+          setResizeSnapCorrection(null);
+          lastResizeSnap.current = null;
           resizingId.current = null;
         }}
         onDrag={(dragEvent, d) => {
@@ -698,63 +688,56 @@ export function CanvasOverlay() {
           resizingId.current = el.id;
           const pl = layouts.get(el.pageNumber);
           if (!pl) return;
-          const newWidth = parseFloat(ref.style.width) / zoom;
-          const newHeight = parseFloat(ref.style.height) / zoom;
-          const pdf = screenToPdf(
+          const rawWidth = parseFloat(ref.style.width) / zoom;
+          const rawHeight = parseFloat(ref.style.height) / zoom;
+          const rawPdf = screenToPdf(
             { x: position.x, y: position.y },
             { zoom, pageX: pl.xOffset, pageY: pl.yOffset },
           );
 
           const snapCtx = buildSnapContext(new Set([el.id]), el.pageNumber, { shiftKey: me.shiftKey, ctrlKey: me.ctrlKey || me.metaKey });
-          if (snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides || snapCtx.snapToPageEdges) {
-            const result = snapResizeBounds(pdf.x, pdf.y, newWidth, newHeight, dir, snapCtx);
-            setResizeOverride({
-              x: result.x,
-              y: result.y,
-              width: Math.max(MIN_SIZE / zoom, result.width),
-              height: Math.max(MIN_SIZE / zoom, result.height),
-            });
+          const hasSnap = snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides || snapCtx.snapToPageEdges;
+
+          if (hasSnap) {
+            const result = snapResizeBounds(rawPdf.x, rawPdf.y, rawWidth, rawHeight, dir, snapCtx);
+            const snappedW = Math.max(MIN_SIZE / zoom, result.width);
+            const snappedH = Math.max(MIN_SIZE / zoom, result.height);
+
+            lastResizeSnap.current = { x: result.x, y: result.y, width: snappedW, height: snappedH };
+
+            const dx = (result.x - rawPdf.x) * zoom;
+            const dy = (result.y - rawPdf.y) * zoom;
+            const dw = (snappedW - rawWidth) * zoom;
+            const dh = (snappedH - rawHeight) * zoom;
+            setResizeSnapCorrection({ dx, dy, dw, dh });
             setActiveGuides(result.guides);
 
             const livePositions = new Map<string, { x: number; y: number; width: number; height: number }>();
             livePositions.set(el.id, {
               x: result.x,
               y: result.y,
-              width: Math.max(MIN_SIZE / zoom, result.width),
-              height: Math.max(MIN_SIZE / zoom, result.height),
+              width: snappedW,
+              height: snappedH,
             });
             setDragLivePositions(livePositions);
+          } else {
+            lastResizeSnap.current = null;
+            setResizeSnapCorrection(null);
+            setActiveGuides([]);
           }
         }}
-        onResizeStop={(resizeStopEvent, dir, ref, _delta, position) => {
-          const me = resizeStopEvent as unknown as MouseEvent;
-          const pl = layouts.get(el.pageNumber);
-          if (!pl) return;
-          let newWidth = parseFloat(ref.style.width) / zoom;
-          let newHeight = parseFloat(ref.style.height) / zoom;
-          const { x: pdfX, y: pdfY } = screenToPdf(
-            { x: position.x, y: position.y },
-            { zoom, pageX: pl.xOffset, pageY: pl.yOffset },
-          );
-
-          const snapCtx = buildSnapContext(new Set([el.id]), el.pageNumber, { shiftKey: me.shiftKey, ctrlKey: me.ctrlKey || me.metaKey });
-          let finalX = pdfX;
-          let finalY = pdfY;
-          if (snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides || snapCtx.snapToPageEdges) {
-            const result = snapResizeBounds(pdfX, pdfY, newWidth, newHeight, dir, snapCtx);
-            finalX = result.x;
-            finalY = result.y;
-            newWidth = result.width;
-            newHeight = result.height;
+        onResizeStop={() => {
+          const snap = lastResizeSnap.current;
+          if (snap) {
+            updateElement(el.id, {
+              x: snap.x,
+              y: snap.y,
+              width: snap.width,
+              height: snap.height,
+            });
           }
-
-          updateElement(el.id, {
-            x: finalX,
-            y: finalY,
-            width: Math.max(MIN_SIZE / zoom, newWidth),
-            height: Math.max(MIN_SIZE / zoom, newHeight),
-          });
-          setResizeOverride(null);
+          lastResizeSnap.current = null;
+          setResizeSnapCorrection(null);
           setActiveGuides([]);
           setDragLivePositions(null);
           resizingId.current = null;
@@ -766,9 +749,15 @@ export function CanvasOverlay() {
             isSelected ? "ring-1 ring-field-text/30" : ""
           } ${getElementStyleConfig(el).borderBgClass(isSelected)}`}
           style={
-            draggingId.current === el.id && dragSnapCorrection
-              ? { transform: `translate(${dragSnapCorrection.dx}px, ${dragSnapCorrection.dy}px)` }
-              : undefined
+            resizingId.current === el.id && resizeSnapCorrection
+              ? {
+                  transform: `translate(${resizeSnapCorrection.dx}px, ${resizeSnapCorrection.dy}px)`,
+                  width: `calc(100% + ${resizeSnapCorrection.dw}px)`,
+                  height: `calc(100% + ${resizeSnapCorrection.dh}px)`,
+                }
+              : draggingId.current === el.id && dragSnapCorrection
+                ? { transform: `translate(${dragSnapCorrection.dx}px, ${dragSnapCorrection.dy}px)` }
+                : undefined
           }
         >
           {el.type === "checkbox" && (

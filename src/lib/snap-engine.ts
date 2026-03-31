@@ -412,6 +412,9 @@ export function snapPosition(
     snappedY = bestY.snapped;
   }
 
+  snappedX = Math.max(0, Math.min(context.pageWidth - elementWidth, snappedX));
+  snappedY = Math.max(0, Math.min(context.pageHeight - elementHeight, snappedY));
+
   const allGuides = findAllAlignmentGuides(snappedX, snappedY, elementWidth, elementHeight, context);
 
   return { x: snappedX, y: snappedY, guides: allGuides };
@@ -439,6 +442,10 @@ function snapEdgePosition(
     if (Math.abs(pageSize - edgePos) <= context.snapThreshold) {
       candidates.push({ snapped: pageSize, guide: { orientation, position: pageSize, type: "page" } });
     }
+    const pageCenter = pageSize / 2;
+    if (Math.abs(edgePos - pageCenter) > 0 && Math.abs(edgePos - pageCenter) <= context.snapThreshold) {
+      candidates.push({ snapped: pageCenter, guide: { orientation, position: pageCenter, type: "page" } });
+    }
   }
 
   if (context.snapToElements) {
@@ -447,7 +454,8 @@ function snapEdgePosition(
         ? context.otherElements.map((e) => ({ start: e.x, end: e.x + e.width }))
         : context.otherElements.map((e) => ({ start: e.y, end: e.y + e.height }));
     for (const other of bounds) {
-      for (const target of [other.start, other.end]) {
+      const otherCenter = (other.start + other.end) / 2;
+      for (const target of [other.start, other.end, otherCenter]) {
         const dist = Math.abs(edgePos - target);
         if (dist > 0 && dist <= context.snapThreshold) {
           candidates.push({ snapped: target, guide: { orientation, position: target, type: "element" } });
@@ -479,7 +487,6 @@ export function snapResizeBounds(
   direction: string,
   context: SnapContext,
 ): { x: number; y: number; width: number; height: number; guides: SnapGuide[] } {
-  const guides: SnapGuide[] = [];
   let newX = x,
     newY = y,
     newW = width,
@@ -494,7 +501,6 @@ export function snapResizeBounds(
     const result = snapEdgePosition(x + width, context, "vertical");
     if (result.guide) {
       newW = result.snapped - x;
-      guides.push(result.guide);
     }
   }
 
@@ -504,7 +510,6 @@ export function snapResizeBounds(
       const rightEdge = x + width;
       newX = result.snapped;
       newW = rightEdge - newX;
-      guides.push(result.guide);
     }
   }
 
@@ -512,7 +517,6 @@ export function snapResizeBounds(
     const result = snapEdgePosition(y + height, context, "horizontal");
     if (result.guide) {
       newH = result.snapped - y;
-      guides.push(result.guide);
     }
   }
 
@@ -522,9 +526,17 @@ export function snapResizeBounds(
       const bottomEdge = y + height;
       newY = result.snapped;
       newH = bottomEdge - newY;
-      guides.push(result.guide);
     }
   }
 
-  return { x: newX, y: newY, width: newW, height: newH, guides };
+  newX = Math.max(0, newX);
+  newY = Math.max(0, newY);
+  if (newX + newW > context.pageWidth) newW = context.pageWidth - newX;
+  if (newY + newH > context.pageHeight) newH = context.pageHeight - newY;
+  if (newW < 0) newW = 0;
+  if (newH < 0) newH = 0;
+
+  const allGuides = findAllAlignmentGuides(newX, newY, newW, newH, context);
+
+  return { x: newX, y: newY, width: newW, height: newH, guides: allGuides };
 }
