@@ -44,7 +44,9 @@ export function PageSidebar() {
   }, [pdfBytes, pages]);
 
   const scrollToPage = (pageNumber: number) => {
-    const scrollContainer = document.querySelector("[data-pdf-scroll-container]");
+    const scrollContainer = document.querySelector(
+      "[data-pdf-scroll-container]",
+    );
     if (!scrollContainer) return;
 
     const pageCanvas = scrollContainer.querySelector(
@@ -66,12 +68,14 @@ export function PageSidebar() {
       className="flex w-44 flex-col border-r border-border bg-card"
     >
       <div className="px-2.5 py-1.5">
-        <span className="text-[11px] font-medium text-muted-foreground">{t("sidebar.pages")}</span>
+        <span className="text-[11px] font-medium text-muted-foreground">
+          {t("sidebar.pages")}
+        </span>
       </div>
       {pdfBytes && (
         <div
           ref={containerRef}
-          className="flex flex-col gap-1.5 overflow-auto px-2 pb-2"
+          className="flex flex-col gap-1.5 overflow-auto px-2 pb-2 pt-1"
         >
           {pages.map((page) => (
             <button

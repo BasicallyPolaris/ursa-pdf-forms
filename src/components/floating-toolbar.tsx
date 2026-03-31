@@ -66,7 +66,9 @@ export function FloatingToolbar() {
                 <TooltipContent>
                   <span className="flex items-center gap-2">
                     {t(labelKey)}
-                    <Kbd>{formatShortcut(TOOL_SHORTCUT_MAP[id] as ShortcutId)}</Kbd>
+                    <Kbd>
+                      {formatShortcut(TOOL_SHORTCUT_MAP[id] as ShortcutId)}
+                    </Kbd>
                   </span>
                 </TooltipContent>
               </Tooltip>
