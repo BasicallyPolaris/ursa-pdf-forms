@@ -487,7 +487,14 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
   const allSameX = elements.every((el) => el.x === elements[0].x);
   const allSameY = elements.every((el) => el.y === elements[0].y);
   const allSameW = elements.every((el) => el.width === elements[0].width);
-  const allSameH = elements.every((el) => el.height === elements[0].height);
+  const resizableElements = elements.filter(
+    (el) => !(isTextField(el) && !el.multiline),
+  );
+  const allSameH =
+    resizableElements.length > 0 &&
+    resizableElements.every((el) => el.height === resizableElements[0].height);
+
+  const heightDisplayValue = allSameH ? Math.round(resizableElements[0].height) : "";
   const hasAutoHeight = elements.some(
     (el) => isTextField(el) && !el.multiline,
   );
@@ -536,7 +543,7 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
         </PropertyField>
         <PropertyField label={t("properties.height")}>
           <NumericInput
-            value={allSameH ? Math.round(elements[0].height) : ""}
+            value={heightDisplayValue}
             placeholder={allSameH ? undefined : t("properties.mixed")}
             onChange={(e) => {
               const val = Number(e.target.value);
