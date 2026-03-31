@@ -27,6 +27,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ToolButton, ToolbarSeparator } from "@/components/ui/tool-button";
+import { Kbd } from "@/components/ui/kbd";
+import { formatShortcut } from "@/lib/shortcuts";
 
 function ZoomControls() {
   const { t } = useTranslation();
@@ -44,7 +46,12 @@ function ZoomControls() {
         >
           <Minus className="h-3 w-3" />
         </TooltipTrigger>
-        <TooltipContent>{t("header.zoomOut")}</TooltipContent>
+        <TooltipContent>
+          <span className="flex items-center gap-2">
+            {t("header.zoomOut")}
+            <Kbd>{formatShortcut("zoomOut")}</Kbd>
+          </span>
+        </TooltipContent>
       </Tooltip>
       <select
         value={zoom}
@@ -69,7 +76,12 @@ function ZoomControls() {
         >
           <Plus className="h-3 w-3" />
         </TooltipTrigger>
-        <TooltipContent>{t("header.zoomIn")}</TooltipContent>
+        <TooltipContent>
+          <span className="flex items-center gap-2">
+            {t("header.zoomIn")}
+            <Kbd>{formatShortcut("zoomIn")}</Kbd>
+          </span>
+        </TooltipContent>
       </Tooltip>
     </div>
   );
@@ -85,19 +97,29 @@ export function AppHeader() {
     <TooltipProvider>
       <header className="grid h-11 grid-cols-[1fr_auto_1fr] items-center gap-1 border-b border-border bg-card px-2">
         <div className="flex items-center gap-1">
-          <ToolButton
-            onClick={() => openPdfFile()}
-            variant="primary"
-          >
-            <FolderOpen className="h-3.5 w-3.5" />
-            <span>{t("header.open")}</span>
-          </ToolButton>
+          <Tooltip>
+            <TooltipTrigger render={<ToolButton onClick={() => openPdfFile()} variant="primary" />}>
+              <FolderOpen className="h-3.5 w-3.5" />
+              <span>{t("header.open")}</span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <span className="flex items-center gap-2">
+                {t("header.open")}
+                <Kbd>{formatShortcut("open")}</Kbd>
+              </span>
+            </TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger render={<ToolButton onClick={() => saveProjectFile()} />}>
               <Save className="h-3.5 w-3.5" />
               <span>{t("header.save")}</span>
             </TooltipTrigger>
-            <TooltipContent>{t("header.saveProject")}</TooltipContent>
+            <TooltipContent>
+              <span className="flex items-center gap-2">
+                {t("header.saveProject")}
+                <Kbd>{formatShortcut("save")}</Kbd>
+              </span>
+            </TooltipContent>
           </Tooltip>
         </div>
 
@@ -108,24 +130,39 @@ export function AppHeader() {
             <TooltipTrigger render={<ToolButton onClick={() => undo()} disabled={!(hasPdf && hasPast)} />}>
               <Undo2 className="h-3.5 w-3.5" />
             </TooltipTrigger>
-            <TooltipContent>{t("header.undo")}</TooltipContent>
+            <TooltipContent>
+              <span className="flex items-center gap-2">
+                {t("header.undo")}
+                <Kbd>{formatShortcut("undo")}</Kbd>
+              </span>
+            </TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger render={<ToolButton onClick={() => redo()} disabled={!(hasPdf && hasFuture)} />}>
               <Redo2 className="h-3.5 w-3.5" />
             </TooltipTrigger>
-            <TooltipContent>{t("header.redo")}</TooltipContent>
+            <TooltipContent>
+              <span className="flex items-center gap-2">
+                {t("header.redo")}
+                <Kbd>{formatShortcut("redo")}</Kbd>
+              </span>
+            </TooltipContent>
           </Tooltip>
 
           <ToolbarSeparator />
 
-          <ToolButton
-            onClick={() => exportPdf()}
-            variant="primary"
-          >
-            <FileDown className="h-3.5 w-3.5" />
-            <span>{t("header.export")}</span>
-          </ToolButton>
+          <Tooltip>
+            <TooltipTrigger render={<ToolButton onClick={() => exportPdf()} variant="primary" />}>
+              <FileDown className="h-3.5 w-3.5" />
+              <span>{t("header.export")}</span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <span className="flex items-center gap-2">
+                {t("header.export")}
+                <Kbd>{formatShortcut("export")}</Kbd>
+              </span>
+            </TooltipContent>
+          </Tooltip>
         </div>
       </header>
     </TooltipProvider>

@@ -5,6 +5,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Kbd } from "@/components/ui/kbd";
 import { useEditorStore } from "@/stores/editor-store";
 import {
   AlignLeft,
@@ -14,9 +15,18 @@ import {
   Type,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import React from "react";
+import { Separator } from "./ui/separator";
+import { TOOL_SHORTCUT_MAP, formatShortcut } from "@/lib/shortcuts";
+import type { ShortcutId } from "@/lib/shortcuts";
 
 const TOOL_KEYS = [
-  { id: "select" as const, labelKey: "toolbar.select", icon: MousePointer2 },
+  {
+    id: "select" as const,
+    labelKey: "toolbar.select",
+    icon: MousePointer2,
+    separate: true,
+  },
   { id: "input" as const, labelKey: "toolbar.input", icon: Type },
   { id: "textarea" as const, labelKey: "toolbar.textarea", icon: AlignLeft },
   { id: "checkbox" as const, labelKey: "toolbar.checkbox", icon: Square },
@@ -37,21 +47,31 @@ export function FloatingToolbar() {
       data-testid="floating-toolbar"
     >
       <TooltipProvider>
-        <div className="flex items-center gap-0.5 rounded-lg border border-border bg-neutral-900/90 px-1.5 py-1 shadow-lg backdrop-blur-sm">
-          {TOOL_KEYS.map(({ id, labelKey, icon: Icon }) => (
-            <Tooltip key={id}>
-              <TooltipTrigger
-                render={<ToolButton
-                  data-testid={`tool-${id}`}
-                  variant="icon"
-                  onClick={() => setActiveTool(id)}
-                  active={activeTool === id}
-                />}
-              >
-                <Icon className="h-3.5 w-3.5" />
-              </TooltipTrigger>
-              <TooltipContent>{t(labelKey)}</TooltipContent>
-            </Tooltip>
+        <div className="flex items-center gap-1 rounded-lg border border-border bg-neutral-900/90 px-1.5 py-1 shadow-lg backdrop-blur-sm">
+          {TOOL_KEYS.map(({ id, labelKey, icon: Icon, separate }) => (
+            <React.Fragment key={id}>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <ToolButton
+                      data-testid={`tool-${id}`}
+                      variant="icon"
+                      onClick={() => setActiveTool(id)}
+                      active={activeTool === id}
+                    />
+                  }
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <span className="flex items-center gap-2">
+                    {t(labelKey)}
+                    <Kbd>{formatShortcut(TOOL_SHORTCUT_MAP[id] as ShortcutId)}</Kbd>
+                  </span>
+                </TooltipContent>
+              </Tooltip>
+              {!!separate && <Separator orientation="vertical" />}
+            </React.Fragment>
           ))}
         </div>
       </TooltipProvider>

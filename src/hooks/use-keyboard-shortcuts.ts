@@ -1,7 +1,15 @@
 import { useEffect } from "react";
 import { useEditorStore, undo, redo } from "@/stores/editor-store";
-import { openPdfFile } from "@/lib/file-operations";
+import { openPdfFile, saveProjectFile } from "@/lib/file-operations";
+import { exportPdf } from "@/lib/export-pdf";
 import { TOP_PADDING, PAGE_GAP } from "@/lib/coordinates";
+
+const TOOL_KEY_MAP: Record<string, string> = {
+  v: "select",
+  t: "input",
+  c: "checkbox",
+  r: "radio",
+};
 
 function isInputElement(e: KeyboardEvent): boolean {
   return (
@@ -43,6 +51,18 @@ export function useKeyboardShortcuts() {
       if (mod && e.key === "o") {
         e.preventDefault();
         openPdfFile();
+        return;
+      }
+
+      if (mod && e.key === "s") {
+        e.preventDefault();
+        saveProjectFile();
+        return;
+      }
+
+      if (mod && e.key === "e") {
+        e.preventDefault();
+        exportPdf();
         return;
       }
 
@@ -88,6 +108,20 @@ export function useKeyboardShortcuts() {
 
       if (e.key === "Escape") {
         store.clearSelection();
+      }
+
+      if (!mod && e.shiftKey && e.key.toLowerCase() === "t") {
+        e.preventDefault();
+        store.setActiveTool("textarea");
+        return;
+      }
+
+      if (!mod && !e.shiftKey) {
+        const tool = TOOL_KEY_MAP[e.key.toLowerCase()];
+        if (tool) {
+          e.preventDefault();
+          store.setActiveTool(tool as "select" | "input" | "checkbox" | "radio");
+        }
       }
     };
 

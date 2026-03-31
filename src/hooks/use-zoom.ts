@@ -45,6 +45,16 @@ export function useZoom() {
       const store = useEditorStore.getState();
       if (!store.pdfBytes) return;
 
+      if (e.key === "=" || e.key === "+") {
+        e.preventDefault();
+        store.setZoom(clampZoom(store.zoom + ZOOM_STEP));
+      }
+
+      if (e.key === "-") {
+        e.preventDefault();
+        store.setZoom(clampZoom(store.zoom - ZOOM_STEP));
+      }
+
       if (e.key === "0") {
         e.preventDefault();
         const container = document.querySelector(

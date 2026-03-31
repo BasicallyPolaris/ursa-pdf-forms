@@ -9,8 +9,8 @@
     "export": "Export",
     "zoomOut": "Zoom out",
     "zoomIn": "Zoom in",
-    "undo": "Undo (Ctrl+Z)",
-    "redo": "Redo (Ctrl+Y)",
+    "undo": "Undo",
+    "redo": "Redo",
     "language": "Language"
   },
   "toolbar": {
@@ -99,6 +99,35 @@
     "openPdf": "Open PDF",
     "zoom": "Zoom",
     "removeField": "Remove field"
+  },
+  "shortcuts": {
+    "title": "Keyboard Shortcuts",
+    "file": "File",
+    "edit": "Edit",
+    "tools": "Tools",
+    "view": "View",
+    "open": "Open PDF",
+    "save": "Save project",
+    "export": "Export PDF",
+    "undo": "Undo",
+    "redo": "Redo",
+    "copy": "Copy",
+    "paste": "Paste",
+    "selectAll": "Select all",
+    "delete": "Delete",
+    "deselect": "Deselect",
+    "toolSelect": "Select tool",
+    "toolInput": "Text input",
+    "toolTextarea": "Multiline text",
+    "toolCheckbox": "Checkbox",
+    "toolRadio": "Radio button",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "zoomFit": "Fit to width",
+    "zoom100": "Zoom to 100%",
+    "nudge": "Nudge 1pt",
+    "nudge5": "Nudge 5pt",
+    "openShortcuts": "Keyboard shortcuts"
   },
   "sidebar": {
     "pages": "Pages"

@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useEditorStore } from "@/stores/editor-store";
 import { Kbd } from "@/components/ui/kbd";
+import { ShortcutsDialog } from "@/components/shortcuts-dialog";
 
 export function StatusBar() {
   const { t } = useTranslation();
@@ -8,25 +9,25 @@ export function StatusBar() {
   const activeTool = useEditorStore((s) => s.activeTool);
   const selectedIds = useEditorStore((s) => s.selectedIds);
 
-  if (!pdfBytes) return null;
-
-  const hasSelection = selectedIds.size > 0;
+  const hasSelection = pdfBytes && selectedIds.size > 0;
 
   const hints: string[] = [];
 
-  if (activeTool === "select") {
-    hints.push(t("status.clickToSelect"));
-    hints.push(t("status.dragToMarquee"));
-  } else if (activeTool === "input") {
-    hints.push(t("status.dragToDrawTextField"));
-  } else if (activeTool === "textarea") {
-    hints.push(t("status.dragToDrawMultilineField"));
-  } else if (activeTool === "checkbox" || activeTool === "radio") {
-    hints.push(t("status.clickToPlace"));
-  }
+  if (pdfBytes) {
+    if (activeTool === "select") {
+      hints.push(t("status.clickToSelect"));
+      hints.push(t("status.dragToMarquee"));
+    } else if (activeTool === "input") {
+      hints.push(t("status.dragToDrawTextField"));
+    } else if (activeTool === "textarea") {
+      hints.push(t("status.dragToDrawMultilineField"));
+    } else if (activeTool === "checkbox" || activeTool === "radio") {
+      hints.push(t("status.clickToPlace"));
+    }
 
-  if (hasSelection) {
-    hints.push(t("status.selected", { count: selectedIds.size }));
+    if (selectedIds.size > 0) {
+      hints.push(t("status.selected", { count: selectedIds.size }));
+    }
   }
 
   return (
@@ -47,6 +48,7 @@ export function StatusBar() {
             <Kbd>Esc</Kbd> {t("status.deselect")}
           </span>
         )}
+        <ShortcutsDialog />
       </div>
     </div>
   );
