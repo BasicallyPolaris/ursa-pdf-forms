@@ -591,7 +591,7 @@ function ToolButton({
   return (
     <Tooltip>
       <TooltipTrigger
-        className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
         onClick={onClick}
       >
         {children}
@@ -775,7 +775,7 @@ function GuideProperties({ guideId }: { guideId: string }) {
       </PropertyField>
       <button
         onClick={() => removeGuide(guide.id)}
-        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/20"
+        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/20 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
       >
         <Trash2 className="h-3 w-3" />
         {t("properties.deleteGuide")}

@@ -77,7 +77,7 @@ export function PageSidebar() {
             <button
               key={page.pageNumber}
               onClick={() => scrollToPage(page.pageNumber)}
-              className="group flex flex-col items-center gap-1 rounded-md border border-transparent p-1.5 hover:border-border hover:bg-accent/40"
+              className="group flex flex-col items-center gap-1 rounded-md border border-transparent p-1.5 hover:border-border hover:bg-accent/40 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
             >
               <div className="overflow-hidden rounded-sm border border-border/50">
                 <canvas

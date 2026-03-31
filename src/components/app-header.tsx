@@ -40,7 +40,7 @@ function ZoomControls() {
           onClick={() =>
             setZoom(Math.round(Math.max(0.5, zoom - 0.1) * 100) / 100)
           }
-          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
         >
           <Minus className="h-3 w-3" />
         </TooltipTrigger>
@@ -49,7 +49,7 @@ function ZoomControls() {
       <select
         value={zoom}
         onChange={(e) => setZoom(Number(e.target.value))}
-        className="h-7 rounded-md border border-border bg-card px-1 text-xs tabular-nums text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+        className="h-7 rounded-md border border-border bg-card px-1 text-xs tabular-nums text-foreground outline-none focus:ring-2 focus:ring-ring/50 focus:ring-offset-1 focus:ring-offset-card"
       >
         {!ZOOM_PRESETS.includes(zoom) && (
           <option value={zoom}>{Math.round(zoom * 100)}%</option>
@@ -65,7 +65,7 @@ function ZoomControls() {
           onClick={() =>
             setZoom(Math.round(Math.min(4, zoom + 0.1) * 100) / 100)
           }
-          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
         >
           <Plus className="h-3 w-3" />
         </TooltipTrigger>
@@ -93,11 +93,9 @@ export function AppHeader() {
             <span>{t("header.open")}</span>
           </ToolButton>
           <Tooltip>
-            <TooltipTrigger>
-              <ToolButton onClick={() => saveProjectFile()}>
-                <Save className="h-3.5 w-3.5" />
-                <span>{t("header.save")}</span>
-              </ToolButton>
+            <TooltipTrigger render={<ToolButton onClick={() => saveProjectFile()} />}>
+              <Save className="h-3.5 w-3.5" />
+              <span>{t("header.save")}</span>
             </TooltipTrigger>
             <TooltipContent>{t("header.saveProject")}</TooltipContent>
           </Tooltip>
@@ -107,24 +105,14 @@ export function AppHeader() {
 
         <div className="flex items-center justify-end gap-1">
           <Tooltip>
-            <TooltipTrigger>
-              <ToolButton
-                onClick={() => undo()}
-                disabled={!(hasPdf && hasPast)}
-              >
-                <Undo2 className="h-3.5 w-3.5" />
-              </ToolButton>
+            <TooltipTrigger render={<ToolButton onClick={() => undo()} disabled={!(hasPdf && hasPast)} />}>
+              <Undo2 className="h-3.5 w-3.5" />
             </TooltipTrigger>
             <TooltipContent>{t("header.undo")}</TooltipContent>
           </Tooltip>
           <Tooltip>
-            <TooltipTrigger>
-              <ToolButton
-                onClick={() => redo()}
-                disabled={!(hasPdf && hasFuture)}
-              >
-                <Redo2 className="h-3.5 w-3.5" />
-              </ToolButton>
+            <TooltipTrigger render={<ToolButton onClick={() => redo()} disabled={!(hasPdf && hasFuture)} />}>
+              <Redo2 className="h-3.5 w-3.5" />
             </TooltipTrigger>
             <TooltipContent>{t("header.redo")}</TooltipContent>
           </Tooltip>

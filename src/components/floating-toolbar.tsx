@@ -40,15 +40,15 @@ export function FloatingToolbar() {
         <div className="flex items-center gap-0.5 rounded-lg border border-border bg-neutral-900/90 px-1.5 py-1 shadow-lg backdrop-blur-sm">
           {TOOL_KEYS.map(({ id, labelKey, icon: Icon }) => (
             <Tooltip key={id}>
-              <TooltipTrigger>
-                <ToolButton
+              <TooltipTrigger
+                render={<ToolButton
                   data-testid={`tool-${id}`}
                   variant="icon"
                   onClick={() => setActiveTool(id)}
                   active={activeTool === id}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                </ToolButton>
+                />}
+              >
+                <Icon className="h-3.5 w-3.5" />
               </TooltipTrigger>
               <TooltipContent>{t(labelKey)}</TooltipContent>
             </Tooltip>
