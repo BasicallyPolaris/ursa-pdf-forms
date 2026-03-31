@@ -151,7 +151,7 @@ export function CanvasOverlay() {
         pageHeight: page?.height ?? 792,
         otherElements: elements
           .filter((el) => !excludedIds.has(el.id) && el.pageNumber === pageNumber)
-          .map((el) => ({ x: el.x, y: el.y, width: el.width, height: el.height })),
+          .map((el) => ({ id: el.id, x: el.x, y: el.y, width: el.width, height: el.height })),
         rulerGuides: guides.map((g) => ({ orientation: g.orientation, position: g.position })),
         snapToGrid: modifiers.shiftKey && !freeMovement,
         snapToPageEdges: !modifiers.shiftKey && !freeMovement,
@@ -434,6 +434,12 @@ export function CanvasOverlay() {
 
   const isInputEl = (el: FormElement) =>
     el.type === "text" && !el.multiline;
+
+  const snapTargetIds = new Set<string>(
+    activeGuides
+      .filter((g) => g.type === "element" && g.elementId)
+      .map((g) => g.elementId!),
+  );
 
   const elementOverlays = elements.map((el) => {
     const layout = layouts.get(el.pageNumber);
@@ -747,7 +753,9 @@ export function CanvasOverlay() {
         <div
           className={`h-full w-full flex items-center justify-center ${
             isSelected ? "ring-1 ring-field-text/30" : ""
-          } ${getElementStyleConfig(el).borderBgClass(isSelected)}`}
+          } ${getElementStyleConfig(el).borderBgClass(isSelected)} ${
+            snapTargetIds.has(el.id) ? "ring-2 ring-[var(--guide-snap)]" : ""
+          }`}
           style={
             resizingId.current === el.id && resizeSnapCorrection
               ? {
