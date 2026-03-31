@@ -221,11 +221,19 @@ export function VerticalRuler({ scrollTop, canvasHeight }: RulerProps) {
   const getPdfYFromClientY = useCallback(
     (clientY: number): number | null => {
       if (pages.length === 0) return null;
-      const page = pages[0];
       const rulerTop = rulerRef.current?.getBoundingClientRect().top ?? 0;
       const relY = clientY - rulerTop + scrollTop;
-      const pdfY = (relY - TOP_PADDING) / zoom;
-      return Math.max(0, Math.min(page.height, pdfY));
+      let pageYOffset = TOP_PADDING;
+      for (const page of pages) {
+        const pageScreenHeight = page.height * zoom;
+        if (relY >= pageYOffset && relY < pageYOffset + pageScreenHeight) {
+          const pdfY = (relY - pageYOffset) / zoom;
+          return Math.max(0, Math.min(page.height, pdfY));
+        }
+        pageYOffset += pageScreenHeight + PAGE_GAP;
+      }
+      const lastPage = pages[pages.length - 1];
+      return Math.max(0, Math.min(lastPage.height, (relY - pageYOffset + lastPage.height * zoom + PAGE_GAP) / zoom));
     },
     [pages, zoom, scrollTop],
   );
@@ -237,8 +245,14 @@ export function VerticalRuler({ scrollTop, canvasHeight }: RulerProps) {
 
       const existingGuideHit = guides.find((g) => {
         if (g.orientation !== "horizontal") return false;
-        const screenGuideY = TOP_PADDING + g.position * zoom - scrollTop;
-        return Math.abs(e.clientY - rulerTop - screenGuideY) < 6;
+        let pageYOffset = TOP_PADDING;
+        for (const page of pages) {
+          const pageScreenHeight = page.height * zoom;
+          const screenGuideY = pageYOffset + g.position * zoom - scrollTop;
+          if (Math.abs(e.clientY - rulerTop - screenGuideY) < 6) return true;
+          pageYOffset += pageScreenHeight + PAGE_GAP;
+        }
+        return false;
       });
 
       if (existingGuideHit) {

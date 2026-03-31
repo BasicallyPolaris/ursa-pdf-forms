@@ -414,9 +414,6 @@ export function snapPosition(
     snappedY = bestY.snapped;
   }
 
-  snappedX = Math.max(0, Math.min(context.pageWidth - elementWidth, snappedX));
-  snappedY = Math.max(0, Math.min(context.pageHeight - elementHeight, snappedY));
-
   const allGuides = findAllAlignmentGuides(snappedX, snappedY, elementWidth, elementHeight, context);
 
   return { x: snappedX, y: snappedY, guides: allGuides };
@@ -530,13 +527,6 @@ export function snapResizeBounds(
       newH = bottomEdge - newY;
     }
   }
-
-  newX = Math.max(0, newX);
-  newY = Math.max(0, newY);
-  if (newX + newW > context.pageWidth) newW = context.pageWidth - newX;
-  if (newY + newH > context.pageHeight) newH = context.pageHeight - newY;
-  if (newW < 0) newW = 0;
-  if (newH < 0) newH = 0;
 
   const allGuides = findAllAlignmentGuides(newX, newY, newW, newH, context);
 

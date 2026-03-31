@@ -82,6 +82,7 @@ export function CanvasOverlay() {
   const draggingId = useRef<string | null>(null);
   const pendingToggleId = useRef<string | null>(null);
   const resizingId = useRef<string | null>(null);
+  const resizeHappenedRef = useRef(false);
   const [dragOffset, setDragOffset] = useState<{ dx: number; dy: number } | null>(null);
   const [dragSnapCorrection, setDragSnapCorrection] = useState<{ dx: number; dy: number } | null>(null);
   const lastResizeSnap = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
@@ -468,7 +469,6 @@ export function CanvasOverlay() {
         position={{ x: screen.x, y: screen.y }}
         minWidth={MIN_SIZE}
         minHeight={MIN_SIZE}
-        bounds="parent"
         enableResizing={
           isSingleInput
             ? { left: true, right: true, topLeft: false, topRight: false, bottomLeft: false, bottomRight: false, top: false, bottom: false }
@@ -832,27 +832,30 @@ export function CanvasOverlay() {
     ? pages.reduce((acc, p) => acc + p.height * zoom, 0) + TOP_PADDING + PAGE_GAP * (pages.length - 1)
     : 0;
 
-  const guideLineElements = activeGuides.map((guide, i) => {
+  const guideLineElements = activeGuides.flatMap((guide, i) => {
     if (guide.orientation === "horizontal") {
-      const screenY = TOP_PADDING + guide.position * zoom;
-      return (
-        <div
-          key={`guide-${i}`}
-          className="pointer-events-none absolute z-50"
-          style={{
-            left: 0,
-            top: screenY,
-            width: overlayWidth,
-            height: 1,
-            backgroundColor: guide.type === "element" || guide.type === "grid" ? "var(--guide-snap)" : "var(--guide-ruler)",
-          }}
-        />
-      );
+      return pages.map((page, pi) => {
+        const layout = layouts.get(page.pageNumber);
+        const screenY = (layout?.yOffset ?? TOP_PADDING) + guide.position * zoom;
+        return (
+          <div
+            key={`guide-${i}-page-${pi}`}
+            className="pointer-events-none absolute z-50"
+            style={{
+              left: 0,
+              top: screenY,
+              width: overlayWidth,
+              height: 1,
+              backgroundColor: guide.type === "element" || guide.type === "grid" ? "var(--guide-snap)" : "var(--guide-ruler)",
+            }}
+          />
+        );
+      });
     } else {
       const screenX = layouts.get(1)
         ? Math.max(H_PADDING, (overlayWidth - pages[0].width * zoom) / 2) + guide.position * zoom
         : guide.position * zoom;
-      return (
+      return [
         <div
           key={`guide-${i}`}
           className="pointer-events-none absolute z-50"
@@ -863,8 +866,8 @@ export function CanvasOverlay() {
             height: totalContentHeight,
             backgroundColor: guide.type === "element" || guide.type === "grid" ? "var(--guide-snap)" : "var(--guide-ruler)",
           }}
-        />
-      );
+        />,
+      ];
     }
   });
 
@@ -873,7 +876,7 @@ export function CanvasOverlay() {
   const selectGuide = useEditorStore((s) => s.selectGuide);
   const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
 
-  const persistentGuideElements = guides.map((guide) => {
+  const persistentGuideElements = guides.flatMap((guide) => {
     const isSelected = selectedGuideId === guide.id;
 
     const handleGuideMouseDown = (e: React.MouseEvent) => {
@@ -891,20 +894,27 @@ export function CanvasOverlay() {
       const sTop = scrollEl?.scrollTop ?? 0;
 
       const onMouseMove = (moveEvent: MouseEvent) => {
-        const page = pages[0];
-        if (!page) return;
-
         if (guide.orientation === "horizontal") {
           const relY = moveEvent.clientY - overlayRect.top + sTop;
-          let pdfY = Math.max(0, Math.min(page.height, (relY - TOP_PADDING) / zoom));
+          let pageYOffset = TOP_PADDING;
+          for (const p of pages) {
+            const pH = p.height * zoom;
+            if (relY >= pageYOffset && relY < pageYOffset + pH) {
+              break;
+            }
+            pageYOffset += pH + PAGE_GAP;
+          }
+          let pdfY = (relY - pageYOffset) / zoom;
           if (moveEvent.shiftKey) {
             pdfY = Math.round(pdfY / gridSize) * gridSize;
           }
           updateGuidePosition(guide.id, Math.round(pdfY * 10) / 10);
         } else {
           const relX = moveEvent.clientX - overlayRect.left + sLeft;
+          const page = pages[0];
+          if (!page) return;
           const xOff = Math.max(H_PADDING, (overlayWidth - page.width * zoom) / 2);
-          let pdfX = Math.max(0, Math.min(page.width, (relX - xOff) / zoom));
+          let pdfX = (relX - xOff) / zoom;
           if (moveEvent.shiftKey) {
             pdfX = Math.round(pdfX / gridSize) * gridSize;
           }
@@ -929,38 +939,41 @@ export function CanvasOverlay() {
     };
 
     if (guide.orientation === "horizontal") {
-      const screenY = TOP_PADDING + guide.position * zoom;
-      return (
-        <ContextMenu key={guide.id}>
-          <ContextMenuTrigger
-            render={<div />}
-            className="absolute z-40 cursor-ns-resize group"
-            style={{ left: 0, top: screenY - 4, width: overlayWidth, height: 9 }}
-            onMouseDown={handleGuideMouseDown}
-          >
-            <div
-              className="w-full group-hover:opacity-100"
-              style={{ ...lineStyle, top: 4, height: 1 }}
-            />
-          </ContextMenuTrigger>
-          <ContextMenuContent>
-            <ContextMenuItem
-              variant="destructive"
-              className="text-xs"
-              onClick={() => removeGuide(guide.id)}
+      return pages.map((page, pi) => {
+        const layout = layouts.get(page.pageNumber);
+        const screenY = (layout?.yOffset ?? TOP_PADDING) + guide.position * zoom;
+        return (
+          <ContextMenu key={`${guide.id}-page-${pi}`}>
+            <ContextMenuTrigger
+              render={<div />}
+              className="absolute z-40 cursor-ns-resize group"
+              style={{ left: 0, top: screenY - 4, width: overlayWidth, height: 9 }}
+              onMouseDown={handleGuideMouseDown}
             >
-              <Trash2 className="size-3.5" />
-              {t("properties.deleteGuide")}
-            </ContextMenuItem>
-          </ContextMenuContent>
-        </ContextMenu>
-      );
+              <div
+                className="w-full group-hover:opacity-100"
+                style={{ ...lineStyle, top: 4, height: 1 }}
+              />
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuItem
+                variant="destructive"
+                className="text-xs"
+                onClick={() => removeGuide(guide.id)}
+              >
+                <Trash2 className="size-3.5" />
+                {t("properties.deleteGuide")}
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
+        );
+      });
     } else {
       const firstLayout = layouts.get(1);
       const screenX = firstLayout
         ? firstLayout.xOffset + guide.position * zoom
         : guide.position * zoom;
-      return (
+      return [
         <ContextMenu key={guide.id}>
           <ContextMenuTrigger
             render={<div />}
@@ -983,28 +996,31 @@ export function CanvasOverlay() {
               {t("properties.deleteGuide")}
             </ContextMenuItem>
           </ContextMenuContent>
-        </ContextMenu>
-      );
+        </ContextMenu>,
+      ];
     }
   });
 
   const previewGuideElements = previewGuide
     ? (() => {
         if (previewGuide.orientation === "horizontal") {
-          const screenY = TOP_PADDING + previewGuide.position * zoom;
-          return [
-            <div
-              key="preview-guide"
-              className="pointer-events-none absolute z-50"
-              style={{
-                left: 0,
-                top: screenY,
-                width: overlayWidth,
-                height: 1,
-                backgroundColor: "var(--guide-ruler)",
-              }}
-            />,
-          ];
+          return pages.map((page, pi) => {
+            const layout = layouts.get(page.pageNumber);
+            const screenY = (layout?.yOffset ?? TOP_PADDING) + previewGuide.position * zoom;
+            return (
+              <div
+                key={`preview-guide-page-${pi}`}
+                className="pointer-events-none absolute z-50"
+                style={{
+                  left: 0,
+                  top: screenY,
+                  width: overlayWidth,
+                  height: 1,
+                  backgroundColor: "var(--guide-ruler)",
+                }}
+              />
+            );
+          });
         } else {
           const firstLayout = layouts.get(1);
           const screenX = firstLayout
