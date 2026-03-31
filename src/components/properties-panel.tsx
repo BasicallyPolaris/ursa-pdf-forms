@@ -35,7 +35,6 @@ import {
   AlignStartVertical,
   BetweenHorizontalStart,
   BetweenVerticalStart,
-  Crosshair,
   Expand,
   MoveHorizontal,
   MoveVertical,
