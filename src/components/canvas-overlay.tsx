@@ -173,6 +173,20 @@ export function CanvasOverlay() {
       const screenY = e.clientY - rect.top;
       const layouts = getPageLayouts();
       const pageNumber = findPageAtPoint(screenX, screenY, layouts);
+
+      if (activeTool === "select") {
+        if (!e.shiftKey) {
+          clearSelection();
+        }
+        marqueeStartRef.current = {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        };
+        isDraggingRef.current = false;
+        setMarquee(null);
+        return;
+      }
+
       if (!pageNumber) return;
 
       const layout = layouts.get(pageNumber)!;
@@ -218,17 +232,6 @@ export function CanvasOverlay() {
         return;
       }
 
-      if (activeTool === "select") {
-        if (!e.shiftKey) {
-          clearSelection();
-        }
-        marqueeStartRef.current = {
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
-        };
-        isDraggingRef.current = false;
-        setMarquee(null);
-      }
     },
     [activeTool, zoom, elements.length, addElement, selectElements, clearSelection, getPageLayouts, findPageAtPoint],
   );
@@ -272,7 +275,7 @@ export function CanvasOverlay() {
 
         if (HORIZONTAL_DRAW_TOOLS.has(activeTool) && width > 5) {
           const pdfTopLeft = screenToPdf(
-            { x: left, y: top },
+            { x: left, y: start.y },
             { zoom, pageX: start.pageX, pageY: start.pageY },
           );
           const pdfWidth = width / zoom;
