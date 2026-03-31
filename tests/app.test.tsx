@@ -98,17 +98,17 @@ describe("App layout", () => {
 
   it("renders tool buttons in floating toolbar when PDF is loaded", async () => {
     render(<App />);
-    expect(screen.queryByText("Select")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("tool-select")).not.toBeInTheDocument();
 
     useEditorStore.getState().setPdf("test.pdf", new Uint8Array([1, 2, 3]), [
       { pageNumber: 1, width: 612, height: 792 },
     ]);
 
     await waitFor(() => {
-      expect(screen.getByText("Select")).toBeInTheDocument();
+      expect(screen.getByTestId("tool-select")).toBeInTheDocument();
     });
-    expect(screen.getByText("Input")).toBeInTheDocument();
-    expect(screen.getByText("Textarea")).toBeInTheDocument();
+    expect(screen.getByTestId("tool-input")).toBeInTheDocument();
+    expect(screen.getByTestId("tool-textarea")).toBeInTheDocument();
   });
 
   it("renders export button", () => {

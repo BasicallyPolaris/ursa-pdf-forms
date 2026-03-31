@@ -39,6 +39,7 @@ export function FloatingToolbar() {
             <Tooltip key={id}>
               <TooltipTrigger>
                 <ToolButton
+                  data-testid={`tool-${id}`}
                   variant="icon"
                   onClick={() => setActiveTool(id)}
                   active={activeTool === id}
