@@ -17,6 +17,7 @@ import {
   isCheckbox,
   isRadioButton,
   isTextField,
+  type FormElement,
   type RadioButton,
   type TextField,
 } from "@/lib/form-element-model";
@@ -287,7 +288,7 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
           <NumericInput
             value={Math.round(element.width)}
             onChange={(e) =>
-              updateElement(element.id, { fontSize: Number(e.target.value) })
+              updateElement(element.id, { width: Number(e.target.value) })
             }
           />
         </PropertyField>
@@ -374,7 +375,7 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
           <NumericInput
             value={Math.round(element.width)}
             onChange={(e) =>
-              updateElement(element.id, { fontSize: Number(e.target.value) })
+              updateElement(element.id, { width: Number(e.target.value) })
             }
           />
         </PropertyField>
@@ -473,6 +474,85 @@ function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
           className="h-7 text-xs"
         />
       </PropertyField>
+    </div>
+  );
+}
+
+function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
+  const { t } = useTranslation();
+  const updateElement = useEditorStore((s) => s.updateElement);
+
+  if (elements.length === 0) return null;
+
+  const allSameX = elements.every((el) => el.x === elements[0].x);
+  const allSameY = elements.every((el) => el.y === elements[0].y);
+  const allSameW = elements.every((el) => el.width === elements[0].width);
+  const allSameH = elements.every((el) => el.height === elements[0].height);
+  const hasAutoHeight = elements.some(
+    (el) => isTextField(el) && !el.multiline,
+  );
+
+  return (
+    <div className="flex flex-col gap-3">
+      <SectionHeader label={t("properties.position")} />
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField label={t("properties.x")}>
+          <NumericInput
+            value={allSameX ? Math.round(elements[0].x) : ""}
+            placeholder={allSameX ? undefined : t("properties.mixed")}
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              for (const el of elements) {
+                updateElement(el.id, { x: val });
+              }
+            }}
+          />
+        </PropertyField>
+        <PropertyField label={t("properties.y")}>
+          <NumericInput
+            value={allSameY ? Math.round(elements[0].y) : ""}
+            placeholder={allSameY ? undefined : t("properties.mixed")}
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              for (const el of elements) {
+                updateElement(el.id, { y: val });
+              }
+            }}
+          />
+        </PropertyField>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField label={t("properties.width")}>
+          <NumericInput
+            value={allSameW ? Math.round(elements[0].width) : ""}
+            placeholder={allSameW ? undefined : t("properties.mixed")}
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              for (const el of elements) {
+                updateElement(el.id, { width: val });
+              }
+            }}
+          />
+        </PropertyField>
+        <PropertyField label={t("properties.height")}>
+          <NumericInput
+            value={allSameH ? Math.round(elements[0].height) : ""}
+            placeholder={allSameH ? undefined : t("properties.mixed")}
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              for (const el of elements) {
+                if (isTextField(el) && !el.multiline) continue;
+                updateElement(el.id, { height: val });
+              }
+            }}
+          />
+        </PropertyField>
+      </div>
+      {hasAutoHeight && (
+        <p className="text-[10px] text-muted-foreground/60">
+          {t("properties.singleLineAutoHeight")}
+        </p>
+      )}
     </div>
   );
 }
@@ -754,6 +834,10 @@ function PropertiesPanelContent() {
             </div>
           </div>
           <Separator className="mb-3" />
+
+          <MultiPositionProperties elements={selectedElements} />
+
+          <Separator className="my-3" />
 
           <AlignmentSection />
 
