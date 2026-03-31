@@ -63,8 +63,10 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
             reuseMap.delete(i);
           } else {
             canvas = document.createElement("canvas");
+            canvas.draggable = false;
             canvas.style.display = "block";
             canvas.style.margin = "0 auto";
+            (canvas.style as unknown as Record<string, string>).webkitUserDrag = "none";
             wrapper = document.createElement("div");
             wrapper.className = "flex justify-center";
             wrapper.dataset.pageWrapper = String(i);
@@ -244,7 +246,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
 
   return (
     <div className="relative min-w-full w-fit">
-      <div ref={pagesRef} className="flex flex-col items-center gap-2 p-4" />
+      <div ref={pagesRef} className="flex flex-col items-center gap-2 p-4" onDragStart={(e) => e.preventDefault()} />
       {children}
     </div>
   );
