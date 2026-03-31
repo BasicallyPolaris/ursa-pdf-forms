@@ -3,7 +3,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getElementStyleConfig, getElementStyleConfigByType, getFieldTypeLabel } from "@/lib/element-style-map";
+import {
+  getElementStyleConfig,
+  getElementStyleConfigByType,
+  getFieldTypeLabel,
+} from "@/lib/element-style-map";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -36,6 +40,9 @@ import {
   MoveHorizontal,
   MoveVertical,
   Shrink,
+  SquareCenterlineDashedHorizontal,
+  SquareCenterlineDashedVertical,
+  SquareSquare,
   Trash2,
 } from "lucide-react";
 import { Component } from "react";
@@ -150,7 +157,9 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
 
       {!element.multiline && (
         <div className="flex items-center justify-between">
-          <Label className="text-[11px] text-muted-foreground">{t("properties.height")}</Label>
+          <Label className="text-[11px] text-muted-foreground">
+            {t("properties.height")}
+          </Label>
           <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
             {t("properties.pt", { value: Math.round(element.height) })}
           </span>
@@ -158,7 +167,9 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
       )}
 
       <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-muted-foreground">{t("properties.required")}</Label>
+        <Label className="text-[11px] text-muted-foreground">
+          {t("properties.required")}
+        </Label>
         <Switch
           checked={element.required}
           onCheckedChange={(checked) =>
@@ -435,7 +446,9 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
       )}
 
       <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-muted-foreground">{t("properties.required")}</Label>
+        <Label className="text-[11px] text-muted-foreground">
+          {t("properties.required")}
+        </Label>
         <Switch
           checked={allSameRequired ? elements[0].required : false}
           onCheckedChange={(checked) => {
@@ -494,10 +507,10 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
     resizableElements.length > 0 &&
     resizableElements.every((el) => el.height === resizableElements[0].height);
 
-  const heightDisplayValue = allSameH ? Math.round(resizableElements[0].height) : "";
-  const hasAutoHeight = elements.some(
-    (el) => isTextField(el) && !el.multiline,
-  );
+  const heightDisplayValue = allSameH
+    ? Math.round(resizableElements[0].height)
+    : "";
+  const hasAutoHeight = elements.some((el) => isTextField(el) && !el.multiline);
 
   return (
     <div className="flex flex-col gap-3">
@@ -604,22 +617,35 @@ function ToolButton({
 function CenterOnPageButtons() {
   const { t } = useTranslation();
   const centerSelectionOnPage = useEditorStore((s) => s.centerSelectionOnPage);
-  const centerSelectionOnPageH = useEditorStore((s) => s.centerSelectionOnPageH);
-  const centerSelectionOnPageV = useEditorStore((s) => s.centerSelectionOnPageV);
+  const centerSelectionOnPageH = useEditorStore(
+    (s) => s.centerSelectionOnPageH,
+  );
+  const centerSelectionOnPageV = useEditorStore(
+    (s) => s.centerSelectionOnPageV,
+  );
 
   return (
     <div className="flex flex-col gap-1.5">
       <SectionHeader label={t("properties.center")} />
       <div className="flex gap-1">
-        <ToolButton onClick={() => centerSelectionOnPageH()} title={t("properties.centerHorizontally")}>
-          <AlignCenterVertical className="h-3.5 w-3.5" />
+        <ToolButton
+          onClick={() => centerSelectionOnPageH()}
+          title={t("properties.centerHorizontally")}
+        >
+          <SquareCenterlineDashedHorizontal className="h-3.5 w-3.5" />
         </ToolButton>
-        <ToolButton onClick={() => centerSelectionOnPageV()} title={t("properties.centerVertically")}>
-          <AlignCenterHorizontal className="h-3.5 w-3.5" />
+        <ToolButton
+          onClick={() => centerSelectionOnPageV()}
+          title={t("properties.centerVertically")}
+        >
+          <SquareCenterlineDashedVertical className="h-3.5 w-3.5" />
         </ToolButton>
         <span className="w-px bg-border" />
-        <ToolButton onClick={() => centerSelectionOnPage()} title={t("properties.centerOnPage")}>
-          <Crosshair className="h-3.5 w-3.5" />
+        <ToolButton
+          onClick={() => centerSelectionOnPage()}
+          title={t("properties.centerOnPage")}
+        >
+          <SquareSquare className="h-3.5 w-3.5" />
         </ToolButton>
       </div>
     </div>
@@ -634,7 +660,10 @@ function AlignButtons() {
     <div className="flex flex-col gap-1.5">
       <SectionHeader label={t("properties.alignment")} />
       <div className="flex gap-1">
-        <ToolButton onClick={() => alignElements("left")} title={t("properties.alignLeft")}>
+        <ToolButton
+          onClick={() => alignElements("left")}
+          title={t("properties.alignLeft")}
+        >
           <AlignStartVertical className="h-3.5 w-3.5" />
         </ToolButton>
         <ToolButton
@@ -643,12 +672,18 @@ function AlignButtons() {
         >
           <AlignCenterVertical className="h-3.5 w-3.5" />
         </ToolButton>
-        <ToolButton onClick={() => alignElements("right")} title={t("properties.alignRight")}>
+        <ToolButton
+          onClick={() => alignElements("right")}
+          title={t("properties.alignRight")}
+        >
           <AlignEndVertical className="h-3.5 w-3.5" />
         </ToolButton>
       </div>
       <div className="flex gap-1">
-        <ToolButton onClick={() => alignElements("top")} title={t("properties.alignTop")}>
+        <ToolButton
+          onClick={() => alignElements("top")}
+          title={t("properties.alignTop")}
+        >
           <AlignStartHorizontal className="h-3.5 w-3.5" />
         </ToolButton>
         <ToolButton
@@ -749,7 +784,9 @@ function GuideProperties({ guideId }: { guideId: string }) {
 
   const isHorizontal = guide.orientation === "horizontal";
   const Icon = isHorizontal ? MoveHorizontal : MoveVertical;
-  const orientationLabel = isHorizontal ? t("properties.horizontal") : t("properties.vertical");
+  const orientationLabel = isHorizontal
+    ? t("properties.horizontal")
+    : t("properties.vertical");
   const posLabel = isHorizontal ? "Y" : "X";
 
   return (
@@ -803,9 +840,7 @@ function PropertiesPanelContent() {
   const selectedElements = elements.filter((el) => selectedIds.has(el.id));
 
   if (selectedIds.size === 0) {
-    return (
-      <EmptyState description={t("properties.noSelection")} />
-    );
+    return <EmptyState description={t("properties.noSelection")} />;
   }
 
   if (selectedIds.size > 1) {
@@ -869,9 +904,7 @@ function PropertiesPanelContent() {
   const element = elements.find((el) => el.id === elementId);
 
   if (!element) {
-    return (
-      <EmptyState description={t("properties.noSelection")} />
-    );
+    return <EmptyState description={t("properties.noSelection")} />;
   }
 
   const config = getElementStyleConfig(element);
@@ -889,7 +922,9 @@ function PropertiesPanelContent() {
               <Icon className="h-3 w-3" />
             </span>
             <span className="text-xs font-medium text-foreground">
-              {isMultilineText ? t("fieldTypes.multiline") : getFieldTypeLabel(config)}
+              {isMultilineText
+                ? t("fieldTypes.multiline")
+                : getFieldTypeLabel(config)}
             </span>
           </div>
           <span className="text-[10px] text-muted-foreground">
