@@ -73,7 +73,7 @@ interface EditorState {
   toggleInSelection: (id: string) => void;
   addToSelection: (ids: string[]) => void;
   copySelection: () => void;
-  pasteClipboard: () => void;
+  pasteClipboard: (targetPage?: number) => void;
   addGuide: (orientation: "horizontal" | "vertical", position: number) => void;
   removeGuide: (id: string) => void;
   updateGuidePosition: (id: string, position: number) => void;
@@ -171,17 +171,19 @@ export const useEditorStore = create<EditorState>()(
           return { clipboard: JSON.parse(JSON.stringify(selected)) };
         }),
 
-      pasteClipboard: () =>
+      pasteClipboard: (targetPage?: number) =>
         set((s) => {
           if (s.clipboard.length === 0) return s;
           const pasted: FormElement[] = [];
           const newIds = new Set<string>();
           for (const el of s.clipboard) {
+            const samePage = targetPage === undefined || targetPage === el.pageNumber;
             const newEl = {
               ...JSON.parse(JSON.stringify(el)),
               id: generatePastedId(),
-              x: el.x + PASTE_OFFSET,
-              y: el.y + PASTE_OFFSET,
+              pageNumber: samePage ? el.pageNumber : targetPage,
+              x: samePage ? el.x + PASTE_OFFSET : el.x,
+              y: samePage ? el.y + PASTE_OFFSET : el.y,
             } as FormElement;
             if ("name" in newEl) {
               const typed = newEl as FormElement & { name: string };

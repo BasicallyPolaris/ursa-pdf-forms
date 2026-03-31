@@ -1,12 +1,36 @@
 import { useEffect } from "react";
 import { useEditorStore, undo, redo } from "@/stores/editor-store";
 import { openPdfFile } from "@/lib/file-operations";
+import { TOP_PADDING, PAGE_GAP } from "@/lib/coordinates";
 
 function isInputElement(e: KeyboardEvent): boolean {
   return (
     e.target instanceof HTMLElement &&
     ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)
   );
+}
+
+function getVisiblePage(): number | undefined {
+  const scrollEl = document.querySelector("[data-pdf-scroll-container]");
+  if (!scrollEl) return undefined;
+  const store = useEditorStore.getState();
+  if (store.pages.length === 0) return undefined;
+  const scrollCenter = scrollEl.scrollTop + scrollEl.clientHeight / 2;
+  const zoom = store.zoom;
+  let closestPage = 1;
+  let closestDist = Infinity;
+  let yOffset = TOP_PADDING;
+  for (const page of store.pages) {
+    const pageScreenHeight = page.height * zoom;
+    const pageCenter = yOffset + pageScreenHeight / 2;
+    const dist = Math.abs(pageCenter - scrollCenter);
+    if (dist < closestDist) {
+      closestDist = dist;
+      closestPage = page.pageNumber;
+    }
+    yOffset += pageScreenHeight + PAGE_GAP;
+  }
+  return closestPage;
 }
 
 export function useKeyboardShortcuts() {
@@ -32,7 +56,7 @@ export function useKeyboardShortcuts() {
 
       if (mod && e.key === "v") {
         e.preventDefault();
-        store.pasteClipboard();
+        store.pasteClipboard(getVisiblePage());
       }
 
       if (mod && e.key === "z" && !e.shiftKey) {
