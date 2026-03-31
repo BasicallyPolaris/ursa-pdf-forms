@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useEditorStore } from "@/stores/editor-store";
 import { loadPdfDocument } from "@/lib/pdf-loader";
 
 export function PageSidebar() {
+  const { t } = useTranslation();
   const { pdfBytes, pages } = useEditorStore();
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
@@ -64,7 +66,7 @@ export function PageSidebar() {
       className="flex w-44 flex-col border-r border-border bg-card"
     >
       <div className="px-2.5 py-1.5">
-        <span className="text-[11px] font-medium text-muted-foreground">Pages</span>
+        <span className="text-[11px] font-medium text-muted-foreground">{t("sidebar.pages")}</span>
       </div>
       {pdfBytes && (
         <div

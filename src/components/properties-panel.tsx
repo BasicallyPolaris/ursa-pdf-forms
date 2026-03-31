@@ -1,8 +1,9 @@
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getElementStyleConfig, getElementStyleConfigByType } from "@/lib/element-style-map";
+import { getElementStyleConfig, getElementStyleConfigByType, getFieldTypeLabel } from "@/lib/element-style-map";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -90,6 +91,7 @@ function SectionHeader({ label }: { label: string }) {
 }
 
 function TextFieldProperties({ elementId }: { elementId: string }) {
+  const { t } = useTranslation();
   const element = useEditorStore((s) =>
     s.elements.find((el) => el.id === elementId),
   );
@@ -109,7 +111,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <PropertyField label="Name">
+      <PropertyField label={t("properties.name")}>
         <Input
           value={element.name}
           onChange={(e) => updateElement(element.id, { name: e.target.value })}
@@ -117,7 +119,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
         />
       </PropertyField>
 
-      <PropertyField label="Default Value">
+      <PropertyField label={t("properties.defaultValue")}>
         <Input
           value={element.defaultValue}
           onChange={(e) =>
@@ -129,9 +131,9 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
 
       <Separator />
 
-      <SectionHeader label="Typography" />
+      <SectionHeader label={t("properties.typography")} />
 
-      <PropertyField label="Font Size">
+      <PropertyField label={t("properties.fontSize")}>
         <NumericInput
           value={element.fontSize}
           onChange={(e) => {
@@ -147,15 +149,15 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
 
       {!element.multiline && (
         <div className="flex items-center justify-between">
-          <Label className="text-[11px] text-muted-foreground">Height</Label>
+          <Label className="text-[11px] text-muted-foreground">{t("properties.height")}</Label>
           <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
-            {Math.round(element.height)}pt
+            {t("properties.pt", { value: Math.round(element.height) })}
           </span>
         </div>
       )}
 
       <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-muted-foreground">Required</Label>
+        <Label className="text-[11px] text-muted-foreground">{t("properties.required")}</Label>
         <Switch
           checked={element.required}
           onCheckedChange={(checked) =>
@@ -164,7 +166,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
         />
       </div>
 
-      <PropertyField label="Max Length">
+      <PropertyField label={t("properties.maxLength")}>
         <NumericInput
           value={element.maxLength ?? ""}
           onChange={(e) =>
@@ -172,16 +174,16 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
               maxLength: e.target.value ? Number(e.target.value) : undefined,
             })
           }
-          placeholder="No limit"
+          placeholder={t("properties.noLimit")}
         />
       </PropertyField>
 
       <Separator />
 
-      <SectionHeader label="Position" />
+      <SectionHeader label={t("properties.position")} />
 
       <div className="grid grid-cols-2 gap-2">
-        <PropertyField label="X">
+        <PropertyField label={t("properties.x")}>
           <NumericInput
             value={displayX}
             onChange={(e) =>
@@ -189,7 +191,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
             }
           />
         </PropertyField>
-        <PropertyField label="Y">
+        <PropertyField label={t("properties.y")}>
           <NumericInput
             value={displayY}
             onChange={(e) =>
@@ -199,7 +201,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
         </PropertyField>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <PropertyField label="Width">
+        <PropertyField label={t("properties.width")}>
           <NumericInput
             value={displayW}
             onChange={(e) =>
@@ -207,7 +209,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
             }
           />
         </PropertyField>
-        <PropertyField label="Height">
+        <PropertyField label={t("properties.height")}>
           <NumericInput
             value={displayH}
             onChange={(e) =>
@@ -224,6 +226,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
 }
 
 function CheckboxProperties({ elementId }: { elementId: string }) {
+  const { t } = useTranslation();
   const element = useEditorStore((s) =>
     s.elements.find((el) => el.id === elementId),
   );
@@ -237,7 +240,7 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <PropertyField label="Name">
+      <PropertyField label={t("properties.name")}>
         <Input
           value={element.name}
           onChange={(e) => updateElement(element.id, { name: e.target.value })}
@@ -247,7 +250,7 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
 
       <div className="flex items-center justify-between">
         <Label className="text-[11px] text-muted-foreground">
-          Default Checked
+          {t("properties.defaultChecked")}
         </Label>
         <Switch
           checked={element.defaultChecked}
@@ -259,10 +262,10 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
 
       <Separator />
 
-      <SectionHeader label="Position" />
+      <SectionHeader label={t("properties.position")} />
 
       <div className="grid grid-cols-2 gap-2">
-        <PropertyField label="X">
+        <PropertyField label={t("properties.x")}>
           <NumericInput
             value={displayX}
             onChange={(e) =>
@@ -270,7 +273,7 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
             }
           />
         </PropertyField>
-        <PropertyField label="Y">
+        <PropertyField label={t("properties.y")}>
           <NumericInput
             value={displayY}
             onChange={(e) =>
@@ -280,7 +283,7 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
         </PropertyField>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <PropertyField label="Width">
+        <PropertyField label={t("properties.width")}>
           <NumericInput
             value={Math.round(element.width)}
             onChange={(e) =>
@@ -288,7 +291,7 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
             }
           />
         </PropertyField>
-        <PropertyField label="Height">
+        <PropertyField label={t("properties.height")}>
           <NumericInput
             value={Math.round(element.height)}
             onChange={(e) =>
@@ -304,6 +307,7 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
 }
 
 function RadioButtonProperties({ elementId }: { elementId: string }) {
+  const { t } = useTranslation();
   const element = useEditorStore((s) =>
     s.elements.find((el) => el.id === elementId),
   );
@@ -317,7 +321,7 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <PropertyField label="Group Name">
+      <PropertyField label={t("properties.groupName")}>
         <Input
           value={element.groupName}
           onChange={(e) =>
@@ -327,7 +331,7 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
         />
       </PropertyField>
 
-      <PropertyField label="Value">
+      <PropertyField label={t("properties.value")}>
         <Input
           value={element.value}
           onChange={(e) => updateElement(element.id, { value: e.target.value })}
@@ -335,7 +339,7 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
         />
       </PropertyField>
 
-      <PropertyField label="Label">
+      <PropertyField label={t("properties.label")}>
         <Input
           value={element.label}
           onChange={(e) => updateElement(element.id, { label: e.target.value })}
@@ -345,10 +349,10 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
 
       <Separator />
 
-      <SectionHeader label="Position" />
+      <SectionHeader label={t("properties.position")} />
 
       <div className="grid grid-cols-2 gap-2">
-        <PropertyField label="X">
+        <PropertyField label={t("properties.x")}>
           <NumericInput
             value={displayX}
             onChange={(e) =>
@@ -356,7 +360,7 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
             }
           />
         </PropertyField>
-        <PropertyField label="Y">
+        <PropertyField label={t("properties.y")}>
           <NumericInput
             value={displayY}
             onChange={(e) =>
@@ -366,7 +370,7 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
         </PropertyField>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <PropertyField label="Width">
+        <PropertyField label={t("properties.width")}>
           <NumericInput
             value={Math.round(element.width)}
             onChange={(e) =>
@@ -374,7 +378,7 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
             }
           />
         </PropertyField>
-        <PropertyField label="Height">
+        <PropertyField label={t("properties.height")}>
           <NumericInput
             value={Math.round(element.height)}
             onChange={(e) =>
@@ -390,6 +394,7 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
 }
 
 function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
+  const { t } = useTranslation();
   const updateElement = useEditorStore((s) => s.updateElement);
 
   if (elements.length === 0) return null;
@@ -405,10 +410,10 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <PropertyField label="Font Size">
+      <PropertyField label={t("properties.fontSize")}>
         <NumericInput
           value={allSameFontSize ? elements[0].fontSize : ""}
-          placeholder={allSameFontSize ? undefined : "Mixed"}
+          placeholder={allSameFontSize ? undefined : t("properties.mixed")}
           onChange={(e) => {
             const val = Number(e.target.value);
             for (const el of elements) {
@@ -424,12 +429,12 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
 
       {hasSingleLine && (
         <p className="text-[10px] text-muted-foreground/60">
-          Single-line field heights auto-adjust with font size
+          {t("properties.singleLineAutoHeight")}
         </p>
       )}
 
       <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-muted-foreground">Required</Label>
+        <Label className="text-[11px] text-muted-foreground">{t("properties.required")}</Label>
         <Switch
           checked={allSameRequired ? elements[0].required : false}
           onCheckedChange={(checked) => {
@@ -444,6 +449,7 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
 }
 
 function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
+  const { t } = useTranslation();
   const updateElement = useEditorStore((s) => s.updateElement);
 
   if (elements.length === 0) return null;
@@ -454,10 +460,10 @@ function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <PropertyField label="Group Name">
+      <PropertyField label={t("properties.groupName")}>
         <Input
           value={allSameGroup ? elements[0].groupName : ""}
-          placeholder={allSameGroup ? undefined : "Mixed"}
+          placeholder={allSameGroup ? undefined : t("properties.mixed")}
           onChange={(e) => {
             const val = e.target.value;
             for (const el of elements) {
@@ -509,22 +515,23 @@ function ToolButton({
 }
 
 function CenterOnPageButtons() {
+  const { t } = useTranslation();
   const centerSelectionOnPage = useEditorStore((s) => s.centerSelectionOnPage);
   const centerSelectionOnPageH = useEditorStore((s) => s.centerSelectionOnPageH);
   const centerSelectionOnPageV = useEditorStore((s) => s.centerSelectionOnPageV);
 
   return (
     <div className="flex flex-col gap-1.5">
-      <SectionHeader label="Center" />
+      <SectionHeader label={t("properties.center")} />
       <div className="flex gap-1">
-        <ToolButton onClick={() => centerSelectionOnPageH()} title="Center horizontally">
+        <ToolButton onClick={() => centerSelectionOnPageH()} title={t("properties.centerHorizontally")}>
           <AlignCenterVertical className="h-3.5 w-3.5" />
         </ToolButton>
-        <ToolButton onClick={() => centerSelectionOnPageV()} title="Center vertically">
+        <ToolButton onClick={() => centerSelectionOnPageV()} title={t("properties.centerVertically")}>
           <AlignCenterHorizontal className="h-3.5 w-3.5" />
         </ToolButton>
         <span className="w-px bg-border" />
-        <ToolButton onClick={() => centerSelectionOnPage()} title="Center on page">
+        <ToolButton onClick={() => centerSelectionOnPage()} title={t("properties.centerOnPage")}>
           <Crosshair className="h-3.5 w-3.5" />
         </ToolButton>
       </div>
@@ -533,38 +540,39 @@ function CenterOnPageButtons() {
 }
 
 function AlignButtons() {
+  const { t } = useTranslation();
   const alignElements = useEditorStore((s) => s.alignElements);
 
   return (
     <div className="flex flex-col gap-1.5">
-      <SectionHeader label="Alignment" />
+      <SectionHeader label={t("properties.alignment")} />
       <div className="flex gap-1">
-        <ToolButton onClick={() => alignElements("left")} title="Align left">
+        <ToolButton onClick={() => alignElements("left")} title={t("properties.alignLeft")}>
           <AlignStartVertical className="h-3.5 w-3.5" />
         </ToolButton>
         <ToolButton
           onClick={() => alignElements("centerH")}
-          title="Align center horizontal"
+          title={t("properties.alignCenterH")}
         >
           <AlignCenterVertical className="h-3.5 w-3.5" />
         </ToolButton>
-        <ToolButton onClick={() => alignElements("right")} title="Align right">
+        <ToolButton onClick={() => alignElements("right")} title={t("properties.alignRight")}>
           <AlignEndVertical className="h-3.5 w-3.5" />
         </ToolButton>
       </div>
       <div className="flex gap-1">
-        <ToolButton onClick={() => alignElements("top")} title="Align top">
+        <ToolButton onClick={() => alignElements("top")} title={t("properties.alignTop")}>
           <AlignStartHorizontal className="h-3.5 w-3.5" />
         </ToolButton>
         <ToolButton
           onClick={() => alignElements("centerV")}
-          title="Align center vertical"
+          title={t("properties.alignCenterV")}
         >
           <AlignCenterHorizontal className="h-3.5 w-3.5" />
         </ToolButton>
         <ToolButton
           onClick={() => alignElements("bottom")}
-          title="Align bottom"
+          title={t("properties.alignBottom")}
         >
           <AlignEndHorizontal className="h-3.5 w-3.5" />
         </ToolButton>
@@ -574,34 +582,35 @@ function AlignButtons() {
 }
 
 function SizingButtons() {
+  const { t } = useTranslation();
   const matchElementSize = useEditorStore((s) => s.matchElementSize);
 
   return (
     <div className="flex flex-col gap-1.5">
-      <SectionHeader label="Adjust Sizing" />
+      <SectionHeader label={t("properties.adjustSizing")} />
       <div className="flex gap-1">
         <ToolButton
           onClick={() => matchElementSize("widthWidest")}
-          title="Match width to widest"
+          title={t("properties.matchWidthWidest")}
         >
           <Expand className="h-3.5 w-3.5" />
         </ToolButton>
         <ToolButton
           onClick={() => matchElementSize("widthNarrowest")}
-          title="Match width to narrowest"
+          title={t("properties.matchWidthNarrowest")}
         >
           <Shrink className="h-3.5 w-3.5" />
         </ToolButton>
         <span className="w-px bg-border" />
         <ToolButton
           onClick={() => matchElementSize("heightTallest")}
-          title="Match height to tallest"
+          title={t("properties.matchHeightTallest")}
         >
           <Expand className="h-3.5 w-3.5 rotate-90" />
         </ToolButton>
         <ToolButton
           onClick={() => matchElementSize("heightShortest")}
-          title="Match height to shortest"
+          title={t("properties.matchHeightShortest")}
         >
           <Shrink className="h-3.5 w-3.5 rotate-90" />
         </ToolButton>
@@ -611,21 +620,22 @@ function SizingButtons() {
 }
 
 function DistributeButtons() {
+  const { t } = useTranslation();
   const distributeElements = useEditorStore((s) => s.distributeElements);
 
   return (
     <div className="flex flex-col gap-1.5">
-      <SectionHeader label="Distribute" />
+      <SectionHeader label={t("properties.distribute")} />
       <div className="flex gap-1">
         <ToolButton
           onClick={() => distributeElements("horizontal")}
-          title="Distribute horizontally"
+          title={t("properties.distributeHorizontally")}
         >
           <BetweenVerticalStart className="h-3.5 w-3.5" />
         </ToolButton>
         <ToolButton
           onClick={() => distributeElements("vertical")}
-          title="Distribute vertically"
+          title={t("properties.distributeVertically")}
         >
           <BetweenHorizontalStart className="h-3.5 w-3.5" />
         </ToolButton>
@@ -643,6 +653,7 @@ export function PropertiesPanel() {
 }
 
 function GuideProperties({ guideId }: { guideId: string }) {
+  const { t } = useTranslation();
   const guide = useEditorStore((s) => s.guides.find((g) => g.id === guideId));
   const updateGuidePosition = useEditorStore((s) => s.updateGuidePosition);
   const removeGuide = useEditorStore((s) => s.removeGuide);
@@ -651,7 +662,7 @@ function GuideProperties({ guideId }: { guideId: string }) {
 
   const isHorizontal = guide.orientation === "horizontal";
   const Icon = isHorizontal ? MoveHorizontal : MoveVertical;
-  const label = isHorizontal ? "Horizontal" : "Vertical";
+  const orientationLabel = isHorizontal ? t("properties.horizontal") : t("properties.vertical");
   const posLabel = isHorizontal ? "Y" : "X";
 
   return (
@@ -662,12 +673,12 @@ function GuideProperties({ guideId }: { guideId: string }) {
             <Icon className="h-3.5 w-3.5" />
           </span>
           <span className="text-xs font-medium text-foreground">
-            {label} guide
+            {t("properties.guide", { orientation: orientationLabel })}
           </span>
         </div>
       </div>
       <Separator />
-      <PropertyField label={`${posLabel} position`}>
+      <PropertyField label={t("properties.positionLabel", { axis: posLabel })}>
         <NumericInput
           value={Math.round(guide.position)}
           onChange={(e) =>
@@ -680,13 +691,14 @@ function GuideProperties({ guideId }: { guideId: string }) {
         className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/20"
       >
         <Trash2 className="h-3 w-3" />
-        Delete guide
+        {t("properties.deleteGuide")}
       </button>
     </div>
   );
 }
 
 function PropertiesPanelContent() {
+  const { t } = useTranslation();
   const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const elements = useEditorStore((s) => s.elements);
@@ -705,7 +717,7 @@ function PropertiesPanelContent() {
 
   if (selectedIds.size === 0) {
     return (
-      <EmptyState description="Select an element to edit properties" />
+      <EmptyState description={t("properties.noSelection")} />
     );
   }
 
@@ -728,16 +740,16 @@ function PropertiesPanelContent() {
             )}
             <div>
               <span className="text-xs font-medium text-foreground">
-                {selectedIds.size} selected
+                {t("properties.selected", { count: selectedIds.size })}
               </span>
               <span className="ml-2 text-[10px] text-muted-foreground">
                 {singleType
                   ? {
-                      text: "Text Fields",
-                      checkbox: "Checkboxes",
-                      radio: "Radio Buttons",
+                      text: t("properties.textFields"),
+                      checkbox: t("properties.checkboxes"),
+                      radio: t("properties.radioButtons"),
                     }[singleType]
-                  : "Mixed types"}
+                  : t("properties.mixedTypes")}
               </span>
             </div>
           </div>
@@ -767,7 +779,7 @@ function PropertiesPanelContent() {
 
   if (!element) {
     return (
-      <EmptyState description="Select an element to edit properties" />
+      <EmptyState description={t("properties.noSelection")} />
     );
   }
 
@@ -786,11 +798,11 @@ function PropertiesPanelContent() {
               <Icon className="h-3 w-3" />
             </span>
             <span className="text-xs font-medium text-foreground">
-              {isMultilineText ? "Multiline" : config.label}
+              {isMultilineText ? t("fieldTypes.multiline") : getFieldTypeLabel(config)}
             </span>
           </div>
           <span className="text-[10px] text-muted-foreground">
-            Page {element.pageNumber}
+            {t("properties.page", { page: element.pageNumber })}
           </span>
         </div>
         <Separator className="mb-3" />

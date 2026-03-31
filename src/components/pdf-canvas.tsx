@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import * as pdfjsLib from "pdfjs-dist";
 import { useEditorStore } from "@/stores/editor-store";
 import { loadPdfDocument } from "@/lib/pdf-loader";
@@ -16,6 +17,7 @@ interface PdfCanvasProps {
 }
 
 export function PdfCanvas({ children }: PdfCanvasProps) {
+  const { t } = useTranslation();
   const pdfBytes = useEditorStore((s) => s.pdfBytes);
   const zoom = useEditorStore((s) => s.zoom);
   const pagesRef = useRef<HTMLDivElement>(null);
@@ -37,7 +39,9 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
 
       renderedZoomRef.current = scale;
 
-      const existing = container.querySelectorAll<HTMLDivElement>("[data-page-wrapper]");
+      const existing = container.querySelectorAll<HTMLDivElement>(
+        "[data-page-wrapper]",
+      );
       const reuseMap = new Map<number, HTMLDivElement>();
       existing.forEach((el) => {
         const num = Number(el.dataset.pageWrapper);
@@ -125,7 +129,9 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     const renderedZoom = renderedZoomRef.current;
     const scaleRatio = zoom / renderedZoom;
 
-    const wrappers = container.querySelectorAll<HTMLElement>("[data-page-wrapper]");
+    const wrappers = container.querySelectorAll<HTMLElement>(
+      "[data-page-wrapper]",
+    );
     for (let i = 0; i < wrappers.length; i++) {
       const wrapper = wrappers[i];
       const canvas = wrapper.querySelector("canvas");
@@ -160,29 +166,75 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     return (
       <div className="flex h-full items-center justify-center select-none">
         <div className="flex flex-col items-center gap-5 text-muted-foreground">
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" className="text-border">
-            <rect x="8" y="4" width="32" height="40" rx="3" stroke="currentColor" strokeWidth="2" />
-            <line x1="14" y1="14" x2="34" y2="14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <line x1="14" y1="20" x2="34" y2="20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <line x1="14" y1="26" x2="28" y2="26" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <rect x="14" y="32" width="10" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 48 48"
+            fill="none"
+            className="text-border"
+          >
+            <rect
+              x="8"
+              y="4"
+              width="32"
+              height="40"
+              rx="3"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <line
+              x1="14"
+              y1="14"
+              x2="34"
+              y2="14"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+            <line
+              x1="14"
+              y1="20"
+              x2="34"
+              y2="20"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+            <line
+              x1="14"
+              y1="26"
+              x2="28"
+              y2="26"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+            <rect
+              x="14"
+              y="32"
+              width="10"
+              height="6"
+              rx="1"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            />
           </svg>
           <div className="flex flex-col items-center gap-1.5">
-            <p className="text-sm font-medium text-foreground">Open a PDF to get started</p>
-            <p className="text-xs text-muted-foreground">Drag and drop a file, or use the Open button</p>
+            <p className="text-sm text-center font-medium text-foreground">
+              {t("canvas.emptyTitle")}
+            </p>
+            <p className="text-xs text-center text-muted-foreground">
+              {t("canvas.emptyDescription")}
+            </p>
           </div>
           <div className="mt-2 flex flex-col gap-1.5 text-[11px] text-muted-foreground/70">
             <div className="flex items-center gap-2">
               <Kbd>Ctrl+O</Kbd>
-              <span>Open PDF</span>
+              <span>{t("canvas.openPdf")}</span>
             </div>
             <div className="flex items-center gap-2">
               <Kbd>Ctrl+Scroll</Kbd>
-              <span>Zoom</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Kbd>Del</Kbd>
-              <span>Remove field</span>
+              <span>{t("canvas.zoom")}</span>
             </div>
           </div>
         </div>
@@ -192,10 +244,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
 
   return (
     <div className="relative min-w-full w-fit">
-      <div
-        ref={pagesRef}
-        className="flex flex-col items-center gap-2 p-4"
-      />
+      <div ref={pagesRef} className="flex flex-col items-center gap-2 p-4" />
       {children}
     </div>
   );

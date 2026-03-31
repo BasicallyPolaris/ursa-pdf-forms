@@ -21,6 +21,52 @@ vi.mock("@tauri-apps/api/webview", () => ({
   }),
 }));
 
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, params?: Record<string, unknown>) => {
+      const translations: Record<string, string> = {
+        "app.title": "PDF Form Maker",
+        "header.open": "Open",
+        "header.save": "Save",
+        "header.saveProject": "Save project",
+        "header.export": "Export",
+        "header.zoomOut": "Zoom out",
+        "header.zoomIn": "Zoom in",
+        "header.undo": "Undo (Ctrl+Z)",
+        "header.redo": "Redo (Ctrl+Y)",
+        "header.language": "Language",
+        "toolbar.select": "Select",
+        "toolbar.input": "Input",
+        "toolbar.textarea": "Textarea",
+        "toolbar.checkbox": "Checkbox",
+        "toolbar.radio": "Radio",
+        "fieldTypes.textField": "Text Field",
+        "fieldTypes.checkbox": "Checkbox",
+        "fieldTypes.radioButton": "Radio Button",
+        "fieldTypes.multiline": "Multiline",
+        "canvas.emptyTitle": "Open a PDF to get started",
+        "canvas.emptyDescription": "Drag and drop a file, or use the Open button",
+        "canvas.openPdf": "Open PDF",
+        "canvas.zoom": "Zoom",
+        "canvas.removeField": "Remove field",
+        "sidebar.pages": "Pages",
+        "properties.noSelection": "Select an element to edit properties",
+        "status.clickToSelect": "Click to select",
+        "status.dragToMarquee": "Drag to marquee",
+      };
+      let result = translations[key] ?? key;
+      if (params) {
+        for (const [k, v] of Object.entries(params)) {
+          result = result.replace(`{{${k}}}`, String(v));
+        }
+      }
+      return result;
+    },
+    i18n: { language: "en", changeLanguage: vi.fn() },
+  }),
+  initReactI18next: { type: "3rdParty", init: vi.fn() },
+}));
+
 import { render, screen, waitFor } from "@testing-library/react";
 import App from "@/App";
 import { useEditorStore } from "@/stores/editor-store";

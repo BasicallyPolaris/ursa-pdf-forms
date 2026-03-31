@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import { exportFormElements } from "@/lib/pdf-export-engine";
@@ -11,8 +12,8 @@ export async function exportPdf() {
     const resultBytes = await exportFormElements(pdfBytes, elements);
 
     const filePath = await save({
-      filters: [{ name: "PDF", extensions: ["pdf"] }],
-      defaultPath: "form-output.pdf",
+      filters: [{ name: i18n.t("file.pdfFilter"), extensions: ["pdf"] }],
+      defaultPath: i18n.t("file.defaultExportName"),
     });
 
     if (!filePath) return;

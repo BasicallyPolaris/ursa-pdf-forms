@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import type { FormElement } from "@/lib/form-element-model";
 import {
   Type,
@@ -8,7 +9,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 export interface ElementStyleConfig {
-  label: string;
+  labelKey: string;
   icon: LucideIcon;
   colorClass: string;
   borderClass: string;
@@ -20,7 +21,7 @@ export interface ElementStyleConfig {
 
 const CONFIGS: Record<string, ElementStyleConfig> = {
   text: {
-    label: "Text Field",
+    labelKey: "fieldTypes.textField",
     icon: Type,
     colorClass: "text-field-text",
     borderClass: "border-field-text/30",
@@ -33,7 +34,7 @@ const CONFIGS: Record<string, ElementStyleConfig> = {
     drawPreviewClass: "border-2 border-field-text/60 bg-field-text-bg",
   },
   checkbox: {
-    label: "Checkbox",
+    labelKey: "fieldTypes.checkbox",
     icon: Square,
     colorClass: "text-field-checkbox",
     borderClass: "border-field-checkbox/30",
@@ -46,7 +47,7 @@ const CONFIGS: Record<string, ElementStyleConfig> = {
     drawPreviewClass: "border-2 border-field-checkbox/60 bg-field-checkbox-bg",
   },
   radio: {
-    label: "Radio Button",
+    labelKey: "fieldTypes.radioButton",
     icon: CircleDot,
     colorClass: "text-field-radio",
     borderClass: "border-field-radio/30",
@@ -59,7 +60,7 @@ const CONFIGS: Record<string, ElementStyleConfig> = {
     drawPreviewClass: "border-2 border-field-radio/60 bg-field-radio-bg",
   },
   multiline: {
-    label: "Multiline",
+    labelKey: "fieldTypes.multiline",
     icon: AlignLeft,
     colorClass: "text-field-multiline",
     borderClass: "border-field-multiline/30",
@@ -86,4 +87,8 @@ export function getElementStyleConfigByType(
   type: string
 ): ElementStyleConfig | undefined {
   return CONFIGS[type];
+}
+
+export function getFieldTypeLabel(config: ElementStyleConfig): string {
+  return i18n.t(config.labelKey);
 }

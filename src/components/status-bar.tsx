@@ -1,7 +1,9 @@
+import { useTranslation } from "react-i18next";
 import { useEditorStore } from "@/stores/editor-store";
 import { Kbd } from "@/components/ui/kbd";
 
 export function StatusBar() {
+  const { t } = useTranslation();
   const pdfBytes = useEditorStore((s) => s.pdfBytes);
   const activeTool = useEditorStore((s) => s.activeTool);
   const selectedIds = useEditorStore((s) => s.selectedIds);
@@ -13,18 +15,18 @@ export function StatusBar() {
   const hints: string[] = [];
 
   if (activeTool === "select") {
-    hints.push("Click to select");
-    hints.push("Drag to marquee");
+    hints.push(t("status.clickToSelect"));
+    hints.push(t("status.dragToMarquee"));
   } else if (activeTool === "input") {
-    hints.push("Drag to draw text field");
+    hints.push(t("status.dragToDrawTextField"));
   } else if (activeTool === "textarea") {
-    hints.push("Drag to draw multiline field");
+    hints.push(t("status.dragToDrawMultilineField"));
   } else if (activeTool === "checkbox" || activeTool === "radio") {
-    hints.push("Click to place");
+    hints.push(t("status.clickToPlace"));
   }
 
   if (hasSelection) {
-    hints.push(`${selectedIds.size} selected`);
+    hints.push(t("status.selected", { count: selectedIds.size }));
   }
 
   return (
@@ -37,12 +39,12 @@ export function StatusBar() {
       <div className="flex items-center gap-3">
         {hasSelection && (
           <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50">
-            <Kbd>Arrow</Kbd> nudge 1pt
-            <Kbd>Shift+Arrow</Kbd> nudge 5pt
-            <Kbd>Shift</Kbd> snap to grid
-            <Kbd>Ctrl</Kbd> free move
-            <Kbd>Del</Kbd> delete
-            <Kbd>Esc</Kbd> deselect
+            <Kbd>Arrow</Kbd> {t("status.nudge1pt")}
+            <Kbd>Shift+Arrow</Kbd> {t("status.nudge5pt")}
+            <Kbd>Shift</Kbd> {t("status.snapToGrid")}
+            <Kbd>Ctrl</Kbd> {t("status.freeMove")}
+            <Kbd>Del</Kbd> {t("status.delete")}
+            <Kbd>Esc</Kbd> {t("status.deselect")}
           </span>
         )}
       </div>

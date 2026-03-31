@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { readFile, writeFile } from "@tauri-apps/plugin-fs";
 import { useEditorStore } from "@/stores/editor-store";
@@ -15,7 +16,7 @@ async function loadPdfIntoStore(pdfBytes: Uint8Array, fileName: string) {
 
 export async function openPdfFile() {
   const selected = await open({
-    filters: [{ name: "PDF", extensions: ["pdf"] }],
+    filters: [{ name: i18n.t("file.pdfFilter"), extensions: ["pdf"] }],
     multiple: false,
   });
 
@@ -23,7 +24,7 @@ export async function openPdfFile() {
 
   const filePath = selected as string;
   const bytes = await readFile(filePath);
-  const fileName = extractFileName(filePath, "document.pdf");
+  const fileName = extractFileName(filePath, i18n.t("file.defaultPdfName"));
   const pdfBytes = new Uint8Array(bytes);
   await loadPdfIntoStore(pdfBytes, fileName);
 }
@@ -47,7 +48,7 @@ export async function saveProjectFile() {
   });
 
   const filePath = await save({
-    filters: [{ name: "PDF Form Maker Project", extensions: ["pfm"] }],
+    filters: [{ name: i18n.t("file.projectFilter"), extensions: ["pfm"] }],
     defaultPath: (pdfFileName ?? "project").replace(".pdf", ".pfm"),
   });
 
@@ -58,7 +59,7 @@ export async function saveProjectFile() {
 
 export async function openProjectFile() {
   const selected = await open({
-    filters: [{ name: "PDF Form Maker Project", extensions: ["pfm"] }],
+    filters: [{ name: i18n.t("file.projectFilter"), extensions: ["pfm"] }],
     multiple: false,
   });
 
@@ -73,7 +74,7 @@ export async function openProjectFile() {
     c.charCodeAt(0),
   );
 
-  const fileName = extractFileName(filePath, "project.pfm");
+  const fileName = extractFileName(filePath, i18n.t("file.defaultProjectName"));
   await loadPdfIntoStore(pdfBytes, fileName);
 
   for (const el of project.elements) {

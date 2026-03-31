@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Rnd } from "react-rnd";
 import { useEditorStore } from "@/stores/editor-store";
 import { createTextField, createCheckbox, createRadioButton, heightFromFontSize, type FormElement } from "@/lib/form-element-model";
@@ -35,6 +36,7 @@ const HORIZONTAL_DRAW_TOOLS = new Set(["input"]);
 const RECT_DRAW_TOOLS = new Set(["textarea"]);
 
 export function CanvasOverlay() {
+  const { t } = useTranslation();
   const {
     elements,
     activeTool,
@@ -948,7 +950,7 @@ export function CanvasOverlay() {
               onClick={() => removeGuide(guide.id)}
             >
               <Trash2 className="size-3.5" />
-              Delete guide
+              {t("properties.deleteGuide")}
             </ContextMenuItem>
           </ContextMenuContent>
         </ContextMenu>
@@ -978,7 +980,7 @@ export function CanvasOverlay() {
               onClick={() => removeGuide(guide.id)}
             >
               <Trash2 className="size-3.5" />
-              Delete guide
+              {t("properties.deleteGuide")}
             </ContextMenuItem>
           </ContextMenuContent>
         </ContextMenu>

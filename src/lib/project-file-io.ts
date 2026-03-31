@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import type { FormElement } from "./form-element-model";
 import type { GuideLine } from "@/stores/editor-store";
 
@@ -19,7 +20,7 @@ export function parseProject(json: string): ProjectFile {
   const parsed = JSON.parse(json);
 
   if (!parsed.schemaVersion || !("pdfBase64" in parsed)) {
-    throw new Error("Invalid project file format");
+    throw new Error(i18n.t("file.invalidProject"));
   }
 
   return {

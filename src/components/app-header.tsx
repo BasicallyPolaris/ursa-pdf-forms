@@ -1,4 +1,5 @@
 import { useStore } from "zustand";
+import { useTranslation } from "react-i18next";
 import { exportPdf } from "@/lib/export-pdf";
 import {
   openPdfFile,
@@ -28,6 +29,7 @@ import {
 import { ToolButton, ToolbarSeparator } from "@/components/ui/tool-button";
 
 function ZoomControls() {
+  const { t } = useTranslation();
   const zoom = useEditorStore((s) => s.zoom);
   const setZoom = useEditorStore((s) => s.setZoom);
 
@@ -42,7 +44,7 @@ function ZoomControls() {
         >
           <Minus className="h-3 w-3" />
         </TooltipTrigger>
-        <TooltipContent>Zoom out</TooltipContent>
+        <TooltipContent>{t("header.zoomOut")}</TooltipContent>
       </Tooltip>
       <select
         value={zoom}
@@ -67,13 +69,14 @@ function ZoomControls() {
         >
           <Plus className="h-3 w-3" />
         </TooltipTrigger>
-        <TooltipContent>Zoom in</TooltipContent>
+        <TooltipContent>{t("header.zoomIn")}</TooltipContent>
       </Tooltip>
     </div>
   );
 }
 
 export function AppHeader() {
+  const { t } = useTranslation();
   const hasPast = useStore(useEditorStore.temporal, (s) => s.pastStates.length > 0);
   const hasFuture = useStore(useEditorStore.temporal, (s) => s.futureStates.length > 0);
   const hasPdf = useEditorStore((s) => !!s.pdfBytes);
@@ -87,16 +90,16 @@ export function AppHeader() {
             variant="primary"
           >
             <FolderOpen className="h-3.5 w-3.5" />
-            <span>Open</span>
+            <span>{t("header.open")}</span>
           </ToolButton>
           <Tooltip>
             <TooltipTrigger>
               <ToolButton onClick={() => saveProjectFile()}>
                 <Save className="h-3.5 w-3.5" />
-                <span>Save</span>
+                <span>{t("header.save")}</span>
               </ToolButton>
             </TooltipTrigger>
-            <TooltipContent>Save project</TooltipContent>
+            <TooltipContent>{t("header.saveProject")}</TooltipContent>
           </Tooltip>
         </div>
 
@@ -112,7 +115,7 @@ export function AppHeader() {
                 <Undo2 className="h-3.5 w-3.5" />
               </ToolButton>
             </TooltipTrigger>
-            <TooltipContent>Undo (Ctrl+Z)</TooltipContent>
+            <TooltipContent>{t("header.undo")}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger>
@@ -123,7 +126,7 @@ export function AppHeader() {
                 <Redo2 className="h-3.5 w-3.5" />
               </ToolButton>
             </TooltipTrigger>
-            <TooltipContent>Redo (Ctrl+Y)</TooltipContent>
+            <TooltipContent>{t("header.redo")}</TooltipContent>
           </Tooltip>
 
           <ToolbarSeparator />
@@ -133,7 +136,7 @@ export function AppHeader() {
             variant="primary"
           >
             <FileDown className="h-3.5 w-3.5" />
-            <span>Export</span>
+            <span>{t("header.export")}</span>
           </ToolButton>
         </div>
       </header>
