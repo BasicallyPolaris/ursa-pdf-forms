@@ -83,9 +83,15 @@ describe("snapPosition", () => {
   });
 
   it("snaps to page edges", () => {
-    const result = snapPosition(2, 785, 100, 30, makeContext({ snapToGrid: false }));
+    const result = snapPosition(2, 760, 100, 30, makeContext({ snapToGrid: false }));
     expect(result.x).toBe(0);
     expect(result.y).toBe(762);
+  });
+
+  it("does not clamp elements dragged far outside page", () => {
+    const result = snapPosition(-50, 850, 100, 30, makeContext({ snapToGrid: false }));
+    expect(result.x).toBe(-50);
+    expect(result.y).toBe(850);
   });
 
   it("snaps to element edges", () => {

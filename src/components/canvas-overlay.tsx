@@ -483,7 +483,6 @@ export function CanvasOverlay() {
         position={{ x: screen.x, y: screen.y }}
         minWidth={MIN_SIZE}
         minHeight={MIN_SIZE}
-        bounds="parent"
         enableResizing={
           isSingleInput
             ? { left: true, right: true, topLeft: false, topRight: false, bottomLeft: false, bottomRight: false, top: false, bottom: false }

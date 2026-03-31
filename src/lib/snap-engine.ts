@@ -36,13 +36,13 @@ export function snapToPageEdge(
   threshold: number,
   orientation: "horizontal" | "vertical",
 ): { snapped: number; guide: SnapGuide | null } {
-  if (pos <= threshold) {
+  if (Math.abs(pos) <= threshold) {
     return {
       snapped: 0,
       guide: { orientation, position: 0, type: "page" },
     };
   }
-  if (pageSize - pos - elementSize <= threshold) {
+  if (Math.abs(pageSize - pos - elementSize) <= threshold) {
     return {
       snapped: pageSize - elementSize,
       guide: { orientation, position: pageSize, type: "page" },
