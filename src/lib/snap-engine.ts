@@ -275,6 +275,12 @@ function findAllAlignmentGuides(
     if (Math.abs(elementEdges.centerY - context.pageHeight / 2) <= context.snapThreshold) {
       addGuide({ orientation: "horizontal", position: context.pageHeight / 2, type: "page" });
     }
+    if (Math.abs(elementEdges.top - context.pageHeight / 2) <= context.snapThreshold) {
+      addGuide({ orientation: "horizontal", position: context.pageHeight / 2, type: "page" });
+    }
+    if (Math.abs(elementEdges.bottom - context.pageHeight / 2) <= context.snapThreshold) {
+      addGuide({ orientation: "horizontal", position: context.pageHeight / 2, type: "page" });
+    }
     if (Math.abs(elementEdges.left) <= context.snapThreshold) {
       addGuide({ orientation: "vertical", position: 0, type: "page" });
     }
@@ -282,6 +288,12 @@ function findAllAlignmentGuides(
       addGuide({ orientation: "vertical", position: context.pageWidth, type: "page" });
     }
     if (Math.abs(elementEdges.centerX - context.pageWidth / 2) <= context.snapThreshold) {
+      addGuide({ orientation: "vertical", position: context.pageWidth / 2, type: "page" });
+    }
+    if (Math.abs(elementEdges.left - context.pageWidth / 2) <= context.snapThreshold) {
+      addGuide({ orientation: "vertical", position: context.pageWidth / 2, type: "page" });
+    }
+    if (Math.abs(elementEdges.right - context.pageWidth / 2) <= context.snapThreshold) {
       addGuide({ orientation: "vertical", position: context.pageWidth / 2, type: "page" });
     }
   }
@@ -340,18 +352,37 @@ export function snapPosition(
     const pageCenterY = context.pageHeight / 2;
     const proposedCenterX = proposedX + elementWidth / 2;
     const proposedCenterY = proposedY + elementHeight / 2;
+    const proposedRight = proposedX + elementWidth;
+    const proposedBottom = proposedY + elementHeight;
 
-    if (Math.abs(proposedCenterX - pageCenterX) > 0 && Math.abs(proposedCenterX - pageCenterX) <= context.snapThreshold) {
-      xCandidates.push({
-        snapped: pageCenterX - elementWidth / 2,
-        guide: { orientation: "vertical", position: pageCenterX, type: "page" },
-      });
+    const xPageCenterChecks = [
+      { pos: proposedCenterX, offset: pageCenterX - elementWidth / 2 },
+      { pos: proposedX, offset: pageCenterX },
+      { pos: proposedRight, offset: pageCenterX - elementWidth },
+    ];
+    for (const check of xPageCenterChecks) {
+      const dist = Math.abs(check.pos - pageCenterX);
+      if (dist > 0 && dist <= context.snapThreshold) {
+        xCandidates.push({
+          snapped: check.offset,
+          guide: { orientation: "vertical", position: pageCenterX, type: "page" },
+        });
+      }
     }
-    if (Math.abs(proposedCenterY - pageCenterY) > 0 && Math.abs(proposedCenterY - pageCenterY) <= context.snapThreshold) {
-      yCandidates.push({
-        snapped: pageCenterY - elementHeight / 2,
-        guide: { orientation: "horizontal", position: pageCenterY, type: "page" },
-      });
+
+    const yPageCenterChecks = [
+      { pos: proposedCenterY, offset: pageCenterY - elementHeight / 2 },
+      { pos: proposedY, offset: pageCenterY },
+      { pos: proposedBottom, offset: pageCenterY - elementHeight },
+    ];
+    for (const check of yPageCenterChecks) {
+      const dist = Math.abs(check.pos - pageCenterY);
+      if (dist > 0 && dist <= context.snapThreshold) {
+        yCandidates.push({
+          snapped: check.offset,
+          guide: { orientation: "horizontal", position: pageCenterY, type: "page" },
+        });
+      }
     }
   }
 
