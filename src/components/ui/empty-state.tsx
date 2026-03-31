@@ -21,10 +21,14 @@ function EmptyState({
     >
       {icon}
       {title && (
-        <p className="max-w-[200px] text-center text-xs text-muted-foreground/70">{title}</p>
+        <p className="max-w-50 text-center text-xs text-muted-foreground/70">
+          {title}
+        </p>
       )}
       {description && (
-        <p className="max-w-[200px] text-center text-[10px] leading-relaxed text-muted-foreground/50">{description}</p>
+        <p className="max-w-50 text-center text-[10px] leading-relaxed text-muted-foreground/50">
+          {description}
+        </p>
       )}
     </div>
   );
