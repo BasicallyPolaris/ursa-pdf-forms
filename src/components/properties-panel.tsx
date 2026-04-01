@@ -709,7 +709,8 @@ function SizingButtons() {
   return (
     <div className="flex flex-col gap-1.5">
       <SectionHeader label={t("properties.adjustSizing")} />
-      <div className="flex gap-1">
+      <div className="flex items-center gap-1">
+        <span className="w-4 text-[9px] font-medium text-muted-foreground">W</span>
         <ToolButton
           onClick={() => matchElementSize("widthWidest")}
           title={t("properties.matchWidthWidest")}
@@ -722,7 +723,9 @@ function SizingButtons() {
         >
           <Shrink className="h-3.5 w-3.5" />
         </ToolButton>
-        <span className="w-px bg-border" />
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="w-4 text-[9px] font-medium text-muted-foreground">H</span>
         <ToolButton
           onClick={() => matchElementSize("heightTallest")}
           title={t("properties.matchHeightTallest")}
@@ -859,11 +862,11 @@ function PropertiesPanelContent() {
                 <config.icon className="h-3 w-3" />
               </span>
             )}
-            <div>
-              <span className="text-xs font-medium text-foreground">
+            <div className="min-w-0">
+              <span className="block truncate text-xs font-medium text-foreground">
                 {t("properties.selected", { count: selectedIds.size })}
               </span>
-              <span className="ml-2 text-[10px] text-muted-foreground">
+              <span className="block truncate text-[10px] text-muted-foreground">
                 {singleType
                   ? {
                       text: t("properties.textFields"),
@@ -931,13 +934,13 @@ function PropertiesPanelContent() {
           </span>
         </div>
         <Separator className="mb-3" />
-        <CenterOnPageButtons />
-        <Separator className="my-3" />
         {isTextField(element) && <TextFieldProperties elementId={element.id} />}
         {isCheckbox(element) && <CheckboxProperties elementId={element.id} />}
         {isRadioButton(element) && (
           <RadioButtonProperties elementId={element.id} />
         )}
+        <Separator className="my-3" />
+        <CenterOnPageButtons />
       </div>
     </div>
   );
