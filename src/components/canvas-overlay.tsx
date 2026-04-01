@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Rnd } from "react-rnd";
 import { useEditorStore } from "@/stores/editor-store";
-import { createTextField, createCheckbox, createRadioButton, heightFromFontSize, type FormElement } from "@/lib/form-element-model";
+import { createTextField, createCheckbox, createRadioButton, heightFromFontSize, type FormElement, getElementName } from "@/lib/form-element-model";
 import {
   pdfToScreen,
   screenToPdf,
@@ -22,12 +22,6 @@ import {
 import { Trash2 } from "lucide-react";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
 import { getElementStyleConfig, getElementStyleConfigByType } from "@/lib/element-style-map";
-
-function getElementName(el: FormElement): string {
-  if (el.type === "radio" && "groupName" in el) return el.groupName || el.value;
-  if ("name" in el) return el.name;
-  return "";
-}
 
 const MIN_SIZE = 10;
 
@@ -821,7 +815,7 @@ export function CanvasOverlay() {
               <line x1="2" y1="9" x2="7" y2="9" stroke="currentColor" strokeWidth="1" />
             </svg>
           )}
-          <span className={`absolute -top-4 left-0 truncate text-[10px] select-none ${getElementStyleConfig(el).textColorClass}`}>
+          <span className={`absolute -top-4 left-0 max-w-[80px] truncate overflow-hidden text-[10px] select-none ${getElementStyleConfig(el).textColorClass}`}>
             {getElementName(el)}
           </span>
         </div>

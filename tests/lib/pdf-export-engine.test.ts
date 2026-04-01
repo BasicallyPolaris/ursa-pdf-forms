@@ -237,4 +237,125 @@ describe("exportFormElements", () => {
     expect(form.getRadioGroup("size")).toBeDefined();
     expect(form.getRadioGroup("color")).toBeDefined();
   });
+
+  it("deduplicates field names with same name", async () => {
+    const fixturePdf = await createFixturePdf();
+    const elements: FormElement[] = [
+      createTextField({ x: 72, y: 700, pageNumber: 1, name: "field", width: 150, height: 20 }),
+      createTextField({ x: 72, y: 650, pageNumber: 1, name: "field", width: 150, height: 20 }),
+    ];
+
+    const resultBytes = await exportFormElements(fixturePdf, elements);
+    const resultPdf = await PDFDocument.load(resultBytes);
+    const form = resultPdf.getForm();
+    expect(form.getFields().length).toBe(2);
+    expect(form.getField("field")).toBeDefined();
+    expect(form.getField("field_2")).toBeDefined();
+  });
+
+  it("auto-generates name for empty-named elements", async () => {
+    const fixturePdf = await createFixturePdf();
+    const elements: FormElement[] = [
+      createTextField({ x: 72, y: 700, pageNumber: 1, width: 150, height: 20 }),
+    ];
+
+    const resultBytes = await exportFormElements(fixturePdf, elements);
+    const resultPdf = await PDFDocument.load(resultBytes);
+    const form = resultPdf.getForm();
+    expect(form.getFields().length).toBe(1);
+    expect(form.getField("field_1")).toBeDefined();
+  });
+
+  it("filters out elements with invalid page numbers", async () => {
+    const fixturePdf = await createFixturePdf();
+    const elements: FormElement[] = [
+      createTextField({ x: 72, y: 700, pageNumber: 1, name: "valid", width: 150, height: 20 }),
+      createTextField({ x: 72, y: 700, pageNumber: 99, name: "invalid_page", width: 150, height: 20 }),
+      createTextField({ x: 72, y: 700, pageNumber: 0, name: "zero_page", width: 150, height: 20 }),
+      createTextField({ x: 72, y: 700, pageNumber: -1, name: "neg_page", width: 150, height: 20 }),
+    ];
+
+    const resultBytes = await exportFormElements(fixturePdf, elements);
+    const resultPdf = await PDFDocument.load(resultBytes);
+    const form = resultPdf.getForm();
+    expect(form.getFields().length).toBe(1);
+    expect(form.getField("valid")).toBeDefined();
+  });
+
+  it("filters out elements with NaN coordinates", async () => {
+    const fixturePdf = await createFixturePdf();
+    const elements: FormElement[] = [
+      createTextField({ x: 72, y: 700, pageNumber: 1, name: "valid", width: 150, height: 20 }),
+      { ...createTextField({ x: 72, y: 700, pageNumber: 1, name: "nan_x", width: 150, height: 20 }), x: NaN },
+    ];
+
+    const resultBytes = await exportFormElements(fixturePdf, elements);
+    const resultPdf = await PDFDocument.load(resultBytes);
+    const form = resultPdf.getForm();
+    expect(form.getFields().length).toBe(1);
+  });
+
+  it("filters out elements with zero or negative dimensions", async () => {
+    const fixturePdf = await createFixturePdf();
+    const elements: FormElement[] = [
+      createTextField({ x: 72, y: 700, pageNumber: 1, name: "valid", width: 150, height: 20 }),
+      { ...createTextField({ x: 72, y: 700, pageNumber: 1, name: "zero_w", width: 150, height: 20 }), width: 0 },
+      { ...createTextField({ x: 72, y: 700, pageNumber: 1, name: "neg_h", width: 150, height: 20 }), height: -5 },
+    ];
+
+    const resultBytes = await exportFormElements(fixturePdf, elements);
+    const resultPdf = await PDFDocument.load(resultBytes);
+    const form = resultPdf.getForm();
+    expect(form.getFields().length).toBe(1);
+  });
+
+  it("handles radio with empty value by using element id", async () => {
+    const fixturePdf = await createFixturePdf();
+    const el = createRadioButton({ x: 72, y: 700, pageNumber: 1, groupName: "testGroup" });
+    expect(el.value).toBe("");
+
+    const resultBytes = await exportFormElements(fixturePdf, [el]);
+    const resultPdf = await PDFDocument.load(resultBytes);
+    const form = resultPdf.getForm();
+    const group = form.getRadioGroup("testGroup");
+    expect(group).toBeDefined();
+  });
+
+  it("handles radio with empty groupName by using fallback", async () => {
+    const fixturePdf = await createFixturePdf();
+    const el = createRadioButton({ x: 72, y: 700, pageNumber: 1, value: "a" });
+    expect(el.groupName).toBe("");
+
+    const resultBytes = await exportFormElements(fixturePdf, [el]);
+    const resultPdf = await PDFDocument.load(resultBytes);
+    const form = resultPdf.getForm();
+    expect(form.getFields().length).toBe(1);
+  });
+
+  it("handles empty element array", async () => {
+    const fixturePdf = await createFixturePdf();
+    const resultBytes = await exportFormElements(fixturePdf, []);
+    const resultPdf = await PDFDocument.load(resultBytes);
+    expect(resultPdf.getPageCount()).toBe(1);
+  });
+
+  it("handles NaN fontSize gracefully", async () => {
+    const fixturePdf = await createFixturePdf();
+    const el = { ...createTextField({ x: 72, y: 700, pageNumber: 1, name: "nanFont", width: 150, height: 20 }), fontSize: NaN };
+
+    const resultBytes = await exportFormElements(fixturePdf, [el]);
+    const resultPdf = await PDFDocument.load(resultBytes);
+    const form = resultPdf.getForm();
+    expect(form.getField("nanFont")).toBeDefined();
+  });
+
+  it("handles NaN maxLength gracefully", async () => {
+    const fixturePdf = await createFixturePdf();
+    const el = { ...createTextField({ x: 72, y: 700, pageNumber: 1, name: "nanMax", width: 150, height: 20 }), maxLength: NaN };
+
+    const resultBytes = await exportFormElements(fixturePdf, [el]);
+    const resultPdf = await PDFDocument.load(resultBytes);
+    const form = resultPdf.getForm();
+    expect(form.getField("nanMax")).toBeDefined();
+  });
 });

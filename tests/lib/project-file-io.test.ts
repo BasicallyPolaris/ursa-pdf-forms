@@ -113,3 +113,136 @@ describe("serializeProject / parseProject", () => {
     expect(atob(restored.pdfBase64)).toBe(largePdf);
   });
 });
+
+describe("parseProject validation edge cases", () => {
+  it("throws on invalid JSON", () => {
+    expect(() => parseProject("{broken json")).toThrow("Invalid JSON");
+  });
+
+  it("throws on non-object JSON", () => {
+    expect(() => parseProject('"hello"')).toThrow("valid object");
+    expect(() => parseProject("42")).toThrow("valid object");
+    expect(() => parseProject("null")).toThrow("valid object");
+  });
+
+  it("throws on missing schemaVersion", () => {
+    const json = JSON.stringify({ pdfBase64: btoa("data"), elements: [] });
+    expect(() => parseProject(json)).toThrow("Invalid project file format");
+  });
+
+  it("throws on missing pdfBase64", () => {
+    const json = JSON.stringify({ schemaVersion: 1, elements: [] });
+    expect(() => parseProject(json)).toThrow("Invalid project file format");
+  });
+
+  it("throws on empty pdfBase64", () => {
+    const json = JSON.stringify({ schemaVersion: 1, pdfBase64: "", elements: [] });
+    expect(() => parseProject(json)).toThrow("no PDF data");
+  });
+
+  it("throws on non-string pdfBase64", () => {
+    const json = JSON.stringify({ schemaVersion: 1, pdfBase64: 42, elements: [] });
+    expect(() => parseProject(json)).toThrow("no PDF data");
+  });
+
+  it("throws on invalid base64", () => {
+    const json = JSON.stringify({ schemaVersion: 1, pdfBase64: "not-valid-base64!!!", elements: [] });
+    expect(() => parseProject(json)).toThrow("corrupted PDF data");
+  });
+
+  it("throws on missing elements array", () => {
+    const json = JSON.stringify({ schemaVersion: 1, pdfBase64: btoa("data") });
+    expect(() => parseProject(json)).toThrow("invalid element data");
+  });
+
+  it("throws on non-array elements", () => {
+    const json = JSON.stringify({ schemaVersion: 1, pdfBase64: btoa("data"), elements: "not-array" });
+    expect(() => parseProject(json)).toThrow("invalid element data");
+  });
+
+  it("filters out malformed elements", () => {
+    const project = {
+      schemaVersion: 1,
+      pdfBase64: btoa("data"),
+      elements: [
+        { type: "text", id: "a", x: 0, y: 0, pageNumber: 1 },
+        { type: "text" },
+        null,
+        "not-an-object",
+        { type: 42, id: "b", x: 0, y: 0, pageNumber: 1 },
+      ],
+    };
+    const restored = parseProject(JSON.stringify(project));
+    expect(restored.elements.length).toBe(1);
+    expect(restored.elements[0].id).toBe("a");
+  });
+
+  it("filters out malformed guides", () => {
+    const project = {
+      schemaVersion: 1,
+      pdfBase64: btoa("data"),
+      elements: [],
+      guides: [
+        { id: "g1", orientation: "horizontal", position: 100 },
+        { id: "g2" },
+        null,
+        "bad",
+        { id: "g3", orientation: "diagonal", position: 50 },
+        { id: "g4", orientation: "vertical", position: "not-a-number" },
+      ],
+    };
+    const restored = parseProject(JSON.stringify(project));
+    expect(restored.guides!.length).toBe(1);
+    expect(restored.guides![0].id).toBe("g1");
+  });
+
+  it("handles non-array guides field", () => {
+    const json = JSON.stringify({
+      schemaVersion: 1,
+      pdfBase64: btoa("data"),
+      elements: [],
+      guides: "not-array",
+    });
+    expect(() => parseProject(json)).toThrow("invalid guide data");
+  });
+
+  it("preserves optional grid settings when valid", () => {
+    const project = {
+      schemaVersion: 1,
+      pdfBase64: btoa("data"),
+      elements: [],
+      gridSize: 20,
+      gridEnabled: true,
+      showGrid: false,
+    };
+    const restored = parseProject(JSON.stringify(project));
+    expect(restored.gridSize).toBe(20);
+    expect(restored.gridEnabled).toBe(true);
+    expect(restored.showGrid).toBe(false);
+  });
+
+  it("drops invalid grid settings", () => {
+    const project = {
+      schemaVersion: 1,
+      pdfBase64: btoa("data"),
+      elements: [],
+      gridSize: "not-a-number",
+      gridEnabled: "not-a-bool",
+      showGrid: 42,
+    };
+    const restored = parseProject(JSON.stringify(project));
+    expect(restored.gridSize).toBeUndefined();
+    expect(restored.gridEnabled).toBeUndefined();
+    expect(restored.showGrid).toBeUndefined();
+  });
+
+  it("handles guides as undefined when not present", () => {
+    const project = {
+      schemaVersion: 1,
+      pdfBase64: btoa("data"),
+      elements: [],
+    };
+    const restored = parseProject(JSON.stringify(project));
+    expect(restored.guides).toEqual([]);
+  });
+});

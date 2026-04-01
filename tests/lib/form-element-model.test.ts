@@ -8,6 +8,9 @@ import {
   isRadioButton,
   getUniqueName,
   heightFromFontSize,
+  sanitizeNumericValue,
+  getElementName,
+  validateElementForExport,
 } from "@/lib/form-element-model";
 
 describe("createTextField", () => {
@@ -205,5 +208,220 @@ describe("isRadioButton", () => {
     expect(isRadioButton(el)).toBe(true);
     expect(isTextField(el)).toBe(false);
     expect(isCheckbox(el)).toBe(false);
+  });
+});
+
+describe("heightFromFontSize edge cases", () => {
+  it("falls back to 12 for NaN", () => {
+    expect(heightFromFontSize(NaN)).toBe(heightFromFontSize(12));
+  });
+
+  it("falls back to 12 for Infinity", () => {
+    expect(heightFromFontSize(Infinity)).toBe(heightFromFontSize(12));
+    expect(heightFromFontSize(-Infinity)).toBe(heightFromFontSize(12));
+  });
+
+  it("falls back to 12 for zero", () => {
+    expect(heightFromFontSize(0)).toBe(heightFromFontSize(12));
+  });
+
+  it("falls back to 12 for negative", () => {
+    expect(heightFromFontSize(-5)).toBe(heightFromFontSize(12));
+  });
+});
+
+describe("createTextField edge cases", () => {
+  it("falls back fontSize NaN to 12", () => {
+    const el = createTextField({ x: 0, y: 0, pageNumber: 1, fontSize: NaN });
+    expect(el.fontSize).toBe(12);
+  });
+
+  it("falls back fontSize Infinity to 12", () => {
+    const el = createTextField({ x: 0, y: 0, pageNumber: 1, fontSize: Infinity });
+    expect(el.fontSize).toBe(12);
+  });
+
+  it("falls back fontSize negative to 12", () => {
+    const el = createTextField({ x: 0, y: 0, pageNumber: 1, fontSize: -5 });
+    expect(el.fontSize).toBe(12);
+  });
+
+  it("falls back width NaN to 150", () => {
+    const el = createTextField({ x: 0, y: 0, pageNumber: 1, width: NaN });
+    expect(el.width).toBe(150);
+  });
+
+  it("falls back height NaN to derived default", () => {
+    const el = createTextField({ x: 0, y: 0, pageNumber: 1, height: NaN });
+    expect(el.height).toBe(heightFromFontSize(12));
+  });
+
+  it("falls back width zero to 150", () => {
+    const el = createTextField({ x: 0, y: 0, pageNumber: 1, width: 0 });
+    expect(el.width).toBe(150);
+  });
+
+  it("falls back height negative to derived default", () => {
+    const el = createTextField({ x: 0, y: 0, pageNumber: 1, height: -10 });
+    expect(el.height).toBe(heightFromFontSize(12));
+  });
+});
+
+describe("createCheckbox edge cases", () => {
+  it("falls back width NaN to 15", () => {
+    const el = createCheckbox({ x: 0, y: 0, pageNumber: 1, width: NaN });
+    expect(el.width).toBe(15);
+  });
+
+  it("falls back height Infinity to 15", () => {
+    const el = createCheckbox({ x: 0, y: 0, pageNumber: 1, height: Infinity });
+    expect(el.height).toBe(15);
+  });
+
+  it("falls back width zero to 15", () => {
+    const el = createCheckbox({ x: 0, y: 0, pageNumber: 1, width: 0 });
+    expect(el.width).toBe(15);
+  });
+});
+
+describe("createRadioButton edge cases", () => {
+  it("falls back width NaN to 15", () => {
+    const el = createRadioButton({ x: 0, y: 0, pageNumber: 1, width: NaN });
+    expect(el.width).toBe(15);
+  });
+
+  it("falls back height negative to 15", () => {
+    const el = createRadioButton({ x: 0, y: 0, pageNumber: 1, height: -1 });
+    expect(el.height).toBe(15);
+  });
+});
+
+describe("sanitizeNumericValue", () => {
+  it("returns undefined for undefined", () => {
+    expect(sanitizeNumericValue(undefined)).toBeUndefined();
+  });
+
+  it("returns undefined for null", () => {
+    expect(sanitizeNumericValue(null)).toBeUndefined();
+  });
+
+  it("returns undefined for empty string", () => {
+    expect(sanitizeNumericValue("")).toBeUndefined();
+  });
+
+  it("returns undefined for NaN", () => {
+    expect(sanitizeNumericValue(NaN)).toBeUndefined();
+  });
+
+  it("returns undefined for Infinity", () => {
+    expect(sanitizeNumericValue(Infinity)).toBeUndefined();
+  });
+
+  it("returns number for valid finite number", () => {
+    expect(sanitizeNumericValue(42)).toBe(42);
+  });
+
+  it("returns number for numeric string", () => {
+    expect(sanitizeNumericValue("3.14")).toBe(3.14);
+  });
+
+  it("returns undefined for non-numeric string", () => {
+    expect(sanitizeNumericValue("abc")).toBeUndefined();
+  });
+});
+
+describe("getElementName", () => {
+  it("returns name for text field", () => {
+    const el = createTextField({ x: 0, y: 0, pageNumber: 1, name: "field1" });
+    expect(getElementName(el)).toBe("field1");
+  });
+
+  it("returns name for checkbox", () => {
+    const el = createCheckbox({ x: 0, y: 0, pageNumber: 1, name: "check1" });
+    expect(getElementName(el)).toBe("check1");
+  });
+
+  it("returns groupName for radio with groupName", () => {
+    const el = createRadioButton({ x: 0, y: 0, pageNumber: 1, groupName: "color", value: "red" });
+    expect(getElementName(el)).toBe("color");
+  });
+
+  it("returns value for radio without groupName", () => {
+    const el = createRadioButton({ x: 0, y: 0, pageNumber: 1, value: "red" });
+    expect(getElementName(el)).toBe("red");
+  });
+
+  it("returns empty string for unnamed text field", () => {
+    const el = createTextField({ x: 0, y: 0, pageNumber: 1 });
+    expect(getElementName(el)).toBe("");
+  });
+});
+
+describe("validateElementForExport", () => {
+  it("returns valid for well-formed elements", () => {
+    const elements = [
+      createTextField({ x: 0, y: 0, pageNumber: 1, name: "field1" }),
+      createCheckbox({ x: 0, y: 0, pageNumber: 1, name: "check1" }),
+    ];
+    const result = validateElementForExport(elements);
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("detects empty names", () => {
+    const elements = [
+      createTextField({ x: 0, y: 0, pageNumber: 1 }),
+    ];
+    const result = validateElementForExport(elements);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("empty-name");
+  });
+
+  it("detects duplicate names", () => {
+    const elements = [
+      createTextField({ x: 0, y: 0, pageNumber: 1, name: "dup" }),
+      createTextField({ x: 10, y: 10, pageNumber: 1, name: "dup" }),
+    ];
+    const result = validateElementForExport(elements);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("duplicate-name");
+  });
+
+  it("detects empty radio group names", () => {
+    const elements = [
+      createRadioButton({ x: 0, y: 0, pageNumber: 1, value: "a" }),
+    ];
+    const result = validateElementForExport(elements);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("empty-group-name");
+  });
+
+  it("detects empty radio values", () => {
+    const elements = [
+      createRadioButton({ x: 0, y: 0, pageNumber: 1, groupName: "g1" }),
+    ];
+    const result = validateElementForExport(elements);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("empty-radio-value");
+  });
+
+  it("returns valid for well-formed radio group", () => {
+    const elements = [
+      createRadioButton({ x: 0, y: 0, pageNumber: 1, groupName: "color", value: "red" }),
+      createRadioButton({ x: 0, y: 0, pageNumber: 1, groupName: "color", value: "blue" }),
+    ];
+    const result = validateElementForExport(elements);
+    expect(result.valid).toBe(true);
+  });
+
+  it("collects multiple error types at once", () => {
+    const elements = [
+      createTextField({ x: 0, y: 0, pageNumber: 1 }),
+      createRadioButton({ x: 0, y: 0, pageNumber: 1 }),
+    ];
+    const result = validateElementForExport(elements);
+    expect(result.errors).toContain("empty-name");
+    expect(result.errors).toContain("empty-group-name");
+    expect(result.errors).toContain("empty-radio-value");
   });
 });

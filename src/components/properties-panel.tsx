@@ -25,7 +25,6 @@ import {
   type RadioButton,
   type TextField,
 } from "@/lib/form-element-model";
-import { useEditorStore } from "@/stores/editor-store";
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -44,35 +43,8 @@ import {
   SquareSquare,
   Trash2,
 } from "lucide-react";
-import { Component } from "react";
-
-class ErrorBoundary extends Component<
-  { children: React.ReactNode },
-  { hasError: boolean; error: Error | null }
-> {
-  state: { hasError: boolean; error: Error | null } = {
-    hasError: false,
-    error: null,
-  };
-
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="p-4">
-          <p className="text-xs text-destructive">Panel error</p>
-          <p className="mt-1 text-[10px] text-muted-foreground break-all">
-            {this.state.error?.message}
-          </p>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
+import { useEditorStore } from "@/stores/editor-store";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 function PropertyField({
   label,

@@ -5,6 +5,7 @@ import { PageSidebar } from "@/components/page-sidebar";
 import { PdfCanvas } from "@/components/pdf-canvas";
 import { PropertiesPanel } from "@/components/properties-panel";
 import { StatusBar } from "@/components/status-bar";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import {
   HorizontalRuler,
   RulerCorner,
@@ -52,10 +53,10 @@ function App() {
 
   return (
     <div className="dark flex h-screen flex-col">
-      <AppHeader />
+      <ErrorBoundary><AppHeader /></ErrorBoundary>
 
       <div className="flex flex-1 overflow-hidden">
-        <PageSidebar />
+        <ErrorBoundary fallback={<div className="w-14" />}><PageSidebar /></ErrorBoundary>
 
         <main
           data-testid="canvas-area"
@@ -81,7 +82,7 @@ function App() {
                   data-pdf-scroll-container
                 >
                   <PdfCanvas>
-                    <CanvasOverlay />
+                    <ErrorBoundary><CanvasOverlay /></ErrorBoundary>
                   </PdfCanvas>
                   <FloatingToolbar />
                 </div>
