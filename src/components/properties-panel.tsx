@@ -63,7 +63,7 @@ function PropertyField({
 
 function SectionHeader({ label }: { label: string }) {
   return (
-    <span className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+    <span className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
       {label}
     </span>
   );
@@ -411,7 +411,7 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
       </PropertyField>
 
       {hasSingleLine && (
-        <p className="text-[10px] text-muted-foreground/60">
+        <p className="text-[10px] text-muted-foreground">
           {t("properties.singleLineAutoHeight")}
         </p>
       )}
@@ -540,7 +540,7 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
         </PropertyField>
       </div>
       {hasAutoHeight && (
-        <p className="text-[10px] text-muted-foreground/60">
+        <p className="text-[10px] text-muted-foreground">
           {t("properties.singleLineAutoHeight")}
         </p>
       )}

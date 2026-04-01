@@ -1,8 +1,8 @@
+import { H_PADDING, PAGE_GAP, TOP_PADDING } from "@/lib/coordinates";
+import { lockCursor, unlockCursor } from "@/lib/cursor";
+import { useEditorStore } from "@/stores/editor-store";
 import { useCallback, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { useEditorStore } from "@/stores/editor-store";
-import { TOP_PADDING, PAGE_GAP, H_PADDING } from "@/lib/coordinates";
-import { lockCursor, unlockCursor } from "@/lib/cursor";
 
 const RULER_SIZE = 36;
 const MAJOR_INTERVAL = 50;
@@ -18,7 +18,10 @@ interface HorizontalRulerProps {
   containerRef: RefObject<HTMLDivElement | null>;
 }
 
-export function HorizontalRuler({ overlayWidth, containerRef }: HorizontalRulerProps) {
+export function HorizontalRuler({
+  overlayWidth,
+  containerRef,
+}: HorizontalRulerProps) {
   const { t } = useTranslation();
   const { pages, zoom, pdfBytes } = useEditorStore();
   const addGuide = useEditorStore((s) => s.addGuide);
@@ -162,7 +165,7 @@ export function HorizontalRuler({ overlayWidth, containerRef }: HorizontalRulerP
       ref={containerRef}
       role="slider"
       aria-label={t("ruler.horizontal")}
-      className={`flex-shrink-0 bg-neutral-900 border-b border-border relative overflow-hidden ${pdfBytes ? "cursor-ew-resize" : "cursor-default"}`}
+      className={`shrink-0 bg-ruler-bg border-b border-border relative overflow-hidden ${pdfBytes ? "cursor-ew-resize" : "cursor-default"}`}
       style={{ height: RULER_SIZE, width: overlayWidth }}
       onMouseDown={handleMouseDown}
     >
@@ -186,8 +189,8 @@ export function HorizontalRuler({ overlayWidth, containerRef }: HorizontalRulerP
               />
               {tick.label && (
                 <text
-                  x={tick.x + 2}
-                  y={9}
+                  x={tick.x + 4}
+                  y={10}
                   fill="var(--ruler-label)"
                   fontSize={8}
                   fontFamily="monospace"
@@ -208,7 +211,10 @@ interface VerticalRulerProps {
   containerRef: RefObject<HTMLDivElement | null>;
 }
 
-export function VerticalRuler({ canvasHeight, containerRef }: VerticalRulerProps) {
+export function VerticalRuler({
+  canvasHeight,
+  containerRef,
+}: VerticalRulerProps) {
   const { t } = useTranslation();
   const { pages, zoom, pdfBytes } = useEditorStore();
   const addGuide = useEditorStore((s) => s.addGuide);
@@ -371,11 +377,11 @@ export function VerticalRuler({ canvasHeight, containerRef }: VerticalRulerProps
       ref={containerRef}
       role="slider"
       aria-label={t("ruler.vertical")}
-      className={`flex-shrink-0 bg-neutral-900 border-r border-border relative ${pdfBytes ? "cursor-ns-resize" : "cursor-default"}`}
+      className={`flex-shrink-0 bg-ruler-bg border-r border-border relative ${pdfBytes ? "cursor-ns-resize" : "cursor-default"}`}
       style={{ width: RULER_SIZE, height: canvasHeight, overflow: "hidden" }}
       onMouseDown={handleMouseDown}
     >
-      <svg width={RULER_SIZE} height={contentHeight}>
+      <svg width={RULER_SIZE} height={contentHeight} className="block">
         {ticks.map((tick, i) => {
           const startX =
             tick.level === 0
@@ -416,7 +422,7 @@ export function VerticalRuler({ canvasHeight, containerRef }: VerticalRulerProps
 export function RulerCorner() {
   return (
     <div
-      className="flex-shrink-0 bg-neutral-900 border-b border-r border-border"
+      className="flex-shrink-0 bg-ruler-bg border-b border-r border-border"
       style={{ width: RULER_SIZE, height: RULER_SIZE }}
     />
   );

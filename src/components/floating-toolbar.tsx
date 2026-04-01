@@ -47,7 +47,7 @@ export function FloatingToolbar() {
       data-testid="floating-toolbar"
     >
       <TooltipProvider>
-        <div className="flex items-center gap-1 rounded-lg border border-border bg-neutral-900/90 px-1.5 py-1 shadow-lg backdrop-blur-sm">
+        <div className="flex items-center gap-1 rounded-lg border border-border bg-toolbar-bg px-1.5 py-1 shadow-lg backdrop-blur-sm">
           {TOOL_KEYS.map(({ id, labelKey, icon: Icon, separate }) => (
             <React.Fragment key={id}>
               <Tooltip>

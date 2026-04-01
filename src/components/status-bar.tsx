@@ -33,13 +33,13 @@ export function StatusBar() {
   return (
     <div className="flex h-6 items-center border-t border-border bg-card px-3">
       <div className="flex flex-1 items-center gap-3">
-        <span className="text-[10px] text-muted-foreground/60">
+        <span className="text-[10px] text-muted-foreground">
           {hints.join(" · ")}
         </span>
       </div>
       <div className="flex items-center gap-3">
         {hasSelection && (
-          <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50">
+          <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
             <Kbd>Arrow</Kbd> {t("status.nudge1pt")}
             <Kbd>Shift+Arrow</Kbd> {t("status.nudge5pt")}
             <Kbd>Shift</Kbd> {t("status.snapToGrid")}
