@@ -1,4 +1,5 @@
 import { useCallback, type RefObject } from "react";
+import { useTranslation } from "react-i18next";
 import { useEditorStore } from "@/stores/editor-store";
 import { TOP_PADDING, PAGE_GAP, H_PADDING } from "@/lib/coordinates";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
@@ -18,6 +19,7 @@ interface HorizontalRulerProps {
 }
 
 export function HorizontalRuler({ overlayWidth, containerRef }: HorizontalRulerProps) {
+  const { t } = useTranslation();
   const { pages, zoom, pdfBytes } = useEditorStore();
   const addGuide = useEditorStore((s) => s.addGuide);
   const removeGuide = useEditorStore((s) => s.removeGuide);
@@ -158,6 +160,8 @@ export function HorizontalRuler({ overlayWidth, containerRef }: HorizontalRulerP
   return (
     <div
       ref={containerRef}
+      role="slider"
+      aria-label={t("ruler.horizontal")}
       className={`flex-shrink-0 bg-neutral-900 border-b border-border relative overflow-hidden ${pdfBytes ? "cursor-ew-resize" : "cursor-default"}`}
       style={{ height: RULER_SIZE, width: overlayWidth }}
       onMouseDown={handleMouseDown}
@@ -205,6 +209,7 @@ interface VerticalRulerProps {
 }
 
 export function VerticalRuler({ canvasHeight, containerRef }: VerticalRulerProps) {
+  const { t } = useTranslation();
   const { pages, zoom, pdfBytes } = useEditorStore();
   const addGuide = useEditorStore((s) => s.addGuide);
   const removeGuide = useEditorStore((s) => s.removeGuide);
@@ -364,6 +369,8 @@ export function VerticalRuler({ canvasHeight, containerRef }: VerticalRulerProps
   return (
     <div
       ref={containerRef}
+      role="slider"
+      aria-label={t("ruler.vertical")}
       className={`flex-shrink-0 bg-neutral-900 border-r border-border relative ${pdfBytes ? "cursor-ns-resize" : "cursor-default"}`}
       style={{ width: RULER_SIZE, height: canvasHeight, overflow: "hidden" }}
       onMouseDown={handleMouseDown}

@@ -9,6 +9,7 @@
     "export": "Exportieren",
     "zoomOut": "Verkleinern",
     "zoomIn": "Vergrößern",
+    "zoomLevel": "Zoomstufe",
     "undo": "Rückgängig (Strg+Z)",
     "redo": "Wiederholen (Strg+Y)",
     "language": "Sprache"
@@ -103,12 +104,30 @@
   "sidebar": {
     "pages": "Seiten"
   },
+  "ruler": {
+    "horizontal": "Horizontale Lineal",
+    "vertical": "Vertikale Lineal"
+  },
   "file": {
     "pdfFilter": "PDF",
     "projectFilter": "PDF-Formular-Designer Projekt",
     "defaultPdfName": "dokument.pdf",
     "defaultProjectName": "projekt.pfm",
     "defaultExportName": "formular-ausgabe.pdf",
-    "invalidProject": "Ungültiges Projektdateiformat"
+    "invalidProject": "Ungültiges Projektdateiformat",
+    "openFailed": "Datei konnte nicht geöffnet werden. Bitte überprüfen Sie, ob die Datei ein gültiges PDF ist.",
+    "saveFailed": "Projekt konnte nicht gespeichert werden.",
+    "exportFailed": "PDF konnte nicht exportiert werden. Bitte versuchen Sie es erneut.",
+    "projectOpenFailed": "Projekt konnte nicht geöffnet werden. Die Datei ist möglicherweise beschädigt.",
+    "invalidPdf": "Die ausgewählte Datei ist kein gültiges PDF."
+  },
+  "errors": {
+    "boundaryTitle": "Etwas ist schiefgelaufen",
+    "boundaryRetry": "Erneut versuchen",
+    "exportDuplicateNames": "Einige Felder haben doppelte Namen. Bitte stellen Sie sicher, dass alle Feldnamen eindeutig sind.",
+    "exportEmptyName": "Einige Felder haben leere Namen. Bitte benennen Sie alle Felder vor dem Export.",
+    "nameRequired": "Feldname ist erforderlich",
+    "groupNameRequired": "Gruppenname ist für Optionsfelder erforderlich",
+    "radioValueRequired": "Wert ist für Optionsfelder erforderlich"
   }
 }

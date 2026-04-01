@@ -37,17 +37,15 @@ const RECT_DRAW_TOOLS = new Set(["textarea"]);
 
 export function CanvasOverlay() {
   const { t } = useTranslation();
-  const {
-    elements,
-    activeTool,
-    zoom,
-    pages,
-    pdfBytes,
-    selectedIds,
-    gridSize,
-    guides,
-    previewGuide,
-  } = useEditorStore();
+  const elements = useEditorStore((s) => s.elements);
+  const activeTool = useEditorStore((s) => s.activeTool);
+  const zoom = useEditorStore((s) => s.zoom);
+  const pages = useEditorStore((s) => s.pages);
+  const pdfBytes = useEditorStore((s) => s.pdfBytes);
+  const selectedIds = useEditorStore((s) => s.selectedIds);
+  const gridSize = useEditorStore((s) => s.gridSize);
+  const guides = useEditorStore((s) => s.guides);
+  const previewGuide = useEditorStore((s) => s.previewGuide);
   const addElement = useEditorStore((s) => s.addElement);
   const updateElement = useEditorStore((s) => s.updateElement);
   const selectElements = useEditorStore((s) => s.selectElements);
@@ -777,6 +775,10 @@ export function CanvasOverlay() {
         }}
       >
         <div
+          role="button"
+          aria-label={`${getElementName(el)} (${el.type})`}
+          aria-pressed={isSelected}
+          tabIndex={-1}
           className={`h-full w-full flex items-center justify-center ${
             isSelected ? "ring-1 ring-field-text/30" : ""
           } ${getElementStyleConfig(el).borderBgClass(isSelected)} ${

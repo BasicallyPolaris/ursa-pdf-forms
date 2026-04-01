@@ -20,7 +20,7 @@ function ToolButton({
         variant === "primary" &&
           "h-8 bg-primary px-3 text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring/50",
         variant === "icon" && [
-          "h-7 w-7",
+          "h-8 w-8",
           active
             ? "bg-accent text-accent-foreground"
             : "text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground",

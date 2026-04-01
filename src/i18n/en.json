@@ -9,6 +9,7 @@
     "export": "Export",
     "zoomOut": "Zoom out",
     "zoomIn": "Zoom in",
+    "zoomLevel": "Zoom level",
     "undo": "Undo",
     "redo": "Redo",
     "language": "Language"
@@ -132,12 +133,30 @@
   "sidebar": {
     "pages": "Pages"
   },
+  "ruler": {
+    "horizontal": "Horizontal ruler",
+    "vertical": "Vertical ruler"
+  },
   "file": {
     "pdfFilter": "PDF",
     "projectFilter": "PDF Form Maker Project",
     "defaultPdfName": "document.pdf",
     "defaultProjectName": "project.pfm",
     "defaultExportName": "form-output.pdf",
-    "invalidProject": "Invalid project file format"
+    "invalidProject": "Invalid project file format",
+    "openFailed": "Failed to open file. Please check the file is a valid PDF.",
+    "saveFailed": "Failed to save project.",
+    "exportFailed": "Failed to export PDF. Please try again.",
+    "projectOpenFailed": "Failed to open project. The file may be corrupted.",
+    "invalidPdf": "The selected file is not a valid PDF."
+  },
+  "errors": {
+    "boundaryTitle": "Something went wrong",
+    "boundaryRetry": "Try again",
+    "exportDuplicateNames": "Some fields have duplicate names. Please ensure all field names are unique.",
+    "exportEmptyName": "Some fields have empty names. Please name all fields before exporting.",
+    "nameRequired": "Field name is required",
+    "groupNameRequired": "Group name is required for radio buttons",
+    "radioValueRequired": "Value is required for radio buttons"
   }
 }
