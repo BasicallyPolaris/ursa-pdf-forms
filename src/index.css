@@ -99,10 +99,10 @@
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
     --ruler-bg: oklch(0.92 0 0);
-    --ruler-tick: rgba(0, 0, 0, 0.25);
-    --ruler-tick-major: 1;
-    --ruler-tick-minor: 0.5;
-    --ruler-label: rgba(0, 0, 0, 0.55);
+    --ruler-tick-major: oklch(0.45 0 0);
+    --ruler-tick-minor: oklch(0.7 0 0);
+    --ruler-tick-sub: oklch(0.8 0 0);
+    --ruler-label: oklch(0.35 0 0);
     --toolbar-bg: oklch(0.92 0 0 / 90%);
 }
 
@@ -154,10 +154,10 @@
     --guide-snap: oklch(0.68 0.17 55);
     --bounding-rect: oklch(0.65 0.18 345);
     --ruler-bg: oklch(0.145 0 0);
-    --ruler-tick: rgba(255, 255, 255, 0.25);
-    --ruler-tick-major: 1;
-    --ruler-tick-minor: 0.5;
-    --ruler-label: rgba(255, 255, 255, 0.55);
+    --ruler-tick-major: oklch(0.45 0 0);
+    --ruler-tick-minor: oklch(0.32 0 0);
+    --ruler-tick-sub: oklch(0.27 0 0);
+    --ruler-label: oklch(0.58 0 0);
     --toolbar-bg: oklch(0.145 0 0 / 90%);
     --scrollbar-track: oklch(0.15 0 0);
     --scrollbar-thumb: oklch(0.4 0 0);

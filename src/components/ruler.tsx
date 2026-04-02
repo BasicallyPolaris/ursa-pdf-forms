@@ -89,7 +89,7 @@ export function HorizontalRuler({
     (e: React.MouseEvent) => {
       e.preventDefault();
       const rulerEl = containerRef.current;
-      if (!rulerEl) return;
+      if (!rulerEl || pages.length === 0) return;
       const rulerLeft = rulerEl.getBoundingClientRect().left;
       const currentScrollLeft = rulerEl.scrollLeft;
 
@@ -175,8 +175,14 @@ export function HorizontalRuler({
             tick.level === 0
               ? 0
               : tick.level === 1
-                ? RULER_SIZE * 0.6
-                : RULER_SIZE * 0.78;
+                ? RULER_SIZE * 0.5
+                : RULER_SIZE * 0.65;
+          const stroke =
+            tick.level === 0
+              ? "var(--ruler-tick-major)"
+              : tick.level === 1
+                ? "var(--ruler-tick-minor)"
+                : "var(--ruler-tick-sub)";
           return (
             <g key={i}>
               <line
@@ -184,16 +190,17 @@ export function HorizontalRuler({
                 y1={startY}
                 x2={tick.x}
                 y2={RULER_SIZE}
-                stroke="var(--ruler-tick)"
+                stroke={stroke}
                 strokeWidth={tick.level === 0 ? 1 : 0.5}
               />
               {tick.label && (
                 <text
-                  x={tick.x + 4}
-                  y={10}
+                  x={Math.round(tick.x) + 4}
+                  y={12}
                   fill="var(--ruler-label)"
-                  fontSize={8}
+                  fontSize={10}
                   fontFamily="monospace"
+                  textAnchor="start"
                 >
                   {tick.label}
                 </text>
@@ -300,7 +307,7 @@ export function VerticalRuler({
     (e: React.MouseEvent) => {
       e.preventDefault();
       const rulerEl = containerRef.current;
-      if (!rulerEl) return;
+      if (!rulerEl || pages.length === 0) return;
       const rulerTop = rulerEl.getBoundingClientRect().top;
       const currentScrollTop = rulerEl.scrollTop;
 
@@ -377,7 +384,7 @@ export function VerticalRuler({
       ref={containerRef}
       role="slider"
       aria-label={t("ruler.vertical")}
-      className={`flex-shrink-0 bg-ruler-bg border-r border-border relative ${pdfBytes ? "cursor-ns-resize" : "cursor-default"}`}
+      className={`shrink-0 bg-ruler-bg border-r border-border relative ${pdfBytes ? "cursor-ns-resize" : "cursor-default"}`}
       style={{ width: RULER_SIZE, height: canvasHeight, overflow: "hidden" }}
       onMouseDown={handleMouseDown}
     >
@@ -387,8 +394,14 @@ export function VerticalRuler({
             tick.level === 0
               ? 0
               : tick.level === 1
-                ? RULER_SIZE * 0.6
-                : RULER_SIZE * 0.78;
+                ? RULER_SIZE * 0.5
+                : RULER_SIZE * 0.65;
+          const stroke =
+            tick.level === 0
+              ? "var(--ruler-tick-major)"
+              : tick.level === 1
+                ? "var(--ruler-tick-minor)"
+                : "var(--ruler-tick-sub)";
           return (
             <g key={i}>
               <line
@@ -396,15 +409,15 @@ export function VerticalRuler({
                 x1={startX}
                 y2={tick.y}
                 x2={RULER_SIZE}
-                stroke="var(--ruler-tick)"
+                stroke={stroke}
                 strokeWidth={tick.level === 0 ? 1 : 0.5}
               />
               {tick.label && (
                 <text
                   x={RULER_SIZE / 2}
-                  y={tick.y - 3}
+                  y={Math.round(tick.y) - 4}
                   fill="var(--ruler-label)"
-                  fontSize={8}
+                  fontSize={10}
                   fontFamily="monospace"
                   textAnchor="middle"
                 >
@@ -422,7 +435,7 @@ export function VerticalRuler({
 export function RulerCorner() {
   return (
     <div
-      className="flex-shrink-0 bg-ruler-bg border-b border-r border-border"
+      className="shrink-0 bg-ruler-bg border-b border-r border-border"
       style={{ width: RULER_SIZE, height: RULER_SIZE }}
     />
   );
