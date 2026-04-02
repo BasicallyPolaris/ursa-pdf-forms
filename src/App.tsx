@@ -52,7 +52,7 @@ function App() {
   }, [handleScroll]);
 
   return (
-    <div className="dark flex h-screen flex-col">
+    <div className="dark flex h-screen flex-col" onContextMenu={(e) => e.preventDefault()}>
       <ErrorBoundary><AppHeader /></ErrorBoundary>
 
       <div className="flex flex-1 overflow-hidden">

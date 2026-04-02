@@ -35,7 +35,7 @@ export function ShortcutsDialog() {
         <Keyboard className="h-3 w-3" />
       </DialogTrigger>
       <DialogContent>
-        <div className="px-5 pt-5 pb-2">
+        <div className="px-5 pt-5 pb-2 select-none">
           <DialogHeader>
             <DialogTitle>{t("shortcuts.title")}</DialogTitle>
             <DialogClose aria-label="Close">
@@ -46,7 +46,7 @@ export function ShortcutsDialog() {
             {t("shortcuts.openShortcuts")}
           </DialogDescription>
         </div>
-        <div className="px-5 pb-5">
+        <div className="px-5 pb-5 select-none">
           <div className="grid grid-cols-2 gap-x-8 gap-y-5">
             {GROUPS.map(({ id, labelKey }) => (
               <div key={id}>

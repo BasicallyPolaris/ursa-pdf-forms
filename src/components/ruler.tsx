@@ -165,7 +165,7 @@ export function HorizontalRuler({
       ref={containerRef}
       role="slider"
       aria-label={t("ruler.horizontal")}
-      className={`shrink-0 bg-ruler-bg border-b border-border relative overflow-hidden ${pdfBytes ? "cursor-ew-resize" : "cursor-default"}`}
+      className={`shrink-0 bg-ruler-bg border-b border-border relative overflow-hidden select-none ${pdfBytes ? "cursor-ew-resize" : "cursor-default"}`}
       style={{ height: RULER_SIZE, width: overlayWidth }}
       onMouseDown={handleMouseDown}
     >
@@ -384,7 +384,7 @@ export function VerticalRuler({
       ref={containerRef}
       role="slider"
       aria-label={t("ruler.vertical")}
-      className={`shrink-0 bg-ruler-bg border-r border-border relative ${pdfBytes ? "cursor-ns-resize" : "cursor-default"}`}
+      className={`shrink-0 bg-ruler-bg border-r border-border relative select-none ${pdfBytes ? "cursor-ns-resize" : "cursor-default"}`}
       style={{ width: RULER_SIZE, height: canvasHeight, overflow: "hidden" }}
       onMouseDown={handleMouseDown}
     >
@@ -435,7 +435,7 @@ export function VerticalRuler({
 export function RulerCorner() {
   return (
     <div
-      className="shrink-0 bg-ruler-bg border-b border-r border-border"
+      className="shrink-0 bg-ruler-bg border-b border-r border-border select-none"
       style={{ width: RULER_SIZE, height: RULER_SIZE }}
     />
   );

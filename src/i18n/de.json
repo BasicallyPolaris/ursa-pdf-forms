@@ -36,6 +36,7 @@
     "radioButtons": "Optionsfelder",
     "mixedTypes": "Gemischte Typen",
     "page": "Seite {{page}}",
+    "pageLabel": "Seite",
     "name": "Name",
     "defaultValue": "Standardwert",
     "typography": "Typografie",

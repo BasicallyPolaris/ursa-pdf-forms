@@ -96,7 +96,7 @@ export function AppHeader() {
 
   return (
     <TooltipProvider>
-      <header className="grid h-11 grid-cols-[1fr_auto_1fr] items-center gap-1 border-b border-border bg-card px-2">
+      <header className="grid h-11 grid-cols-[1fr_auto_1fr] items-center gap-1 border-b border-border bg-card px-2 select-none">
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger render={<ToolButton onClick={() => openPdfFile()} variant="primary" />}>

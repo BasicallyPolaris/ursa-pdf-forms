@@ -133,6 +133,29 @@ export function CanvasOverlay() {
     [],
   );
 
+  const resolveTargetPage = useCallback(
+    (
+      pdfX: number,
+      pdfY: number,
+      width: number,
+      height: number,
+      originalPageNumber: number,
+      layouts: Map<number, { xOffset: number; yOffset: number; screenWidth: number; screenHeight: number }>,
+    ): number => {
+      const origLayout = layouts.get(originalPageNumber);
+      if (!origLayout) return originalPageNumber;
+      const centerX = pdfX + width / 2;
+      const centerY = pdfY + height / 2;
+      const screenPt = pdfToScreen(
+        { x: centerX, y: centerY },
+        { zoom, pageX: origLayout.xOffset, pageY: origLayout.yOffset },
+      );
+      const targetPage = findPageAtPoint(screenPt.x, screenPt.y, layouts);
+      return targetPage ?? originalPageNumber;
+    },
+    [zoom, findPageAtPoint],
+  );
+
   const buildSnapContext = useCallback(
     (excludedIds: Set<string>, pageNumber: number, modifiers: { shiftKey: boolean; ctrlKey: boolean }): SnapContext => {
       const page = pages.find((p) => p.pageNumber === pageNumber);
@@ -659,16 +682,33 @@ export function CanvasOverlay() {
               }
             }
 
-            const updates: Array<{ id: string; x: number; y: number }> = [];
+            const updates: Array<{ id: string; x: number; y: number; pageNumber?: number }> = [];
             for (const otherEl of elements) {
               if (!currentSelectedIds.has(otherEl.id)) continue;
               const startPos = dragStartPositions.current?.get(otherEl.id);
               if (startPos) {
-                updates.push({
-                  id: otherEl.id,
-                  x: startPos.x + rawDx + correctionDx,
-                  y: startPos.y + rawDy + correctionDy,
-                });
+                const newX = startPos.x + rawDx + correctionDx;
+                const newY = startPos.y + rawDy + correctionDy;
+                const tp = resolveTargetPage(newX, newY, otherEl.width, otherEl.height, otherEl.pageNumber, layouts);
+                if (tp !== otherEl.pageNumber) {
+                  const oldLayout = layouts.get(otherEl.pageNumber)!;
+                  const newLayout = layouts.get(tp)!;
+                  const targetPageInfo = pages.find(p => p.pageNumber === tp)!;
+                  const sPt = pdfToScreen(
+                    { x: newX + otherEl.width / 2, y: newY + otherEl.height / 2 },
+                    { zoom, pageX: oldLayout.xOffset, pageY: oldLayout.yOffset },
+                  );
+                  const newPdf = screenToPdf(sPt, { zoom, pageX: newLayout.xOffset, pageY: newLayout.yOffset });
+                  const clampedX = Math.max(0, Math.min(newPdf.x - otherEl.width / 2, targetPageInfo.width - otherEl.width));
+                  const clampedY = Math.max(0, Math.min(newPdf.y - otherEl.height / 2, targetPageInfo.height - otherEl.height));
+                  updates.push({ id: otherEl.id, x: clampedX, y: clampedY, pageNumber: tp });
+                } else {
+                  updates.push({
+                    id: otherEl.id,
+                    x: newX,
+                    y: newY,
+                  });
+                }
               }
             }
             moveElements(updates);
@@ -685,7 +725,22 @@ export function CanvasOverlay() {
               finalY = result.y;
             }
 
-            updateElement(el.id, { x: finalX, y: finalY });
+            const targetPage = resolveTargetPage(finalX, finalY, el.width, el.height, el.pageNumber, layouts);
+            if (targetPage !== el.pageNumber) {
+              const oldLayout = layouts.get(el.pageNumber)!;
+              const newLayout = layouts.get(targetPage)!;
+              const targetPageInfo = pages.find(p => p.pageNumber === targetPage)!;
+              const screenPt = pdfToScreen(
+                { x: finalX + el.width / 2, y: finalY + el.height / 2 },
+                { zoom, pageX: oldLayout.xOffset, pageY: oldLayout.yOffset },
+              );
+              const newPdf = screenToPdf(screenPt, { zoom, pageX: newLayout.xOffset, pageY: newLayout.yOffset });
+              const newX = Math.max(0, Math.min(newPdf.x - el.width / 2, targetPageInfo.width - el.width));
+              const newY = Math.max(0, Math.min(newPdf.y - el.height / 2, targetPageInfo.height - el.height));
+              updateElement(el.id, { x: newX, y: newY, pageNumber: targetPage });
+            } else {
+              updateElement(el.id, { x: finalX, y: finalY });
+            }
           }
           dragStartPositions.current = null;
           draggingId.current = null;

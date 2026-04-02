@@ -31,7 +31,7 @@ export function StatusBar() {
   }
 
   return (
-    <div className="flex h-6 items-center border-t border-border bg-card px-3">
+    <div className="flex h-6 items-center border-t border-border bg-card px-3 select-none">
       <div className="flex flex-1 items-center gap-3">
         <span className="text-[10px] text-muted-foreground">
           {hints.join(" · ")}

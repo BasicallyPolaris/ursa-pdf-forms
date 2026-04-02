@@ -16,7 +16,7 @@ function ToolButton({
       data-slot="tool-button"
       disabled={disabled}
       className={cn(
-        "flex items-center justify-center gap-1.5 rounded-md text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card disabled:pointer-events-none disabled:opacity-30 active:brightness-90",
+        "select-none flex items-center justify-center gap-1.5 rounded-md text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card disabled:pointer-events-none disabled:opacity-30 active:brightness-90",
         variant === "primary" &&
           "h-8 bg-primary px-3 text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring/50",
         variant === "icon" && [
