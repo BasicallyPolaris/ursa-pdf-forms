@@ -3,6 +3,7 @@ import {
   snapToGrid,
   snapToPageEdge,
   snapPosition,
+  snapResizeBounds,
   type SnapContext,
 } from "@/lib/snap-engine";
 
@@ -179,5 +180,113 @@ describe("snapPosition", () => {
     expect(result.x).toBe(100);
     expect(result.y).toBe(50);
     expect(result.guides.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("shows guides for all elements at the same alignment position", () => {
+    const result = snapPosition(97, 50, 100, 30, makeContext({
+      snapToGrid: false,
+      snapToPageEdges: false,
+      otherElements: [
+        { x: 100, y: 50, width: 80, height: 30, id: "el-a" },
+        { x: 100, y: 200, width: 60, height: 20, id: "el-b" },
+      ],
+    }));
+    expect(result.x).toBe(100);
+    const elementGuides = result.guides.filter(
+      (g) => g.orientation === "vertical" && g.type === "element",
+    );
+    const guideIds = elementGuides.map((g) => g.elementId).sort();
+    expect(guideIds).toContain("el-a");
+    expect(guideIds).toContain("el-b");
+  });
+
+  it("excludes nearby-but-not-aligned guides", () => {
+    const result = snapPosition(97, 50, 100, 30, makeContext({
+      snapToGrid: false,
+      snapToPageEdges: false,
+      otherElements: [{ x: 100, y: 50, width: 80, height: 30 }],
+    }));
+    expect(result.x).toBe(100);
+    const rightEdge = result.x + 100;
+    const hasGuideNearRightEdge = result.guides.some(
+      (g) => g.orientation === "vertical" && Math.abs(g.position - rightEdge) > 0.1 && Math.abs(g.position - rightEdge) <= 5,
+    );
+    expect(hasGuideNearRightEdge).toBe(false);
+  });
+
+  it("includes concurrent zero-distance alignments", () => {
+    const result = snapPosition(97, 50, 80, 30, makeContext({
+      snapToGrid: false,
+      snapToPageEdges: false,
+      otherElements: [{ x: 100, y: 50, width: 80, height: 30, id: "other" }],
+    }));
+    expect(result.x).toBe(100);
+    const vGuides = result.guides.filter(
+      (g) => g.orientation === "vertical" && g.type === "element",
+    );
+    expect(vGuides.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("prefers snap closer to previous position when tied", () => {
+    const ctx = makeContext({
+      snapToGrid: false,
+      snapToPageEdges: false,
+      otherElements: [
+        { x: 100, y: 50, width: 80, height: 30, id: "el-a" },
+        { x: 101, y: 50, width: 80, height: 30, id: "el-b" },
+      ],
+    });
+    const result = snapPosition(98, 50, 100, 30, ctx, {
+      previousSnappedX: 101,
+      previousSnappedY: 50,
+    });
+    expect(result.x).toBe(101);
+  });
+
+  it("does not apply tie-breaking when clear winner exists", () => {
+    const ctx = makeContext({
+      snapToGrid: false,
+      snapToPageEdges: false,
+      otherElements: [
+        { x: 50, y: 50, width: 80, height: 30, id: "el-a" },
+        { x: 100, y: 50, width: 80, height: 30, id: "el-b" },
+      ],
+    });
+    const result = snapPosition(98, 50, 100, 30, ctx, {
+      previousSnappedX: 50,
+      previousSnappedY: 50,
+    });
+    expect(result.x).toBe(100);
+  });
+
+  it("only shows grid guides when edges are exactly on grid", () => {
+    const result = snapPosition(8, 12, 100, 30, makeContext({
+      snapToPageEdges: false,
+      snapToElements: false,
+      snapToGuides: false,
+    }));
+    expect(result.x).toBe(10);
+    expect(result.y).toBe(10);
+    const gridGuides = result.guides.filter((g) => g.type === "grid");
+    expect(gridGuides.length).toBeGreaterThan(0);
+    for (const g of gridGuides) {
+      expect(g.position % 10).toBe(0);
+    }
+  });
+
+  it("snapResizeBounds threads previous snap for hysteresis", () => {
+    const ctx = makeContext({
+      snapToGrid: false,
+      snapToPageEdges: false,
+      otherElements: [
+        { x: 100, y: 50, width: 80, height: 30, id: "el-a" },
+        { x: 101, y: 50, width: 80, height: 30, id: "el-b" },
+      ],
+    });
+    const result = snapResizeBounds(48, 50, 50, 30, "right", ctx, {
+      previousSnappedX: 51,
+      previousSnappedY: 50,
+    });
+    expect(result.x + result.width).toBe(101);
   });
 });

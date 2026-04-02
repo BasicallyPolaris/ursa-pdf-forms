@@ -32,6 +32,7 @@ export function CanvasOverlay() {
   const gridSize = useEditorStore((s) => s.gridSize);
   const guides = useEditorStore((s) => s.guides);
   const previewGuide = useEditorStore((s) => s.previewGuide);
+  const visiblePageRange = useEditorStore((s) => s.visiblePageRange);
   const addElement = useEditorStore((s) => s.addElement);
   const updateElement = useEditorStore((s) => s.updateElement);
   const selectElements = useEditorStore((s) => s.selectElements);
@@ -75,6 +76,7 @@ export function CanvasOverlay() {
   const lastResizeSnap = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
   const [resizeSnapCorrection, setResizeSnapCorrection] = useState<{ dx: number; dy: number; dw: number; dh: number } | null>(null);
   const [activeGuides, setActiveGuides] = useState<SnapGuide[]>([]);
+  const prevSnapRef = useRef<{ x: number; y: number } | null>(null);
   const [contextMenuState, setContextMenuState] = useState<{
     context: MenuContext;
     clientX: number;
@@ -533,7 +535,13 @@ export function CanvasOverlay() {
       .map((g) => g.elementId!),
   );
 
-  const elementOverlays = elements.map((el) => {
+  const elementOverlays = elements
+    .filter(
+      (el) =>
+        el.pageNumber >= visiblePageRange.first &&
+        el.pageNumber <= visiblePageRange.last,
+    )
+    .map((el) => {
     const layout = layouts.get(el.pageNumber);
     if (!layout) return null;
 
@@ -608,6 +616,7 @@ export function CanvasOverlay() {
           setResizeSnapCorrection(null);
           lastResizeSnap.current = null;
           resizingId.current = null;
+          prevSnapRef.current = null;
         }}
         onDrag={(dragEvent, d) => {
           if (pendingToggleId.current) pendingToggleId.current = null;
@@ -634,6 +643,10 @@ export function CanvasOverlay() {
           const hasSnap = snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides || snapCtx.snapToPageEdges;
 
           if (hasSnap) {
+            const snapOpts = prevSnapRef.current
+              ? { previousSnappedX: prevSnapRef.current.x, previousSnappedY: prevSnapRef.current.y }
+              : undefined;
+
             if (isMultiDrag) {
               const selectedOnPage = elements.filter(
                 (e) => currentSelectedIds.has(e.id) && e.pageNumber === el.pageNumber,
@@ -650,25 +663,28 @@ export function CanvasOverlay() {
                   if (px + selEl.width > maxBX) maxBX = px + selEl.width;
                   if (py + selEl.height > maxBY) maxBY = py + selEl.height;
                 }
-                const result = snapPosition(minBX, minBY, maxBX - minBX, maxBY - minBY, snapCtx);
+                const result = snapPosition(minBX, minBY, maxBX - minBX, maxBY - minBY, snapCtx, snapOpts);
                 correctionDx = result.x - minBX;
                 correctionDy = result.y - minBY;
                 guides = result.guides;
+                prevSnapRef.current = { x: result.x, y: result.y };
               } else {
                 const proposedX = el.x + rawDx;
                 const proposedY = el.y + rawDy;
-                const result = snapPosition(proposedX, proposedY, el.width, el.height, snapCtx);
+                const result = snapPosition(proposedX, proposedY, el.width, el.height, snapCtx, snapOpts);
                 correctionDx = result.x - proposedX;
                 correctionDy = result.y - proposedY;
                 guides = result.guides;
+                prevSnapRef.current = { x: result.x, y: result.y };
               }
             } else {
               const proposedX = el.x + rawDx;
               const proposedY = el.y + rawDy;
-              const result = snapPosition(proposedX, proposedY, el.width, el.height, snapCtx);
+              const result = snapPosition(proposedX, proposedY, el.width, el.height, snapCtx, snapOpts);
               correctionDx = result.x - proposedX;
               correctionDy = result.y - proposedY;
               guides = result.guides;
+              prevSnapRef.current = { x: result.x, y: result.y };
             }
           }
 
@@ -708,6 +724,7 @@ export function CanvasOverlay() {
             setDragSnapCorrection(null);
             setActiveGuides([]);
             setDragLivePositions(null);
+            prevSnapRef.current = null;
             unlockCursor();
             return;
           }
@@ -734,6 +751,9 @@ export function CanvasOverlay() {
             const hasSnap = snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides || snapCtx.snapToPageEdges;
 
             if (hasSnap) {
+              const snapOpts = prevSnapRef.current
+                ? { previousSnappedX: prevSnapRef.current.x, previousSnappedY: prevSnapRef.current.y }
+                : undefined;
               if (selectedOnPage.length >= 2) {
                 let minBX = Infinity, minBY = Infinity, maxBX = -Infinity, maxBY = -Infinity;
                 for (const selEl of selectedOnPage) {
@@ -746,13 +766,13 @@ export function CanvasOverlay() {
                   if (px + selEl.width > maxBX) maxBX = px + selEl.width;
                   if (py + selEl.height > maxBY) maxBY = py + selEl.height;
                 }
-                const result = snapPosition(minBX, minBY, maxBX - minBX, maxBY - minBY, snapCtx);
+                const result = snapPosition(minBX, minBY, maxBX - minBX, maxBY - minBY, snapCtx, snapOpts);
                 correctionDx = result.x - minBX;
                 correctionDy = result.y - minBY;
               } else {
                 const proposedX = el.x + rawDx;
                 const proposedY = el.y + rawDy;
-                const result = snapPosition(proposedX, proposedY, el.width, el.height, snapCtx);
+                const result = snapPosition(proposedX, proposedY, el.width, el.height, snapCtx, snapOpts);
                 correctionDx = result.x - proposedX;
                 correctionDy = result.y - proposedY;
               }
@@ -796,7 +816,10 @@ export function CanvasOverlay() {
             let finalX = proposedX;
             let finalY = proposedY;
             if (snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides || snapCtx.snapToPageEdges) {
-              const result = snapPosition(proposedX, proposedY, el.width, el.height, snapCtx);
+              const snapOpts = prevSnapRef.current
+                ? { previousSnappedX: prevSnapRef.current.x, previousSnappedY: prevSnapRef.current.y }
+                : undefined;
+              const result = snapPosition(proposedX, proposedY, el.width, el.height, snapCtx, snapOpts);
               finalX = result.x;
               finalY = result.y;
             }
@@ -824,6 +847,7 @@ export function CanvasOverlay() {
           setDragSnapCorrection(null);
           setActiveGuides([]);
           setDragLivePositions(null);
+          prevSnapRef.current = null;
           unlockCursor();
         }}
         onResize={(resizeEvent, dir, ref, _delta, position) => {
@@ -844,11 +868,15 @@ export function CanvasOverlay() {
           const hasSnap = snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides || snapCtx.snapToPageEdges;
 
           if (hasSnap) {
-            const result = snapResizeBounds(rawPdf.x, rawPdf.y, rawWidth, rawHeight, dir, snapCtx);
+            const snapOpts = prevSnapRef.current
+              ? { previousSnappedX: prevSnapRef.current.x, previousSnappedY: prevSnapRef.current.y }
+              : undefined;
+            const result = snapResizeBounds(rawPdf.x, rawPdf.y, rawWidth, rawHeight, dir, snapCtx, snapOpts);
             const snappedW = Math.max(MIN_SIZE / zoom, result.width);
             const snappedH = Math.max(MIN_SIZE / zoom, result.height);
 
             lastResizeSnap.current = { x: result.x, y: result.y, width: snappedW, height: snappedH };
+            prevSnapRef.current = { x: result.x, y: result.y };
 
             const dx = (result.x - rawPdf.x) * zoom;
             const dy = (result.y - rawPdf.y) * zoom;
@@ -896,6 +924,7 @@ export function CanvasOverlay() {
           setActiveGuides([]);
           setDragLivePositions(null);
           resizingId.current = null;
+          prevSnapRef.current = null;
           unlockCursor();
         }}
       >
