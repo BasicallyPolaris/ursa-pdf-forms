@@ -1,14 +1,10 @@
-import { useEffect, useRef, useCallback, type ReactNode } from "react";
+import { useEffect, useRef, useCallback, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import * as pdfjsLib from "pdfjs-dist";
 import { useEditorStore } from "@/stores/editor-store";
-import { loadPdfDocument } from "@/lib/pdf-loader";
+import { loadPdfDocument, type PdfDocument } from "@/lib/pdf-loader";
+import { computePageLayouts, getVisiblePageNumbers, type PageLayout } from "@/lib/page-layout";
+import { VisiblePagesContext } from "@/contexts/visible-pages";
 import { Kbd } from "@/components/ui/kbd";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url,
-).toString();
 
 const RASTERIZE_DELAY = 200;
 
@@ -20,120 +16,180 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   const { t } = useTranslation();
   const pdfBytes = useEditorStore((s) => s.pdfBytes);
   const zoom = useEditorStore((s) => s.zoom);
+  const pages = useEditorStore((s) => s.pages);
+
   const pagesRef = useRef<HTMLDivElement>(null);
-  const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
-  const renderTasksRef = useRef<Map<number, pdfjsLib.RenderTask>>(new Map());
+  const docRef = useRef<PdfDocument | null>(null);
+  const canvasMap = useRef<Map<number, HTMLCanvasElement>>(new Map());
+  const pendingRenders = useRef<Set<number>>(new Set());
   const renderedZoomRef = useRef(zoom);
   const zoomRef = useRef(zoom);
   const rasterizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [visiblePages, setVisiblePages] = useState<Set<number>>(new Set());
+  const visiblePagesRef = useRef<Set<number>>(visiblePages);
+  const layoutCacheRef = useRef<{ zoom: number; width: number; layouts: Map<number, PageLayout> } | null>(null);
 
   zoomRef.current = zoom;
+  visiblePagesRef.current = visiblePages;
 
-  const renderAllPages = useCallback(
-    async (pdf: pdfjsLib.PDFDocumentProxy, scale: number) => {
-      const container = pagesRef.current;
-      if (!container) return;
+  const getScrollContainer = useCallback(() => {
+    const el = pagesRef.current?.parentElement?.parentElement;
+    return el ?? null;
+  }, []);
 
-      renderTasksRef.current.forEach((task) => task.cancel());
-      renderTasksRef.current.clear();
+  const syncVisiblePages = useCallback(() => {
+    const scrollEl = getScrollContainer();
+    if (!scrollEl || pages.length === 0) return;
 
-      renderedZoomRef.current = scale;
+    const currentZoom = zoomRef.current;
+    const containerWidth = scrollEl.clientWidth;
 
-      const existing = container.querySelectorAll<HTMLDivElement>(
-        "[data-page-wrapper]",
-      );
-      const reuseMap = new Map<number, HTMLDivElement>();
-      existing.forEach((el) => {
-        const num = Number(el.dataset.pageWrapper);
-        reuseMap.set(num, el);
-      });
+    let layouts: Map<number, PageLayout>;
+    const cache = layoutCacheRef.current;
+    if (cache && cache.zoom === currentZoom && cache.width === containerWidth) {
+      layouts = cache.layouts;
+    } else {
+      layouts = computePageLayouts(pages, currentZoom, containerWidth);
+      layoutCacheRef.current = { zoom: currentZoom, width: containerWidth, layouts };
+    }
 
-      const promises: Promise<void>[] = [];
+    const next = getVisiblePageNumbers(layouts, scrollEl.scrollTop, scrollEl.clientHeight);
 
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const pagePromise = (async () => {
-          const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale });
-
-          let wrapper = reuseMap.get(i);
-          let canvas: HTMLCanvasElement;
-
-          if (wrapper) {
-            canvas = wrapper.querySelector("canvas")!;
-            reuseMap.delete(i);
-          } else {
-            canvas = document.createElement("canvas");
-            canvas.draggable = false;
-            canvas.style.display = "block";
-            canvas.style.margin = "0 auto";
-            (canvas.style as unknown as Record<string, string>).webkitUserDrag = "none";
-            wrapper = document.createElement("div");
-            wrapper.className = "flex justify-center";
-            wrapper.dataset.pageWrapper = String(i);
-            wrapper.appendChild(canvas);
-            container.appendChild(wrapper);
-          }
-
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          canvas.style.width = `${viewport.width}px`;
-          canvas.style.height = `${viewport.height}px`;
-          canvas.dataset.pageNumber = String(i);
-
-          wrapper.style.height = `${viewport.height}px`;
-
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return;
-
-          const task = page.render({ canvas, viewport });
-          renderTasksRef.current.set(i, task);
-          try {
-            await task.promise;
-            renderTasksRef.current.delete(i);
-          } catch {}
-        })();
-
-        promises.push(pagePromise);
+    setVisiblePages((prev) => {
+      if (prev.size === next.size) {
+        let same = true;
+        for (const p of next) {
+          if (!prev.has(p)) { same = false; break; }
+        }
+        if (same) return prev;
       }
+      return next;
+    });
+  }, [pages, getScrollContainer]);
 
-      await Promise.all(promises);
+  useEffect(() => {
+    if (!pdfBytes) {
+      docRef.current = null;
+      return;
+    }
 
-      reuseMap.forEach((el) => el.remove());
+    let cancelled = false;
+    loadPdfDocument(pdfBytes).then((doc) => {
+      if (cancelled) return;
+      docRef.current = doc;
+      renderedZoomRef.current = zoomRef.current;
+      syncVisiblePages();
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pdfBytes, syncVisiblePages]);
+
+  useEffect(() => {
+    const scrollEl = getScrollContainer();
+    if (!scrollEl) return;
+
+    scrollEl.addEventListener("scroll", syncVisiblePages, { passive: true });
+    const ro = new ResizeObserver(syncVisiblePages);
+    ro.observe(scrollEl);
+
+    return () => {
+      scrollEl.removeEventListener("scroll", syncVisiblePages);
+      ro.disconnect();
+    };
+  }, [syncVisiblePages]);
+
+  const renderPageToCanvas = useCallback(
+    (pageNum: number, targetZoom: number) => {
+      const doc = docRef.current;
+      if (!doc) return;
+      if (pendingRenders.current.has(pageNum)) return;
+
+      pendingRenders.current.add(pageNum);
+      doc
+        .renderPage(pageNum, targetZoom)
+        .then((result) => {
+          pendingRenders.current.delete(pageNum);
+          const canvas = canvasMap.current.get(pageNum);
+          if (!canvas) {
+            result.bitmap.close();
+            return;
+          }
+          canvas.width = result.width;
+          canvas.height = result.height;
+          canvas.style.width = `${result.width}px`;
+          canvas.style.height = `${result.height}px`;
+          const ctx = canvas.getContext("2d");
+          if (ctx) ctx.drawImage(result.bitmap, 0, 0);
+          result.bitmap.close();
+        })
+        .catch(() => {
+          pendingRenders.current.delete(pageNum);
+        });
     },
     [],
   );
 
   useEffect(() => {
-    if (!pdfBytes) {
-      pdfDocRef.current = null;
-      return;
+    const container = pagesRef.current;
+    if (!container) return;
+
+    for (const [pageNum, canvas] of canvasMap.current) {
+      if (!visiblePages.has(pageNum) && canvas.parentElement) {
+        canvas.remove();
+      }
     }
 
-    let cancelled = false;
-    const load = async () => {
-      const { proxy: pdf } = await loadPdfDocument(pdfBytes);
-      if (cancelled) return;
+    for (const pageNum of visiblePages) {
+      const existing = canvasMap.current.get(pageNum);
+      const wrapper = container.querySelector<HTMLElement>(
+        `[data-page-wrapper="${pageNum}"]`,
+      );
+      if (!wrapper) continue;
 
-      pdfDocRef.current = pdf;
-      await renderAllPages(pdf, zoomRef.current);
-    };
+      if (existing) {
+        if (!existing.parentElement) {
+          wrapper.appendChild(existing);
+        }
+        continue;
+      }
 
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [pdfBytes]);
+      const canvas = document.createElement("canvas");
+      canvas.draggable = false;
+      canvas.style.display = "block";
+      canvas.style.margin = "0 auto";
+      (canvas.style as unknown as Record<string, string>).webkitUserDrag = "none";
+      canvas.dataset.pageNumber = String(pageNum);
+      wrapper.appendChild(canvas);
+      canvasMap.current.set(pageNum, canvas);
+
+      renderPageToCanvas(pageNum, zoomRef.current);
+    }
+
+    const MAX_CACHED = visiblePages.size * 3 + 10;
+    if (canvasMap.current.size > MAX_CACHED) {
+      const toEvict: number[] = [];
+      for (const [pageNum] of canvasMap.current) {
+        if (!visiblePages.has(pageNum)) toEvict.push(pageNum);
+        if (toEvict.length >= canvasMap.current.size - MAX_CACHED) break;
+      }
+      for (const pageNum of toEvict) {
+        const canvas = canvasMap.current.get(pageNum);
+        if (canvas) canvas.remove();
+        canvasMap.current.delete(pageNum);
+      }
+    }
+  }, [visiblePages, renderPageToCanvas]);
 
   useEffect(() => {
     const container = pagesRef.current;
-    if (!container || !pdfDocRef.current) return;
+    if (!container || !docRef.current) return;
 
     const renderedZoom = renderedZoomRef.current;
     const scaleRatio = zoom / renderedZoom;
 
-    const wrappers = container.querySelectorAll<HTMLElement>(
-      "[data-page-wrapper]",
-    );
+    const wrappers = container.querySelectorAll<HTMLElement>("[data-page-wrapper]");
     for (let i = 0; i < wrappers.length; i++) {
       const wrapper = wrappers[i];
       const canvas = wrapper.querySelector("canvas");
@@ -141,7 +197,6 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
 
       const canvasW = canvas.width;
       const canvasH = canvas.height;
-
       canvas.style.width = `${canvasW * scaleRatio}px`;
       canvas.style.height = `${canvasH * scaleRatio}px`;
       wrapper.style.height = `${canvasH * scaleRatio}px`;
@@ -152,8 +207,10 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     }
 
     rasterizeTimerRef.current = setTimeout(() => {
-      if (pdfDocRef.current) {
-        renderAllPages(pdfDocRef.current, zoomRef.current);
+      if (!docRef.current) return;
+      renderedZoomRef.current = zoomRef.current;
+      for (const pageNum of visiblePagesRef.current) {
+        renderPageToCanvas(pageNum, zoomRef.current);
       }
     }, RASTERIZE_DELAY);
 
@@ -162,7 +219,17 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
         clearTimeout(rasterizeTimerRef.current);
       }
     };
-  }, [zoom, renderAllPages]);
+  }, [zoom, renderPageToCanvas]);
+
+  useEffect(() => {
+    return () => {
+      for (const [, canvas] of canvasMap.current) {
+        canvas.remove();
+      }
+      canvasMap.current.clear();
+      pendingRenders.current.clear();
+    };
+  }, []);
 
   if (!pdfBytes) {
     return (
@@ -246,8 +313,23 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
 
   return (
     <div className="relative min-w-full w-fit">
-      <div ref={pagesRef} className="flex flex-col items-center gap-2 p-4" onDragStart={(e) => e.preventDefault()} />
-      {children}
+      <div
+        ref={pagesRef}
+        className="flex flex-col items-center gap-2 p-4"
+        onDragStart={(e) => e.preventDefault()}
+      >
+        {pages.map((page) => (
+          <div
+            key={page.pageNumber}
+            data-page-wrapper={page.pageNumber}
+            className="flex justify-center"
+            style={{ height: page.height * zoom }}
+          />
+        ))}
+      </div>
+      <VisiblePagesContext.Provider value={visiblePages}>
+        {children}
+      </VisiblePagesContext.Provider>
     </div>
   );
 }

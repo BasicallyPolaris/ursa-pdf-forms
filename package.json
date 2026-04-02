@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "postinstall": "node scripts/copy-pdf-assets.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

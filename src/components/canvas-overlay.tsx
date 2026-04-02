@@ -1,20 +1,26 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Rnd } from "react-rnd";
 import { useEditorStore } from "@/stores/editor-store";
 import { createTextField, createCheckbox, createRadioButton, heightFromFontSize, type FormElement, getElementName } from "@/lib/form-element-model";
 import {
   pdfToScreen,
   screenToPdf,
+} from "@/lib/coordinates";
+import {
   TOP_PADDING,
   PAGE_GAP,
   H_PADDING,
-} from "@/lib/coordinates";
+  computePageLayouts,
+  findPageAtScreenPoint,
+  getTotalContentHeight,
+} from "@/lib/page-layout";
 import { rectsOverlap, type Rect } from "@/lib/geometry";
 import { snapPosition, snapResizeBounds, type SnapGuide, type SnapContext } from "@/lib/snap-engine";
 import { computeBoundingRect } from "@/lib/selection-geometry";
 import { CanvasContextMenu, type MenuContext } from "@/components/canvas-context-menu";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
 import { getElementStyleConfig, getElementStyleConfigByType } from "@/lib/element-style-map";
+import { useVisiblePages } from "@/contexts/visible-pages";
 
 const MIN_SIZE = 10;
 
@@ -32,6 +38,7 @@ export function CanvasOverlay() {
   const gridSize = useEditorStore((s) => s.gridSize);
   const guides = useEditorStore((s) => s.guides);
   const previewGuide = useEditorStore((s) => s.previewGuide);
+  const visiblePages = useVisiblePages();
 
   const addElement = useEditorStore((s) => s.addElement);
   const updateElement = useEditorStore((s) => s.updateElement);
@@ -99,39 +106,12 @@ export function CanvasOverlay() {
     number,
     { xOffset: number; yOffset: number; screenWidth: number; screenHeight: number }
   > => {
-    const layouts = new Map<
-      number,
-      { xOffset: number; yOffset: number; screenWidth: number; screenHeight: number }
-    >();
-    let currentY = TOP_PADDING;
-    for (const page of pages) {
-      const screenWidth = page.width * zoom;
-      const screenHeight = page.height * zoom;
-      const xOffset = Math.max(H_PADDING, (overlayWidth - screenWidth) / 2);
-      layouts.set(page.pageNumber, {
-        xOffset,
-        yOffset: currentY,
-        screenWidth,
-        screenHeight,
-      });
-      currentY += screenHeight + PAGE_GAP;
-    }
-    return layouts;
+    return computePageLayouts(pages, zoom, overlayWidth);
   }, [pages, zoom, overlayWidth]);
 
   const findPageAtPoint = useCallback(
     (screenX: number, screenY: number, layouts: Map<number, { xOffset: number; yOffset: number; screenWidth: number; screenHeight: number }>) => {
-      for (const [pageNumber, layout] of layouts) {
-        if (
-          screenX >= layout.xOffset &&
-          screenX < layout.xOffset + layout.screenWidth &&
-          screenY >= layout.yOffset &&
-          screenY < layout.yOffset + layout.screenHeight
-        ) {
-          return pageNumber;
-        }
-      }
-      return null;
+      return findPageAtScreenPoint(screenX, screenY, layouts);
     },
     [],
   );
@@ -524,7 +504,7 @@ export function CanvasOverlay() {
 
   if (!pdfBytes) return null;
 
-  const layouts = getPageLayouts();
+  const layouts = useMemo(() => getPageLayouts(), [getPageLayouts]);
 
   const isInputEl = (el: FormElement) =>
     el.type === "text" && !el.multiline;
@@ -536,6 +516,7 @@ export function CanvasOverlay() {
   );
 
   const elementOverlays = elements.map((el) => {
+    if (!visiblePages.has(el.pageNumber)) return null;
     const layout = layouts.get(el.pageNumber);
     if (!layout) return null;
 
@@ -1003,9 +984,7 @@ export function CanvasOverlay() {
       })()
     : null;
 
-  const totalContentHeight = pages.length > 0
-    ? pages.reduce((acc, p) => acc + p.height * zoom, 0) + TOP_PADDING + PAGE_GAP * (pages.length - 1)
-    : 0;
+  const totalContentHeight = getTotalContentHeight(pages, zoom);
 
   const guideColor = (type: SnapGuide["type"]) => {
     if (type === "element" || type === "grid") return "var(--guide-snap)";
