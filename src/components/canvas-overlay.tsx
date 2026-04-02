@@ -904,13 +904,12 @@ export function CanvasOverlay() {
           aria-label={`${getElementName(el)} (${el.type})`}
           aria-pressed={isSelected}
           tabIndex={-1}
-          className={`h-full w-full flex items-center justify-center ${
-            isSelected ? "ring-1 ring-field-text/30" : ""
-          } ${getElementStyleConfig(el).borderBgClass(isSelected)} ${
-            snapTargetIds.has(el.id) ? "ring-2 ring-[var(--guide-snap)]" : ""
+          className={`h-full w-full flex items-center justify-center outline-none ring-0 ${getElementStyleConfig(el).borderBgClass(isSelected)} ${
+            snapTargetIds.has(el.id) ? "border-2" : ""
           }`}
-          style={
-            resizingId.current === el.id && resizeSnapCorrection
+          style={{
+            ...(snapTargetIds.has(el.id) ? { borderColor: "var(--guide-snap)" } : {}),
+            ...(resizingId.current === el.id && resizeSnapCorrection
               ? {
                   transform: `translate(${resizeSnapCorrection.dx}px, ${resizeSnapCorrection.dy}px)`,
                   width: `calc(100% + ${resizeSnapCorrection.dw}px)`,
@@ -918,8 +917,8 @@ export function CanvasOverlay() {
                 }
               : draggingId.current === el.id && dragSnapCorrection
                 ? { transform: `translate(${dragSnapCorrection.dx}px, ${dragSnapCorrection.dy}px)` }
-                : undefined
-          }
+                : {}),
+          }}
         >
           {el.type === "checkbox" && (
             <svg viewBox="0 0 10 10" className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`}>
