@@ -1013,6 +1013,12 @@ export function CanvasOverlay() {
     ? pages.reduce((acc, p) => acc + p.height * zoom, 0) + TOP_PADDING + PAGE_GAP * (pages.length - 1)
     : 0;
 
+  const guideColor = (type: SnapGuide["type"]) => {
+    if (type === "element" || type === "grid") return "var(--guide-snap)";
+    if (type === "page") return "var(--guide-page)";
+    return "var(--guide-ruler)";
+  };
+
   const guideLineElements = activeGuides.flatMap((guide, i) => {
     if (guide.orientation === "horizontal") {
       return pages.map((page, pi) => {
@@ -1024,10 +1030,10 @@ export function CanvasOverlay() {
             className="pointer-events-none absolute z-50"
             style={{
               left: 0,
-              top: screenY,
+              top: screenY - 0.5,
               width: overlayWidth,
-              height: 1,
-              backgroundColor: guide.type === "element" || guide.type === "grid" ? "var(--guide-snap)" : "var(--guide-ruler)",
+              height: 2,
+              backgroundColor: guideColor(guide.type),
             }}
           />
         );
@@ -1041,11 +1047,11 @@ export function CanvasOverlay() {
           key={`guide-${i}`}
           className="pointer-events-none absolute z-50"
           style={{
-            left: screenX,
+            left: screenX - 0.5,
             top: 0,
-            width: 1,
+            width: 2,
             height: totalContentHeight,
-            backgroundColor: guide.type === "element" || guide.type === "grid" ? "var(--guide-snap)" : "var(--guide-ruler)",
+            backgroundColor: guideColor(guide.type),
           }}
         />,
       ];
