@@ -74,6 +74,16 @@ export function useKeyboardShortcuts() {
         store.copySelection();
       }
 
+      if (mod && e.key === "x") {
+        e.preventDefault();
+        store.cutSelection();
+      }
+
+      if (mod && e.key === "d") {
+        e.preventDefault();
+        store.duplicateSelection(getVisiblePage());
+      }
+
       if (mod && e.key === "v") {
         e.preventDefault();
         store.pasteClipboard(getVisiblePage());

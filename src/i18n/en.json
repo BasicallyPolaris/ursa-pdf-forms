@@ -115,6 +115,8 @@
     "redo": "Redo",
     "copy": "Copy",
     "paste": "Paste",
+    "cut": "Cut",
+    "duplicate": "Duplicate",
     "selectAll": "Select all",
     "delete": "Delete",
     "deselect": "Deselect",
@@ -130,6 +132,19 @@
     "nudge": "Nudge 1pt",
     "nudge5": "Nudge 5pt",
     "openShortcuts": "Keyboard shortcuts"
+  },
+  "contextMenu": {
+    "cut": "Cut",
+    "copy": "Copy",
+    "paste": "Paste",
+    "duplicate": "Duplicate",
+    "delete": "Delete",
+    "deleteGuide": "Delete Guide",
+    "selectAll": "Select All",
+    "addTextField": "Add Text Field",
+    "addTextarea": "Add Textarea",
+    "addCheckbox": "Add Checkbox",
+    "addRadio": "Add Radio Button"
   },
   "sidebar": {
     "pages": "Pages"

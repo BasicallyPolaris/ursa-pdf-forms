@@ -6,6 +6,8 @@ export type ShortcutId =
   | "redo"
   | "copy"
   | "paste"
+  | "cut"
+  | "duplicate"
   | "selectAll"
   | "delete"
   | "deselect"
@@ -49,6 +51,8 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: "redo", i18nKey: "shortcuts.redo", group: "edit", mod: true, shift: true, key: "z" },
   { id: "copy", i18nKey: "shortcuts.copy", group: "edit", mod: true, key: "c" },
   { id: "paste", i18nKey: "shortcuts.paste", group: "edit", mod: true, key: "v" },
+  { id: "cut", i18nKey: "shortcuts.cut", group: "edit", mod: true, key: "x" },
+  { id: "duplicate", i18nKey: "shortcuts.duplicate", group: "edit", mod: true, key: "d" },
   { id: "selectAll", i18nKey: "shortcuts.selectAll", group: "edit", mod: true, key: "a" },
   { id: "delete", i18nKey: "shortcuts.delete", group: "edit", key: "Del" },
   { id: "deselect", i18nKey: "shortcuts.deselect", group: "edit", key: "Esc" },

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { Rnd } from "react-rnd";
 import { useEditorStore } from "@/stores/editor-store";
 import { createTextField, createCheckbox, createRadioButton, heightFromFontSize, type FormElement, getElementName } from "@/lib/form-element-model";
@@ -13,13 +12,7 @@ import {
 import { rectsOverlap, type Rect } from "@/lib/geometry";
 import { snapPosition, snapResizeBounds, type SnapGuide, type SnapContext } from "@/lib/snap-engine";
 import { computeBoundingRect } from "@/lib/selection-geometry";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
-import { Trash2 } from "lucide-react";
+import { CanvasContextMenu, type MenuContext } from "@/components/canvas-context-menu";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
 import { getElementStyleConfig, getElementStyleConfigByType } from "@/lib/element-style-map";
 
@@ -30,7 +23,6 @@ const HORIZONTAL_DRAW_TOOLS = new Set(["input"]);
 const RECT_DRAW_TOOLS = new Set(["textarea"]);
 
 export function CanvasOverlay() {
-  const { t } = useTranslation();
   const elements = useEditorStore((s) => s.elements);
   const activeTool = useEditorStore((s) => s.activeTool);
   const zoom = useEditorStore((s) => s.zoom);
@@ -49,6 +41,9 @@ export function CanvasOverlay() {
   const moveElements = useEditorStore((s) => s.moveElements);
   const setDragLivePositions = useEditorStore((s) => s.setDragLivePositions);
   const dragLivePositions = useEditorStore((s) => s.dragLivePositions);
+  const selectGuide = useEditorStore((s) => s.selectGuide);
+  const updateGuidePosition = useEditorStore((s) => s.updateGuidePosition);
+  const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
   const overlayRef = useRef<HTMLDivElement>(null);
   const [overlayWidth, setOverlayWidth] = useState(0);
 
@@ -80,6 +75,12 @@ export function CanvasOverlay() {
   const lastResizeSnap = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
   const [resizeSnapCorrection, setResizeSnapCorrection] = useState<{ dx: number; dy: number; dw: number; dh: number } | null>(null);
   const [activeGuides, setActiveGuides] = useState<SnapGuide[]>([]);
+  const [contextMenuState, setContextMenuState] = useState<{
+    context: MenuContext;
+    clientX: number;
+    clientY: number;
+  } | null>(null);
+  const closeContextMenu = useCallback(() => setContextMenuState(null), []);
 
   useEffect(() => {
     const el = overlayRef.current;
@@ -443,6 +444,81 @@ export function CanvasOverlay() {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [elements, getPageLayouts, selectElements]);
+
+  const handleOverlayContextMenu = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      e.preventDefault();
+
+      const elementTarget = (e.target as HTMLElement).closest(
+        "[data-element-overlay]",
+      );
+      if (elementTarget) {
+        const elementId = elementTarget.getAttribute("data-element-id")!;
+        const store = useEditorStore.getState();
+        if (!store.selectedIds.has(elementId)) {
+          selectElements(new Set([elementId]));
+        }
+        const el = store.elements.find((el) => el.id === elementId);
+        const rect = e.currentTarget.getBoundingClientRect();
+        const screenX = e.clientX - rect.left;
+        const screenY = e.clientY - rect.top;
+        const layouts = getPageLayouts();
+        const layout = layouts.get(el?.pageNumber ?? 1);
+        const pdf = layout
+          ? screenToPdf(
+              { x: screenX, y: screenY },
+              { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
+            )
+          : { x: 0, y: 0 };
+        setContextMenuState({
+          context: { type: "element", pageNumber: el?.pageNumber ?? 1, pdfX: pdf.x, pdfY: pdf.y },
+          clientX: e.clientX,
+          clientY: e.clientY,
+        });
+        return;
+      }
+
+      const guideTarget = (e.target as HTMLElement).closest(
+        "[data-guide-line]",
+      );
+      if (guideTarget) {
+        const guideId = guideTarget.getAttribute("data-guide-id")!;
+        selectGuide(guideId);
+        setContextMenuState({
+          context: { type: "guide", guideId },
+          clientX: e.clientX,
+          clientY: e.clientY,
+        });
+        return;
+      }
+
+      const rect = e.currentTarget.getBoundingClientRect();
+      const screenX = e.clientX - rect.left;
+      const screenY = e.clientY - rect.top;
+      const layouts = getPageLayouts();
+      const pageNumber = findPageAtPoint(screenX, screenY, layouts);
+
+      if (!pageNumber) return;
+
+      const layout = layouts.get(pageNumber)!;
+      const pdf = screenToPdf(
+        { x: screenX, y: screenY },
+        { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
+      );
+
+      setContextMenuState({
+        context: {
+          type: "canvas",
+          pdfX: pdf.x,
+          pdfY: pdf.y,
+          pageNumber,
+        },
+        clientX: e.clientX,
+        clientY: e.clientY,
+      });
+    },
+    [zoom, getPageLayouts, findPageAtPoint, selectElements, selectGuide],
+  );
 
   if (!pdfBytes) return null;
 
@@ -948,11 +1024,6 @@ export function CanvasOverlay() {
     }
   });
 
-  const removeGuide = useEditorStore((s) => s.removeGuide);
-  const updateGuidePosition = useEditorStore((s) => s.updateGuidePosition);
-  const selectGuide = useEditorStore((s) => s.selectGuide);
-  const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
-
   const persistentGuideElements = guides.flatMap((guide) => {
     const isSelected = selectedGuideId === guide.id;
 
@@ -1020,29 +1091,19 @@ export function CanvasOverlay() {
         const layout = layouts.get(page.pageNumber);
         const screenY = (layout?.yOffset ?? TOP_PADDING) + guide.position * zoom;
         return (
-          <ContextMenu key={`${guide.id}-page-${pi}`}>
-            <ContextMenuTrigger
-              render={<div />}
-              className="absolute z-40 cursor-ns-resize group"
-              style={{ left: 0, top: screenY - 4, width: overlayWidth, height: 9 }}
-              onMouseDown={handleGuideMouseDown}
-            >
-              <div
-                className="w-full group-hover:opacity-100"
-                style={{ ...lineStyle, top: 4, height: 1 }}
-              />
-            </ContextMenuTrigger>
-            <ContextMenuContent>
-              <ContextMenuItem
-                variant="destructive"
-                className="text-xs"
-                onClick={() => removeGuide(guide.id)}
-              >
-                <Trash2 className="size-3.5" />
-                {t("properties.deleteGuide")}
-              </ContextMenuItem>
-            </ContextMenuContent>
-          </ContextMenu>
+          <div
+            key={`${guide.id}-page-${pi}`}
+            data-guide-line
+            data-guide-id={guide.id}
+            className="absolute z-40 cursor-ns-resize group"
+            style={{ left: 0, top: screenY - 4, width: overlayWidth, height: 9 }}
+            onMouseDown={handleGuideMouseDown}
+          >
+            <div
+              className="w-full group-hover:opacity-100"
+              style={{ ...lineStyle, top: 4, height: 1 }}
+            />
+          </div>
         );
       });
     } else {
@@ -1051,29 +1112,19 @@ export function CanvasOverlay() {
         ? firstLayout.xOffset + guide.position * zoom
         : guide.position * zoom;
       return [
-        <ContextMenu key={guide.id}>
-          <ContextMenuTrigger
-            render={<div />}
-            className="absolute z-40 cursor-ew-resize group"
-            style={{ left: screenX - 4, top: 0, width: 9, height: totalContentHeight }}
-            onMouseDown={handleGuideMouseDown}
-          >
-            <div
-              className="h-full group-hover:opacity-100"
-              style={{ ...lineStyle, left: 4, width: 1 }}
-            />
-          </ContextMenuTrigger>
-          <ContextMenuContent>
-            <ContextMenuItem
-              variant="destructive"
-              className="text-xs"
-              onClick={() => removeGuide(guide.id)}
-            >
-              <Trash2 className="size-3.5" />
-              {t("properties.deleteGuide")}
-            </ContextMenuItem>
-          </ContextMenuContent>
-        </ContextMenu>,
+        <div
+          key={guide.id}
+          data-guide-line
+          data-guide-id={guide.id}
+          className="absolute z-40 cursor-ew-resize group"
+          style={{ left: screenX - 4, top: 0, width: 9, height: totalContentHeight }}
+          onMouseDown={handleGuideMouseDown}
+        >
+          <div
+            className="h-full group-hover:opacity-100"
+            style={{ ...lineStyle, left: 4, width: 1 }}
+          />
+        </div>,
       ];
     }
   });
@@ -1160,6 +1211,7 @@ export function CanvasOverlay() {
       onMouseDown={handleCanvasMouseDown}
       onMouseMove={handleCanvasMouseMove}
       onMouseUp={handleCanvasMouseUp}
+      onContextMenu={handleOverlayContextMenu}
       style={{ cursor: activeTool !== "select" ? "crosshair" : "default" }}
     >
       {elementOverlays}
@@ -1206,6 +1258,14 @@ export function CanvasOverlay() {
             width: drawRectStyle.width,
             height: drawRectStyle.height,
           }}
+        />
+      )}
+      {contextMenuState && (
+        <CanvasContextMenu
+          context={contextMenuState.context}
+          clientX={contextMenuState.clientX}
+          clientY={contextMenuState.clientY}
+          onClose={closeContextMenu}
         />
       )}
     </div>

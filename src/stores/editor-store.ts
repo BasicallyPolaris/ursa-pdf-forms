@@ -73,7 +73,9 @@ interface EditorState {
   toggleInSelection: (id: string) => void;
   addToSelection: (ids: string[]) => void;
   copySelection: () => void;
-  pasteClipboard: (targetPage?: number) => void;
+  pasteClipboard: (targetPage?: number, targetX?: number, targetY?: number) => void;
+  cutSelection: () => void;
+  duplicateSelection: (targetPage?: number) => void;
   addGuide: (orientation: "horizontal" | "vertical", position: number) => void;
   removeGuide: (id: string) => void;
   updateGuidePosition: (id: string, position: number) => void;
@@ -174,12 +176,59 @@ export const useEditorStore = create<EditorState>()(
           return { clipboard: JSON.parse(JSON.stringify(selected)) };
         }),
 
-      pasteClipboard: (targetPage?: number) =>
+      pasteClipboard: (targetPage?: number, targetX?: number, targetY?: number) =>
         set((s) => {
           if (s.clipboard.length === 0) return s;
           const pasted: FormElement[] = [];
           const newIds = new Set<string>();
+          const baseEl = s.clipboard[0];
+          const offX = targetX !== undefined ? targetX - baseEl.x : 0;
+          const offY = targetY !== undefined ? targetY - baseEl.y : 0;
           for (const el of s.clipboard) {
+            const samePage = targetPage === undefined || targetPage === el.pageNumber;
+            const newX = samePage ? el.x + (offX || PASTE_OFFSET) : el.x + (offX || 0);
+            const newY = samePage ? el.y + (offY || PASTE_OFFSET) : el.y + (offY || 0);
+            const newEl = {
+              ...JSON.parse(JSON.stringify(el)),
+              id: generatePastedId(),
+              pageNumber: targetPage ?? el.pageNumber,
+              x: newX,
+              y: newY,
+            } as FormElement;
+            if ("name" in newEl) {
+              const typed = newEl as FormElement & { name: string };
+              typed.name = getUniqueName(
+                typed.name,
+                [...s.elements, ...pasted],
+              );
+            }
+            pasted.push(newEl);
+            newIds.add(newEl.id);
+          }
+          return {
+            elements: [...s.elements, ...pasted],
+            selectedIds: newIds,
+          };
+        }),
+
+      cutSelection: () =>
+        set((s) => {
+          const selected = s.elements.filter((el) => s.selectedIds.has(el.id));
+          if (selected.length === 0) return s;
+          return {
+            clipboard: JSON.parse(JSON.stringify(selected)),
+            elements: s.elements.filter((el) => !s.selectedIds.has(el.id)),
+            selectedIds: new Set<string>(),
+          };
+        }),
+
+      duplicateSelection: (targetPage?: number) =>
+        set((s) => {
+          const selected = s.elements.filter((el) => s.selectedIds.has(el.id));
+          if (selected.length === 0) return s;
+          const pasted: FormElement[] = [];
+          const newIds = new Set<string>();
+          for (const el of selected) {
             const samePage = targetPage === undefined || targetPage === el.pageNumber;
             const newEl = {
               ...JSON.parse(JSON.stringify(el)),
