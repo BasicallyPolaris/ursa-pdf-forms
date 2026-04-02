@@ -32,7 +32,7 @@ export function CanvasOverlay() {
   const gridSize = useEditorStore((s) => s.gridSize);
   const guides = useEditorStore((s) => s.guides);
   const previewGuide = useEditorStore((s) => s.previewGuide);
-  const visiblePageRange = useEditorStore((s) => s.visiblePageRange);
+
   const addElement = useEditorStore((s) => s.addElement);
   const updateElement = useEditorStore((s) => s.updateElement);
   const selectElements = useEditorStore((s) => s.selectElements);
@@ -535,13 +535,7 @@ export function CanvasOverlay() {
       .map((g) => g.elementId!),
   );
 
-  const elementOverlays = elements
-    .filter(
-      (el) =>
-        el.pageNumber >= visiblePageRange.first &&
-        el.pageNumber <= visiblePageRange.last,
-    )
-    .map((el) => {
+  const elementOverlays = elements.map((el) => {
     const layout = layouts.get(el.pageNumber);
     if (!layout) return null;
 
