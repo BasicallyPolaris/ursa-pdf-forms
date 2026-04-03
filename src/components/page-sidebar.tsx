@@ -9,7 +9,7 @@ const THUMB_BUFFER = 8;
 const THUMB_MAX_H = 94;
 const THUMB_MAX_W = 140;
 const THUMB_MAX_SCALE = 0.18;
-const MAX_THUMB_CONCURRENT = 2;
+const MAX_THUMB_CONCURRENT = 4;
 
 function getThumbDimensions(pageWidth: number, pageHeight: number) {
   const scaleW = THUMB_MAX_W / pageWidth;
@@ -31,7 +31,12 @@ export function PageSidebar() {
   const docRef = useRef<PdfDocument | null>(null);
   const bitmapCache = useRef<Map<number, ImageBitmap>>(new Map());
   const renderGeneration = useRef(0);
+  const idleGeneration = useRef(0);
   const [visibleRange, setVisibleRange] = useState<[number, number]>([0, 20]);
+  const [preRenderProgress, setPreRenderProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
 
   useEffect(() => {
     for (const [, bmp] of bitmapCache.current) bmp.close();
@@ -39,6 +44,8 @@ export function PageSidebar() {
     canvasRefs.current.clear();
     docRef.current = null;
     renderGeneration.current++;
+    idleGeneration.current++;
+    setPreRenderProgress(null);
 
     if (!pdfBytes) return;
     let cancelled = false;
@@ -128,7 +135,7 @@ export function PageSidebar() {
       if (gen !== renderGeneration.current) return;
 
       while (needed.length > 0 && active < MAX_THUMB_CONCURRENT) {
-        const pageNum = needed.pop()!;
+        const pageNum = needed.shift()!;
         if (bitmapCache.current.has(pageNum)) continue;
 
         const page = pages[pageNum - 1];
@@ -184,6 +191,104 @@ export function PageSidebar() {
     };
   }, [pdfBytes, pages, visibleRange]);
 
+  useEffect(() => {
+    if (!pdfBytes || pages.length === 0) return;
+    const doc = docRef.current;
+    if (!doc) return;
+
+    const gen = ++idleGeneration.current;
+    const pending = new Map<number, ReturnType<typeof doc.startRender>>();
+    let active = 0;
+    let completed = 0;
+
+    const center = Math.floor((visibleRange[0] + visibleRange[1]) / 2);
+    const queue: number[] = [];
+    for (let offset = 0; offset < pages.length; offset++) {
+      const before = center - offset;
+      const after = center + offset + 1;
+      if (before >= 0 && before < pages.length)
+        queue.push(pages[before].pageNumber);
+      if (after >= 0 && after < pages.length)
+        queue.push(pages[after].pageNumber);
+    }
+    const needed = queue.filter((pn) => !bitmapCache.current.has(pn));
+    const total = needed.length;
+
+    if (total === 0) return;
+
+    const MAX_IDLE_CONCURRENT = 3;
+
+    const drain = () => {
+      if (gen !== idleGeneration.current) return;
+
+      while (needed.length > 0 && active < MAX_IDLE_CONCURRENT) {
+        const pageNum = needed.shift()!;
+        if (bitmapCache.current.has(pageNum)) {
+          completed++;
+          continue;
+        }
+
+        const page = pages[pageNum - 1];
+        if (!page) continue;
+
+        const dims = getThumbDimensions(page.width, page.height);
+        active++;
+
+        const render = doc.startRender(pageNum, dims.scale);
+        pending.set(pageNum, render);
+
+        render.promise
+          .then((result) => {
+            if (gen !== idleGeneration.current) {
+              result.bitmap.close();
+              return;
+            }
+            pending.delete(pageNum);
+            bitmapCache.current.set(pageNum, result.bitmap);
+
+            const canvas = canvasRefs.current.get(pageNum);
+            if (canvas) {
+              canvas.width = dims.width;
+              canvas.height = dims.height;
+              const ctx = canvas.getContext("2d", { alpha: false });
+              if (ctx) ctx.drawImage(result.bitmap, 0, 0);
+            }
+            completed++;
+            setPreRenderProgress(
+              needed.length > 0 ? { done: completed, total } : null,
+            );
+          })
+          .catch((err) => {
+            if (gen !== idleGeneration.current) return;
+            pending.delete(pageNum);
+            completed++;
+            if (
+              !(err instanceof Error) ||
+              (!err.message.includes("cancelled") &&
+                !err.message.includes("RenderingCancelled"))
+            )
+              console.error("[PageSidebar] Idle thumb render failed:", err);
+          })
+          .finally(() => {
+            if (gen !== idleGeneration.current) return;
+            active--;
+            if (needed.length > 0) {
+              setTimeout(() => drain(), 50);
+            }
+          });
+      }
+    };
+
+    const timerId = setTimeout(() => drain(), 200);
+
+    return () => {
+      idleGeneration.current++;
+      clearTimeout(timerId);
+      for (const [, r] of pending) r.cancel();
+      setPreRenderProgress(null);
+    };
+  }, [pdfBytes, pages, visibleRange]);
+
   const scrollToPage = useCallback(
     (pageNumber: number) => {
       const scrollContainer = document.querySelector(
@@ -224,10 +329,15 @@ export function PageSidebar() {
       data-testid="left-sidebar"
       className="flex w-44 flex-col border-r border-border bg-card select-none"
     >
-      <div className="px-2.5 py-1.5">
+      <div className="px-2.5 py-1.5 flex items-center justify-between">
         <span className="text-[11px] font-medium text-muted-foreground">
           {t("sidebar.pages")}
         </span>
+        {preRenderProgress && (
+          <span className="text-[10px] tabular-nums text-muted-foreground/60">
+            {preRenderProgress.done}/{preRenderProgress.total}
+          </span>
+        )}
       </div>
       {pdfBytes && (
         <div ref={containerRef} className="flex-1 overflow-auto px-2 pb-2 pt-1">

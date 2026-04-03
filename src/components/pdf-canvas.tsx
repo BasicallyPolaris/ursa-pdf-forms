@@ -8,10 +8,12 @@ import {
 import {
   getRenderManager,
   type RenderHandle,
+  type RenderResult,
 } from "@/lib/render-worker-manager";
 import { VisiblePagesContext } from "@/contexts/visible-pages";
 import { useEditorStore } from "@/stores/editor-store";
 import {
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -30,7 +32,12 @@ interface PdfPageProps {
   height: number;
 }
 
-function PdfPage({ pageNumber, zoom, width, height }: PdfPageProps) {
+const PdfPage = memo(function PdfPage({
+  pageNumber,
+  zoom,
+  width,
+  height,
+}: PdfPageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handleRef = useRef<RenderHandle | null>(null);
   const renderedZoomRef = useRef<number | null>(null);
@@ -49,12 +56,11 @@ function PdfPage({ pageNumber, zoom, width, height }: PdfPageProps) {
         return;
 
       handleRef.current?.cancel();
-      const targetZoom = zoom;
-      const handle = getRenderManager().renderPage(pageNumber, targetZoom);
+      const handle = getRenderManager().renderPage(pageNumber, zoom);
       handleRef.current = handle;
 
       handle.promise
-        .then((bitmap) => {
+        .then(({ bitmap, renderedScale }: RenderResult) => {
           const canvas = canvasRef.current;
           if (!canvas) {
             bitmap.close();
@@ -65,8 +71,8 @@ function PdfPage({ pageNumber, zoom, width, height }: PdfPageProps) {
           const ctx = canvas.getContext("2d", { alpha: false });
           if (ctx) ctx.drawImage(bitmap, 0, 0);
           bitmap.close();
-          renderedZoomRef.current = targetZoom;
-          setRenderedZoom(targetZoom);
+          renderedZoomRef.current = renderedScale;
+          setRenderedZoom(renderedScale);
         })
         .catch((err) => {
           if (!(err instanceof Error) || !err.message.includes("cancelled"))
@@ -95,7 +101,7 @@ function PdfPage({ pageNumber, zoom, width, height }: PdfPageProps) {
       }}
     />
   );
-}
+});
 
 interface PdfCanvasProps {
   children?: ReactNode;

@@ -4,15 +4,21 @@ import {
   type CancellableRender,
 } from "./pdf-loader";
 
+export interface RenderResult {
+  bitmap: ImageBitmap;
+  renderedScale: number;
+}
+
 export interface RenderHandle {
-  promise: Promise<ImageBitmap>;
+  promise: Promise<RenderResult>;
   cancel: () => void;
 }
 
 interface QueueEntry {
   pageNumber: number;
   scale: number;
-  resolve: (bitmap: ImageBitmap) => void;
+  requestedScale: number;
+  resolve: (result: RenderResult) => void;
   reject: (err: Error) => void;
   cancelled: boolean;
   activeRender: CancellableRender | null;
@@ -41,12 +47,11 @@ class RenderManager {
     let cancelled = false;
     let entry: QueueEntry | null = null;
     const gen = this.loadGeneration;
-
     const promise = this.documentLoadPromise.then(() => {
       if (cancelled || gen !== this.loadGeneration)
         throw new Error("Render cancelled");
 
-      return new Promise<ImageBitmap>((resolve, reject) => {
+      return new Promise<RenderResult>((resolve, reject) => {
         if (cancelled) {
           reject(new Error("Render cancelled"));
           return;
@@ -54,6 +59,7 @@ class RenderManager {
         entry = {
           pageNumber,
           scale,
+          requestedScale: scale,
           resolve,
           reject,
           cancelled: false,
@@ -89,7 +95,10 @@ class RenderManager {
           if (entry.cancelled) {
             result.bitmap.close();
           } else {
-            entry.resolve(result.bitmap);
+            entry.resolve({
+              bitmap: result.bitmap,
+              renderedScale: entry.scale,
+            });
           }
         })
         .catch((err) => {
