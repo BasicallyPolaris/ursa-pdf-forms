@@ -1,12 +1,100 @@
-import { useEffect, useRef, useCallback, useState, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
-import { useEditorStore } from "@/stores/editor-store";
-import { loadPdfDocument, type PdfDocument } from "@/lib/pdf-loader";
-import { computePageLayouts, getVisiblePageNumbers, type PageLayout } from "@/lib/page-layout";
-import { VisiblePagesContext } from "@/contexts/visible-pages";
 import { Kbd } from "@/components/ui/kbd";
+import { loadPdfDocument, type PdfDocument } from "@/lib/pdf-loader";
+import {
+  computePageLayouts,
+  getVisiblePageNumbers,
+  getTotalContentHeight,
+  TOP_PADDING,
+  PAGE_GAP,
+} from "@/lib/page-layout";
+import { VisiblePagesContext } from "@/contexts/visible-pages";
+import { useEditorStore } from "@/stores/editor-store";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { useTranslation } from "react-i18next";
 
-const RASTERIZE_DELAY = 200;
+const RASTERIZE_DELAY = 16;
+
+interface PdfPageProps {
+  doc: PdfDocument;
+  pageNumber: number;
+  zoom: number;
+  width: number;
+  height: number;
+}
+
+function PdfPage({ doc, pageNumber, zoom, width, height }: PdfPageProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const renderTaskRef = useRef<{
+    cancel: () => void;
+    promise: Promise<void>;
+  } | null>(null);
+  const [renderedZoom, setRenderedZoom] = useState<number | null>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(async () => {
+      const canvas = canvasRef.current;
+      if (!canvas || (renderedZoom === zoom && canvas.width > 0)) return;
+
+      try {
+        const page = await doc.getPage(pageNumber);
+        const viewport = page.getViewport({ scale: zoom });
+
+        if (!canvasRef.current) return;
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+
+        const ctx = canvas.getContext("2d", { alpha: false });
+        if (!ctx) return;
+
+        if (renderTaskRef.current) {
+          renderTaskRef.current.cancel();
+        }
+
+        renderTaskRef.current = page.render({
+          canvas,
+          canvasContext: ctx,
+          viewport,
+        });
+        await renderTaskRef.current.promise;
+
+        setRenderedZoom(zoom);
+      } catch (err: unknown) {
+        if (
+          !(err instanceof Error && err.name === "RenderingCancelledException")
+        ) {
+          console.error(`Error rendering page ${pageNumber}:`, err);
+        }
+      }
+    }, RASTERIZE_DELAY);
+
+    return () => {
+      clearTimeout(timer);
+      if (renderTaskRef.current) renderTaskRef.current.cancel();
+    };
+  }, [doc, pageNumber, renderedZoom, zoom]);
+
+  const effectiveRenderedZoom = renderedZoom ?? zoom;
+  const scaleRatio = renderedZoom ? zoom / renderedZoom : 1;
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute top-0 left-0 origin-top-left pointer-events-none"
+      style={{
+        transform: `scale(${scaleRatio})`,
+        width: `${width * effectiveRenderedZoom}px`,
+        height: `${height * effectiveRenderedZoom}px`,
+      }}
+    />
+  );
+}
 
 interface PdfCanvasProps {
   children?: ReactNode;
@@ -15,221 +103,97 @@ interface PdfCanvasProps {
 export function PdfCanvas({ children }: PdfCanvasProps) {
   const { t } = useTranslation();
   const pdfBytes = useEditorStore((s) => s.pdfBytes);
-  const zoom = useEditorStore((s) => s.zoom);
   const pages = useEditorStore((s) => s.pages);
+  const zoom = useEditorStore((s) => s.zoom);
 
-  const pagesRef = useRef<HTMLDivElement>(null);
-  const docRef = useRef<PdfDocument | null>(null);
-  const canvasMap = useRef<Map<number, HTMLCanvasElement>>(new Map());
-  const pendingRenders = useRef<Set<number>>(new Set());
-  const renderedZoomRef = useRef(zoom);
-  const zoomRef = useRef(zoom);
-  const rasterizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pdfDoc, setPdfDoc] = useState<PdfDocument | null>(null);
   const [visiblePages, setVisiblePages] = useState<Set<number>>(new Set());
-  const visiblePagesRef = useRef<Set<number>>(visiblePages);
-  const layoutCacheRef = useRef<{ zoom: number; width: number; layouts: Map<number, PageLayout> } | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const containerRef = useRef<HTMLElement | null>(null);
 
-  zoomRef.current = zoom;
-  visiblePagesRef.current = visiblePages;
-
-  const getScrollContainer = useCallback(() => {
-    const el = pagesRef.current?.parentElement?.parentElement;
-    return el ?? null;
-  }, []);
-
-  const syncVisiblePages = useCallback(() => {
-    const scrollEl = getScrollContainer();
-    if (!scrollEl || pages.length === 0) return;
-
-    const currentZoom = zoomRef.current;
-    const containerWidth = scrollEl.clientWidth;
-
-    let layouts: Map<number, PageLayout>;
-    const cache = layoutCacheRef.current;
-    if (cache && cache.zoom === currentZoom && cache.width === containerWidth) {
-      layouts = cache.layouts;
-    } else {
-      layouts = computePageLayouts(pages, currentZoom, containerWidth);
-      layoutCacheRef.current = { zoom: currentZoom, width: containerWidth, layouts };
+  useEffect(() => {
+    if (!pdfBytes) {
+      setPdfDoc(null);
+      return;
     }
 
-    const next = getVisiblePageNumbers(layouts, scrollEl.scrollTop, scrollEl.clientHeight);
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const doc = await loadPdfDocument(pdfBytes);
+        if (!cancelled) setPdfDoc(doc);
+      } catch (error) {
+        console.error("Failed to load PDF:", error);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [pdfBytes]);
+
+  const updateVisiblePages = useCallback(() => {
+    const el = containerRef.current;
+    if (!el || pages.length === 0) return;
+
+    const layouts = computePageLayouts(pages, zoom, el.clientWidth);
+    const next = getVisiblePageNumbers(layouts, el.scrollTop, el.clientHeight);
 
     setVisiblePages((prev) => {
       if (prev.size === next.size) {
         let same = true;
         for (const p of next) {
-          if (!prev.has(p)) { same = false; break; }
+          if (!prev.has(p)) {
+            same = false;
+            break;
+          }
         }
         if (same) return prev;
       }
       return next;
     });
-  }, [pages, getScrollContainer]);
+  }, [pages, zoom]);
 
   useEffect(() => {
-    if (!pdfBytes) {
-      docRef.current = null;
-      return;
-    }
-
-    let cancelled = false;
-    loadPdfDocument(pdfBytes).then((doc) => {
-      if (cancelled) return;
-      docRef.current = doc;
-      renderedZoomRef.current = zoomRef.current;
-      syncVisiblePages();
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [pdfBytes, syncVisiblePages]);
-
-  useEffect(() => {
-    const scrollEl = getScrollContainer();
+    const scrollEl = document.querySelector<HTMLElement>(
+      "[data-pdf-scroll-container]",
+    );
     if (!scrollEl) return;
+    containerRef.current = scrollEl;
 
-    scrollEl.addEventListener("scroll", syncVisiblePages, { passive: true });
-    const ro = new ResizeObserver(syncVisiblePages);
-    ro.observe(scrollEl);
+    updateVisiblePages();
+
+    const onScroll = () => {
+      if (rafRef.current !== null) return;
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        updateVisiblePages();
+      });
+    };
+
+    scrollEl.addEventListener("scroll", onScroll, { passive: true });
+    const resizeObserver = new ResizeObserver(() => updateVisiblePages());
+    resizeObserver.observe(scrollEl);
 
     return () => {
-      scrollEl.removeEventListener("scroll", syncVisiblePages);
-      ro.disconnect();
+      scrollEl.removeEventListener("scroll", onScroll);
+      resizeObserver.disconnect();
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
     };
-  }, [syncVisiblePages]);
+  }, [updateVisiblePages]);
 
-  const renderPageToCanvas = useCallback(
-    (pageNum: number, targetZoom: number) => {
-      const doc = docRef.current;
-      if (!doc) return;
-      if (pendingRenders.current.has(pageNum)) return;
+  useEffect(() => {
+    updateVisiblePages();
+  }, [pages, zoom, updateVisiblePages]);
 
-      pendingRenders.current.add(pageNum);
-      doc
-        .renderPage(pageNum, targetZoom)
-        .then((result) => {
-          pendingRenders.current.delete(pageNum);
-          const canvas = canvasMap.current.get(pageNum);
-          if (!canvas) {
-            result.bitmap.close();
-            return;
-          }
-          canvas.width = result.width;
-          canvas.height = result.height;
-          canvas.style.width = `${result.width}px`;
-          canvas.style.height = `${result.height}px`;
-          const ctx = canvas.getContext("2d");
-          if (ctx) ctx.drawImage(result.bitmap, 0, 0);
-          result.bitmap.close();
-        })
-        .catch(() => {
-          pendingRenders.current.delete(pageNum);
-        });
-    },
-    [],
+  const totalHeight = useMemo(
+    () => getTotalContentHeight(pages, zoom),
+    [pages, zoom],
   );
-
-  useEffect(() => {
-    const container = pagesRef.current;
-    if (!container) return;
-
-    for (const [pageNum, canvas] of canvasMap.current) {
-      if (!visiblePages.has(pageNum) && canvas.parentElement) {
-        canvas.remove();
-      }
-    }
-
-    for (const pageNum of visiblePages) {
-      const existing = canvasMap.current.get(pageNum);
-      const wrapper = container.querySelector<HTMLElement>(
-        `[data-page-wrapper="${pageNum}"]`,
-      );
-      if (!wrapper) continue;
-
-      if (existing) {
-        if (!existing.parentElement) {
-          wrapper.appendChild(existing);
-        }
-        continue;
-      }
-
-      const canvas = document.createElement("canvas");
-      canvas.draggable = false;
-      canvas.style.display = "block";
-      canvas.style.margin = "0 auto";
-      (canvas.style as unknown as Record<string, string>).webkitUserDrag = "none";
-      canvas.dataset.pageNumber = String(pageNum);
-      wrapper.appendChild(canvas);
-      canvasMap.current.set(pageNum, canvas);
-
-      renderPageToCanvas(pageNum, zoomRef.current);
-    }
-
-    const MAX_CACHED = visiblePages.size * 3 + 10;
-    if (canvasMap.current.size > MAX_CACHED) {
-      const toEvict: number[] = [];
-      for (const [pageNum] of canvasMap.current) {
-        if (!visiblePages.has(pageNum)) toEvict.push(pageNum);
-        if (toEvict.length >= canvasMap.current.size - MAX_CACHED) break;
-      }
-      for (const pageNum of toEvict) {
-        const canvas = canvasMap.current.get(pageNum);
-        if (canvas) canvas.remove();
-        canvasMap.current.delete(pageNum);
-      }
-    }
-  }, [visiblePages, renderPageToCanvas]);
-
-  useEffect(() => {
-    const container = pagesRef.current;
-    if (!container || !docRef.current) return;
-
-    const renderedZoom = renderedZoomRef.current;
-    const scaleRatio = zoom / renderedZoom;
-
-    const wrappers = container.querySelectorAll<HTMLElement>("[data-page-wrapper]");
-    for (let i = 0; i < wrappers.length; i++) {
-      const wrapper = wrappers[i];
-      const canvas = wrapper.querySelector("canvas");
-      if (!canvas) continue;
-
-      const canvasW = canvas.width;
-      const canvasH = canvas.height;
-      canvas.style.width = `${canvasW * scaleRatio}px`;
-      canvas.style.height = `${canvasH * scaleRatio}px`;
-      wrapper.style.height = `${canvasH * scaleRatio}px`;
-    }
-
-    if (rasterizeTimerRef.current) {
-      clearTimeout(rasterizeTimerRef.current);
-    }
-
-    rasterizeTimerRef.current = setTimeout(() => {
-      if (!docRef.current) return;
-      renderedZoomRef.current = zoomRef.current;
-      for (const pageNum of visiblePagesRef.current) {
-        renderPageToCanvas(pageNum, zoomRef.current);
-      }
-    }, RASTERIZE_DELAY);
-
-    return () => {
-      if (rasterizeTimerRef.current) {
-        clearTimeout(rasterizeTimerRef.current);
-      }
-    };
-  }, [zoom, renderPageToCanvas]);
-
-  useEffect(() => {
-    return () => {
-      for (const [, canvas] of canvasMap.current) {
-        canvas.remove();
-      }
-      canvasMap.current.clear();
-      pendingRenders.current.clear();
-    };
-  }, []);
 
   if (!pdfBytes) {
     return (
@@ -311,21 +275,75 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     );
   }
 
+  if (!pdfDoc || pages.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center select-none">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <svg className="h-6 w-6 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeDasharray="32"
+              strokeLinecap="round"
+              className="opacity-25"
+            />
+            <path
+              d="M12 2a10 10 0 0 1 10 10"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+          <span className="text-xs">
+            {t("canvas.loading", "Loading PDF...")}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative min-w-full w-fit">
+    <div
+      className="relative min-w-full w-fit bg-muted/20"
+      style={{ minHeight: totalHeight > 0 ? totalHeight : undefined }}
+    >
       <div
-        ref={pagesRef}
-        className="flex flex-col items-center gap-2 p-4"
+        className="flex flex-col items-center"
+        style={{ paddingTop: TOP_PADDING }}
         onDragStart={(e) => e.preventDefault()}
       >
-        {pages.map((page) => (
-          <div
-            key={page.pageNumber}
-            data-page-wrapper={page.pageNumber}
-            className="flex justify-center"
-            style={{ height: page.height * zoom }}
-          />
-        ))}
+        {pages.map((page, i) => {
+          const isVisible = visiblePages.has(page.pageNumber);
+          const displayWidth = page.width * zoom;
+          const displayHeight = page.height * zoom;
+
+          return (
+            <div
+              key={page.pageNumber}
+              className="relative bg-white shadow-md shrink-0"
+              style={{
+                width: `${displayWidth}px`,
+                height: `${displayHeight}px`,
+                marginBottom: i < pages.length - 1 ? PAGE_GAP : 0,
+              }}
+              data-page-wrapper={page.pageNumber}
+              data-page-number={page.pageNumber}
+            >
+              {isVisible && (
+                <PdfPage
+                  doc={pdfDoc}
+                  pageNumber={page.pageNumber}
+                  zoom={zoom}
+                  width={page.width}
+                  height={page.height}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
       <VisiblePagesContext.Provider value={visiblePages}>
         {children}

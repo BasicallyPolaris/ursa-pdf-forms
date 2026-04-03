@@ -1,9 +1,6 @@
 import { create } from "zustand";
 import { temporal } from "zundo";
-import {
-  type FormElement,
-  getUniqueName,
-} from "@/lib/form-element-model";
+import { type FormElement, getUniqueName } from "@/lib/form-element-model";
 import type { PageInfo } from "@/lib/pdf-loader";
 import {
   alignLeft,
@@ -55,39 +52,63 @@ interface EditorState {
   clipboard: FormElement[];
   gridSize: number;
   guides: GuideLine[];
-  previewGuide: { orientation: "horizontal" | "vertical"; position: number } | null;
+  previewGuide: {
+    orientation: "horizontal" | "vertical";
+    position: number;
+  } | null;
   selectedGuideId: string | null;
-  dragLivePositions: Map<string, { x: number; y: number; width: number; height: number }>;
+  dragLivePositions: Map<
+    string,
+    { x: number; y: number; width: number; height: number }
+  >;
 
   setPdf: (fileName: string, bytes: Uint8Array, pages: PageInfo[]) => void;
+  setPdfPages: (pages: PageInfo[]) => void;
   setZoom: (zoom: number) => void;
   setActiveTool: (tool: EditorState["activeTool"]) => void;
 
   clearPdf: () => void;
   addElement: (element: FormElement) => void;
   updateElement: (id: string, updates: Partial<FormElement>) => void;
-  moveElements: (updates: Array<{ id: string; x: number; y: number; pageNumber?: number }>) => void;
+  moveElements: (
+    updates: Array<{ id: string; x: number; y: number; pageNumber?: number }>,
+  ) => void;
   removeElements: (ids: string[]) => void;
   selectElements: (ids: Set<string>) => void;
   clearSelection: () => void;
   toggleInSelection: (id: string) => void;
   addToSelection: (ids: string[]) => void;
   copySelection: () => void;
-  pasteClipboard: (targetPage?: number, targetX?: number, targetY?: number) => void;
+  pasteClipboard: (
+    targetPage?: number,
+    targetX?: number,
+    targetY?: number,
+  ) => void;
   cutSelection: () => void;
   duplicateSelection: (targetPage?: number) => void;
   addGuide: (orientation: "horizontal" | "vertical", position: number) => void;
   removeGuide: (id: string) => void;
   updateGuidePosition: (id: string, position: number) => void;
-  setPreviewGuide: (guide: { orientation: "horizontal" | "vertical"; position: number } | null) => void;
+  setPreviewGuide: (
+    guide: { orientation: "horizontal" | "vertical"; position: number } | null,
+  ) => void;
   selectGuide: (id: string | null) => void;
-  setDragLivePositions: (positions: Map<string, { x: number; y: number; width: number; height: number }> | null) => void;
-  alignElements: (type: "left" | "right" | "top" | "bottom" | "centerH" | "centerV") => void;
+  setDragLivePositions: (
+    positions: Map<
+      string,
+      { x: number; y: number; width: number; height: number }
+    > | null,
+  ) => void;
+  alignElements: (
+    type: "left" | "right" | "top" | "bottom" | "centerH" | "centerV",
+  ) => void;
   distributeElements: (direction: "horizontal" | "vertical") => void;
   centerSelectionOnPage: () => void;
   centerSelectionOnPageH: () => void;
   centerSelectionOnPageV: () => void;
-  matchElementSize: (type: "widthWidest" | "widthNarrowest" | "heightTallest" | "heightShortest") => void;
+  matchElementSize: (
+    type: "widthWidest" | "widthNarrowest" | "heightTallest" | "heightShortest",
+  ) => void;
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -111,13 +132,13 @@ export const useEditorStore = create<EditorState>()(
       setPdf: (fileName, bytes, pages) =>
         set({ pdfFileName: fileName, pdfBytes: bytes, pages }),
 
+      setPdfPages: (pages) => set({ pages }),
+
       setZoom: (zoom) => set({ zoom }),
 
       setActiveTool: (activeTool) => set({ activeTool }),
 
-
-      clearPdf: () =>
-        set({ pdfFileName: null, pdfBytes: null, pages: [] }),
+      clearPdf: () => set({ pdfFileName: null, pdfBytes: null, pages: [] }),
 
       addElement: (element) =>
         set((s) => ({ elements: [...s.elements, element] })),
@@ -135,7 +156,12 @@ export const useEditorStore = create<EditorState>()(
             const u = updates.find((u) => u.id === el.id);
             if (!u) return el;
             return u.pageNumber !== undefined && u.pageNumber !== el.pageNumber
-              ? { ...el, x: u.x, y: u.y, pageNumber: u.pageNumber } as FormElement
+              ? ({
+                  ...el,
+                  x: u.x,
+                  y: u.y,
+                  pageNumber: u.pageNumber,
+                } as FormElement)
               : { ...el, x: u.x, y: u.y };
           }),
         })),
@@ -143,12 +169,19 @@ export const useEditorStore = create<EditorState>()(
       removeElements: (ids) =>
         set((s) => ({
           elements: s.elements.filter((el) => !ids.includes(el.id)),
-          selectedIds: new Set([...s.selectedIds].filter((id) => !ids.includes(id))),
+          selectedIds: new Set(
+            [...s.selectedIds].filter((id) => !ids.includes(id)),
+          ),
         })),
 
       selectElements: (ids) => set({ selectedIds: ids, selectedGuideId: null }),
 
-      clearSelection: () => set({ selectedIds: new Set<string>(), selectedGuideId: null, dragLivePositions: new Map() }),
+      clearSelection: () =>
+        set({
+          selectedIds: new Set<string>(),
+          selectedGuideId: null,
+          dragLivePositions: new Map(),
+        }),
 
       toggleInSelection: (id) =>
         set((s) => {
@@ -176,7 +209,11 @@ export const useEditorStore = create<EditorState>()(
           return { clipboard: JSON.parse(JSON.stringify(selected)) };
         }),
 
-      pasteClipboard: (targetPage?: number, targetX?: number, targetY?: number) =>
+      pasteClipboard: (
+        targetPage?: number,
+        targetX?: number,
+        targetY?: number,
+      ) =>
         set((s) => {
           if (s.clipboard.length === 0) return s;
           const pasted: FormElement[] = [];
@@ -185,9 +222,14 @@ export const useEditorStore = create<EditorState>()(
           const offX = targetX !== undefined ? targetX - baseEl.x : 0;
           const offY = targetY !== undefined ? targetY - baseEl.y : 0;
           for (const el of s.clipboard) {
-            const samePage = targetPage === undefined || targetPage === el.pageNumber;
-            const newX = samePage ? el.x + (offX || PASTE_OFFSET) : el.x + (offX || 0);
-            const newY = samePage ? el.y + (offY || PASTE_OFFSET) : el.y + (offY || 0);
+            const samePage =
+              targetPage === undefined || targetPage === el.pageNumber;
+            const newX = samePage
+              ? el.x + (offX || PASTE_OFFSET)
+              : el.x + (offX || 0);
+            const newY = samePage
+              ? el.y + (offY || PASTE_OFFSET)
+              : el.y + (offY || 0);
             const newEl = {
               ...JSON.parse(JSON.stringify(el)),
               id: generatePastedId(),
@@ -197,10 +239,10 @@ export const useEditorStore = create<EditorState>()(
             } as FormElement;
             if ("name" in newEl) {
               const typed = newEl as FormElement & { name: string };
-              typed.name = getUniqueName(
-                typed.name,
-                [...s.elements, ...pasted],
-              );
+              typed.name = getUniqueName(typed.name, [
+                ...s.elements,
+                ...pasted,
+              ]);
             }
             pasted.push(newEl);
             newIds.add(newEl.id);
@@ -229,7 +271,8 @@ export const useEditorStore = create<EditorState>()(
           const pasted: FormElement[] = [];
           const newIds = new Set<string>();
           for (const el of selected) {
-            const samePage = targetPage === undefined || targetPage === el.pageNumber;
+            const samePage =
+              targetPage === undefined || targetPage === el.pageNumber;
             const newEl = {
               ...JSON.parse(JSON.stringify(el)),
               id: generatePastedId(),
@@ -239,10 +282,10 @@ export const useEditorStore = create<EditorState>()(
             } as FormElement;
             if ("name" in newEl) {
               const typed = newEl as FormElement & { name: string };
-              typed.name = getUniqueName(
-                typed.name,
-                [...s.elements, ...pasted],
-              );
+              typed.name = getUniqueName(typed.name, [
+                ...s.elements,
+                ...pasted,
+              ]);
             }
             pasted.push(newEl);
             newIds.add(newEl.id);
@@ -255,7 +298,10 @@ export const useEditorStore = create<EditorState>()(
 
       addGuide: (orientation, position) =>
         set((s) => ({
-          guides: [...s.guides, { id: generateGuideId(), orientation, position }],
+          guides: [
+            ...s.guides,
+            { id: generateGuideId(), orientation, position },
+          ],
         })),
 
       removeGuide: (id) =>
@@ -282,12 +328,24 @@ export const useEditorStore = create<EditorState>()(
         if (state.selectedIds.size < 2) return;
         let updates: Array<{ id: string; x: number; y: number }> = [];
         switch (type) {
-          case "left": updates = alignLeft(state.elements, state.selectedIds); break;
-          case "right": updates = alignRight(state.elements, state.selectedIds); break;
-          case "top": updates = alignTop(state.elements, state.selectedIds); break;
-          case "bottom": updates = alignBottom(state.elements, state.selectedIds); break;
-          case "centerH": updates = alignCenterH(state.elements, state.selectedIds); break;
-          case "centerV": updates = alignCenterV(state.elements, state.selectedIds); break;
+          case "left":
+            updates = alignLeft(state.elements, state.selectedIds);
+            break;
+          case "right":
+            updates = alignRight(state.elements, state.selectedIds);
+            break;
+          case "top":
+            updates = alignTop(state.elements, state.selectedIds);
+            break;
+          case "bottom":
+            updates = alignBottom(state.elements, state.selectedIds);
+            break;
+          case "centerH":
+            updates = alignCenterH(state.elements, state.selectedIds);
+            break;
+          case "centerV":
+            updates = alignCenterV(state.elements, state.selectedIds);
+            break;
         }
         if (updates.length > 0) {
           set((s) => ({
@@ -302,9 +360,10 @@ export const useEditorStore = create<EditorState>()(
       distributeElements: (direction) => {
         const state = get();
         if (state.selectedIds.size < 3) return;
-        const updates = direction === "horizontal"
-          ? distributeH(state.elements, state.selectedIds)
-          : distributeV(state.elements, state.selectedIds);
+        const updates =
+          direction === "horizontal"
+            ? distributeH(state.elements, state.selectedIds)
+            : distributeV(state.elements, state.selectedIds);
         if (updates.length > 0) {
           set((s) => ({
             elements: s.elements.map((el) => {
@@ -319,7 +378,12 @@ export const useEditorStore = create<EditorState>()(
         const state = get();
         if (state.selectedIds.size === 0 || state.pages.length === 0) return;
         const page = state.pages[0];
-        const updates = centerOnPage(state.elements, state.selectedIds, page.width, page.height);
+        const updates = centerOnPage(
+          state.elements,
+          state.selectedIds,
+          page.width,
+          page.height,
+        );
         if (updates.length > 0) {
           set((s) => ({
             elements: s.elements.map((el) => {
@@ -334,7 +398,11 @@ export const useEditorStore = create<EditorState>()(
         const state = get();
         if (state.selectedIds.size === 0 || state.pages.length === 0) return;
         const page = state.pages[0];
-        const updates = centerOnPageH(state.elements, state.selectedIds, page.width);
+        const updates = centerOnPageH(
+          state.elements,
+          state.selectedIds,
+          page.width,
+        );
         if (updates.length > 0) {
           set((s) => ({
             elements: s.elements.map((el) => {
@@ -349,7 +417,11 @@ export const useEditorStore = create<EditorState>()(
         const state = get();
         if (state.selectedIds.size === 0 || state.pages.length === 0) return;
         const page = state.pages[0];
-        const updates = centerOnPageV(state.elements, state.selectedIds, page.height);
+        const updates = centerOnPageV(
+          state.elements,
+          state.selectedIds,
+          page.height,
+        );
         if (updates.length > 0) {
           set((s) => ({
             elements: s.elements.map((el) => {
@@ -363,20 +435,35 @@ export const useEditorStore = create<EditorState>()(
       matchElementSize: (type) => {
         const state = get();
         if (state.selectedIds.size < 2) return;
-        let updates: Array<{ id: string; width?: number; height?: number }> = [];
+        let updates: Array<{ id: string; width?: number; height?: number }> =
+          [];
         switch (type) {
-          case "widthWidest": updates = matchWidthToWidest(state.elements, state.selectedIds); break;
-          case "widthNarrowest": updates = matchWidthToNarrowest(state.elements, state.selectedIds); break;
-          case "heightTallest": updates = matchHeightToTallest(state.elements, state.selectedIds); break;
-          case "heightShortest": updates = matchHeightToShortest(state.elements, state.selectedIds); break;
+          case "widthWidest":
+            updates = matchWidthToWidest(state.elements, state.selectedIds);
+            break;
+          case "widthNarrowest":
+            updates = matchWidthToNarrowest(state.elements, state.selectedIds);
+            break;
+          case "heightTallest":
+            updates = matchHeightToTallest(state.elements, state.selectedIds);
+            break;
+          case "heightShortest":
+            updates = matchHeightToShortest(state.elements, state.selectedIds);
+            break;
         }
         if (updates.length > 0) {
           set((s) => ({
             elements: s.elements.map((el) => {
               const u = updates.find((u) => u.id === el.id);
               if (!u) return el;
-              const heightLocked = el.type === "text" && !(el as import("@/lib/form-element-model").TextField).multiline;
-              return { ...el, ...("width" in u ? { width: u.width } : {}), ...("height" in u && !heightLocked ? { height: u.height } : {}) };
+              const heightLocked =
+                el.type === "text" &&
+                !(el as import("@/lib/form-element-model").TextField).multiline;
+              return {
+                ...el,
+                ...("width" in u ? { width: u.width } : {}),
+                ...("height" in u && !heightLocked ? { height: u.height } : {}),
+              };
             }),
           }));
         }

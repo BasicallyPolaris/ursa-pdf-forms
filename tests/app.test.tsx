@@ -2,7 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("pdfjs-dist", () => ({
   GlobalWorkerOptions: { workerSrc: "" },
-  getDocument: vi.fn().mockReturnValue({ promise: Promise.resolve({ numPages: 0 }) }),
+  getDocument: vi.fn().mockReturnValue({
+    promise: Promise.resolve({
+      numPages: 0,
+      fingerprint: "mock-doc",
+      getPage: vi.fn(),
+      destroy: vi.fn(),
+    }),
+    destroy: vi.fn(),
+  }),
 }));
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
@@ -45,7 +53,8 @@ vi.mock("react-i18next", () => ({
         "fieldTypes.radioButton": "Radio Button",
         "fieldTypes.multiline": "Multiline",
         "canvas.emptyTitle": "Open a PDF to get started",
-        "canvas.emptyDescription": "Drag and drop a file, or use the Open button",
+        "canvas.emptyDescription":
+          "Drag and drop a file, or use the Open button",
         "canvas.openPdf": "Open PDF",
         "canvas.zoom": "Zoom",
         "canvas.removeField": "Remove field",
@@ -100,9 +109,11 @@ describe("App layout", () => {
     render(<App />);
     expect(screen.queryByTestId("tool-select")).not.toBeInTheDocument();
 
-    useEditorStore.getState().setPdf("test.pdf", new Uint8Array([1, 2, 3]), [
-      { pageNumber: 1, width: 612, height: 792 },
-    ]);
+    useEditorStore
+      .getState()
+      .setPdf("test.pdf", new Uint8Array([1, 2, 3]), [
+        { pageNumber: 1, width: 612, height: 792 },
+      ]);
 
     await waitFor(() => {
       expect(screen.getByTestId("tool-select")).toBeInTheDocument();

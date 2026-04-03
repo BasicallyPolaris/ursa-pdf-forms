@@ -10,8 +10,23 @@ function extractFileName(filePath: string, fallback: string): string {
 }
 
 async function loadPdfIntoStore(pdfBytes: Uint8Array, fileName: string) {
-  const { pageInfos } = await loadPdfDocument(pdfBytes);
-  useEditorStore.getState().setPdf(fileName, pdfBytes, pageInfos);
+  const doc = await loadPdfDocument(pdfBytes);
+  const store = useEditorStore.getState();
+  store.setPdf(fileName, pdfBytes, []);
+
+  void doc
+    .getPageInfos((accumulated) => {
+      const currentStore = useEditorStore.getState();
+      if (currentStore.pdfBytes === pdfBytes) {
+        currentStore.setPdfPages(accumulated);
+      }
+    })
+    .catch((error) => {
+      const currentStore = useEditorStore.getState();
+      if (currentStore.pdfBytes === pdfBytes) {
+        console.error("Failed to load PDF page metadata:", error);
+      }
+    });
 }
 
 export async function openPdfFile(): Promise<string | null> {
@@ -36,8 +51,7 @@ export async function openPdfFile(): Promise<string | null> {
 }
 
 export async function saveProjectFile(): Promise<string | null> {
-  const { pdfFileName, pdfBytes, elements, guides } =
-    useEditorStore.getState();
+  const { pdfFileName, pdfBytes, elements, guides } = useEditorStore.getState();
   if (!pdfBytes) return null;
 
   try {
