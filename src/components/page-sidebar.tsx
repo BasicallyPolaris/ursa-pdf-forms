@@ -2,20 +2,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useEditorStore } from "@/stores/editor-store";
 import {
-  getRenderManager,
-  type RenderHandle,
-} from "@/lib/render-worker-manager";
+  loadPdfDocument,
+  type PdfDocument,
+  type CancellableRender,
+} from "@/lib/pdf-loader";
+import { computePageLayouts } from "@/lib/page-layout";
 
-const THUMB_SCALE = 0.2;
 const THUMB_ITEM_HEIGHT = 130;
-const THUMB_BUFFER = 5;
+const THUMB_BUFFER = 8;
 const THUMB_MAX_H = 94;
 const THUMB_MAX_W = 140;
+const THUMB_MAX_SCALE = 0.18;
+const MAX_THUMB_CONCURRENT = 4;
 
 function getThumbDimensions(pageWidth: number, pageHeight: number) {
   const scaleW = THUMB_MAX_W / pageWidth;
   const scaleH = THUMB_MAX_H / pageHeight;
-  const scale = Math.min(scaleW, scaleH, THUMB_SCALE);
+  const scale = Math.min(scaleW, scaleH, THUMB_MAX_SCALE);
   return {
     width: Math.max(1, Math.round(pageWidth * scale)),
     height: Math.max(1, Math.round(pageHeight * scale)),
@@ -30,11 +33,31 @@ export function PageSidebar() {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
   const renderedPagesRef = useRef<Set<number>>(new Set());
+  const docRef = useRef<PdfDocument | null>(null);
+  const activeRenders = useRef<Map<number, CancellableRender>>(new Map());
+  const thumbQueue = useRef<number[]>([]);
+  const thumbActive = useRef(0);
   const [visibleRange, setVisibleRange] = useState<[number, number]>([0, 20]);
 
   useEffect(() => {
     renderedPagesRef.current.clear();
     canvasRefs.current.clear();
+    docRef.current = null;
+    for (const [, r] of activeRenders.current) r.cancel();
+    activeRenders.current.clear();
+    thumbQueue.current = [];
+    thumbActive.current = 0;
+
+    if (!pdfBytes) return;
+    let cancelled = false;
+    loadPdfDocument(pdfBytes)
+      .then((doc) => {
+        if (!cancelled) docRef.current = doc;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [pdfBytes]);
 
   const updateVisibleRange = useCallback(() => {
@@ -88,75 +111,119 @@ export function PageSidebar() {
     updateVisibleRange();
   }, [pages.length, updateVisibleRange]);
 
-  useEffect(() => {
-    if (!pdfBytes || pages.length === 0) return;
+  const drainThumbQueue = useCallback(() => {
+    const doc = docRef.current;
+    if (!doc) return;
 
-    let cancelled = false;
-    const handles: RenderHandle[] = [];
-    const manager = getRenderManager();
-
-    for (
-      let i = visibleRange[0];
-      i < visibleRange[1] && i < pages.length;
-      i++
+    while (
+      thumbQueue.current.length > 0 &&
+      thumbActive.current < MAX_THUMB_CONCURRENT
     ) {
-      const page = pages[i];
-      if (renderedPagesRef.current.has(page.pageNumber)) continue;
+      const pageNum = thumbQueue.current.pop()!;
+      if (renderedPagesRef.current.has(pageNum)) continue;
+
+      const page = pages[pageNum - 1];
+      if (!page) continue;
 
       const dims = getThumbDimensions(page.width, page.height);
-      const handle = manager.renderPage(page.pageNumber, dims.scale);
-      handles.push(handle);
+      thumbActive.current++;
 
-      handle.promise
-        .then((bitmap) => {
-          if (cancelled) {
-            bitmap.close();
-            return;
-          }
-          const canvas = canvasRefs.current.get(page.pageNumber);
+      const render = doc.startRender(pageNum, dims.scale);
+      activeRenders.current.set(pageNum, render);
+
+      render.promise
+        .then((result) => {
+          activeRenders.current.delete(pageNum);
+          const canvas = canvasRefs.current.get(pageNum);
           if (!canvas) {
-            bitmap.close();
+            result.bitmap.close();
             return;
           }
           canvas.width = dims.width;
           canvas.height = dims.height;
           const ctx = canvas.getContext("2d", { alpha: false });
           if (ctx) {
-            ctx.drawImage(bitmap, 0, 0);
-            renderedPagesRef.current.add(page.pageNumber);
+            ctx.drawImage(result.bitmap, 0, 0);
+            renderedPagesRef.current.add(pageNum);
           }
-          bitmap.close();
+          result.bitmap.close();
         })
         .catch((err) => {
-          if (!(err instanceof Error) || !err.message.includes("cancelled"))
+          activeRenders.current.delete(pageNum);
+          if (
+            !(err instanceof Error) ||
+            (!err.message.includes("cancelled") &&
+              !err.message.includes("RenderingCancelled"))
+          )
             console.error("[PageSidebar] Thumb render failed:", err);
+        })
+        .finally(() => {
+          thumbActive.current--;
+          drainThumbQueue();
         });
     }
+  }, [pages]);
+
+  useEffect(() => {
+    if (!pdfBytes || pages.length === 0) return;
+
+    for (const [pageNum, r] of activeRenders.current) {
+      const inRange =
+        pageNum > 0 &&
+        pages[pageNum - 1] &&
+        pageNum - 1 >= visibleRange[0] &&
+        pageNum - 1 < visibleRange[1];
+      if (!inRange) {
+        r.cancel();
+        activeRenders.current.delete(pageNum);
+      }
+    }
+
+    const needed: number[] = [];
+    for (
+      let i = visibleRange[0];
+      i < visibleRange[1] && i < pages.length;
+      i++
+    ) {
+      const pageNum = pages[i].pageNumber;
+      if (
+        !renderedPagesRef.current.has(pageNum) &&
+        !activeRenders.current.has(pageNum)
+      ) {
+        needed.push(pageNum);
+      }
+    }
+    thumbQueue.current = needed;
+    drainThumbQueue();
 
     return () => {
-      cancelled = true;
-      for (const h of handles) h.cancel();
+      for (const [, r] of activeRenders.current) r.cancel();
+      activeRenders.current.clear();
+      thumbQueue.current = [];
+      thumbActive.current = 0;
     };
-  }, [pdfBytes, pages, visibleRange]);
+  }, [pdfBytes, pages, visibleRange, drainThumbQueue]);
 
-  const scrollToPage = (pageNumber: number) => {
-    const scrollContainer = document.querySelector(
-      "[data-pdf-scroll-container]",
-    );
-    if (!scrollContainer) return;
+  const scrollToPage = useCallback(
+    (pageNumber: number) => {
+      const scrollContainer = document.querySelector(
+        "[data-pdf-scroll-container]",
+      );
+      if (!scrollContainer) return;
 
-    const pageCanvas = scrollContainer.querySelector(
-      `[data-page-number="${pageNumber}"]`,
-    );
-    if (!pageCanvas) return;
+      const zoom = useEditorStore.getState().zoom;
+      const layouts = computePageLayouts(
+        pages,
+        zoom,
+        scrollContainer.clientWidth,
+      );
+      const layout = layouts.get(pageNumber);
+      if (!layout) return;
 
-    const containerRect = scrollContainer.getBoundingClientRect();
-    const canvasRect = pageCanvas.getBoundingClientRect();
-    const offset =
-      canvasRect.top - containerRect.top + scrollContainer.scrollTop;
-
-    scrollContainer.scrollTo({ top: offset, behavior: "smooth" });
-  };
+      scrollContainer.scrollTo({ top: layout.yOffset, behavior: "smooth" });
+    },
+    [pages],
+  );
 
   const totalHeight = pages.length * THUMB_ITEM_HEIGHT;
 

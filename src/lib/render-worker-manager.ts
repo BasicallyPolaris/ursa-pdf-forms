@@ -1,4 +1,8 @@
-import { loadPdfDocument, type PdfDocument } from "./pdf-loader";
+import {
+  loadPdfDocument,
+  type PdfDocument,
+  type CancellableRender,
+} from "./pdf-loader";
 
 export interface RenderHandle {
   promise: Promise<ImageBitmap>;
@@ -11,6 +15,7 @@ interface QueueEntry {
   resolve: (bitmap: ImageBitmap) => void;
   reject: (err: Error) => void;
   cancelled: boolean;
+  activeRender: CancellableRender | null;
 }
 
 const MAX_CONCURRENT = 3;
@@ -46,7 +51,14 @@ class RenderManager {
           reject(new Error("Render cancelled"));
           return;
         }
-        entry = { pageNumber, scale, resolve, reject, cancelled: false };
+        entry = {
+          pageNumber,
+          scale,
+          resolve,
+          reject,
+          cancelled: false,
+          activeRender: null,
+        };
         this.queue.push(entry);
         this.drain();
       });
@@ -54,7 +66,10 @@ class RenderManager {
 
     const cancel = () => {
       cancelled = true;
-      if (entry) entry.cancelled = true;
+      if (entry) {
+        entry.cancelled = true;
+        entry.activeRender?.cancel();
+      }
     };
 
     return { promise, cancel };
@@ -62,10 +77,14 @@ class RenderManager {
 
   private drain() {
     while (this.queue.length > 0 && this.active < MAX_CONCURRENT) {
-      const entry = this.queue.shift()!;
+      const entry = this.queue.pop()!;
       if (entry.cancelled) continue;
       this.active++;
-      this.doc!.renderPage(entry.pageNumber, entry.scale)
+
+      const render = this.doc!.startRender(entry.pageNumber, entry.scale);
+      entry.activeRender = render;
+
+      render.promise
         .then((result) => {
           if (entry.cancelled) {
             result.bitmap.close();
@@ -79,6 +98,7 @@ class RenderManager {
           }
         })
         .finally(() => {
+          entry.activeRender = null;
           this.active--;
           this.drain();
         });
@@ -88,6 +108,7 @@ class RenderManager {
   cancelAll() {
     for (const entry of this.queue) {
       entry.cancelled = true;
+      entry.activeRender?.cancel();
     }
     this.queue = [];
   }

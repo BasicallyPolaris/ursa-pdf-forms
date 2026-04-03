@@ -3,8 +3,6 @@ import {
   computePageLayouts,
   getVisiblePageNumbers,
   getTotalContentHeight,
-  TOP_PADDING,
-  PAGE_GAP,
   type PageLayout,
 } from "@/lib/page-layout";
 import {
@@ -112,11 +110,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   const [visiblePages, setVisiblePages] = useState<Set<number>>(new Set());
   const rafRef = useRef<number | null>(null);
   const containerRef = useRef<HTMLElement | null>(null);
-  const layoutCacheRef = useRef<{
-    zoom: number;
-    containerWidth: number;
-    layouts: Map<number, PageLayout>;
-  } | null>(null);
+  const layoutsRef = useRef<Map<number, PageLayout>>(new Map());
 
   useEffect(() => {
     if (!pdfBytes) return;
@@ -128,28 +122,27 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     return () => getRenderManager().cancelAll();
   }, [pdfBytes]);
 
+  const layouts = useMemo(() => {
+    const el = containerRef.current;
+    const containerWidth = el?.clientWidth ?? 0;
+    const result = computePageLayouts(pages, zoom, containerWidth);
+    layoutsRef.current = result;
+    return result;
+  }, [pages, zoom]);
+
   const updateVisiblePages = useCallback(() => {
     const el = containerRef.current;
     if (!el || pages.length === 0) return;
 
-    const cache = layoutCacheRef.current;
-    let layouts: Map<number, PageLayout>;
-    if (
-      cache &&
-      cache.zoom === zoom &&
-      cache.containerWidth === el.clientWidth
-    ) {
-      layouts = cache.layouts;
-    } else {
-      layouts = computePageLayouts(pages, zoom, el.clientWidth);
-      layoutCacheRef.current = {
-        zoom,
-        containerWidth: el.clientWidth,
-        layouts,
-      };
+    if (layoutsRef.current.size === 0) {
+      layoutsRef.current = computePageLayouts(pages, zoom, el.clientWidth);
     }
 
-    const next = getVisiblePageNumbers(layouts, el.scrollTop, el.clientHeight);
+    const next = getVisiblePageNumbers(
+      layoutsRef.current,
+      el.scrollTop,
+      el.clientHeight,
+    );
 
     setVisiblePages((prev) => {
       if (prev.size === next.size) {
@@ -205,6 +198,20 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     () => getTotalContentHeight(pages, zoom),
     [pages, zoom],
   );
+
+  const visiblePageItems = useMemo(() => {
+    const items: Array<{
+      page: (typeof pages)[0];
+      layout: PageLayout;
+    }> = [];
+    for (const pageNum of visiblePages) {
+      const page = pages[pageNum - 1];
+      const layout = layouts.get(pageNum);
+      if (page && layout) items.push({ page, layout });
+    }
+    items.sort((a, b) => a.page.pageNumber - b.page.pageNumber);
+    return items;
+  }, [pages, visiblePages, layouts]);
 
   if (!pdfBytes) {
     return (
@@ -319,42 +326,30 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   return (
     <div
       className="relative min-w-full w-fit bg-muted/20"
-      style={{ minHeight: totalHeight > 0 ? totalHeight : undefined }}
+      style={{ height: totalHeight > 0 ? totalHeight : undefined }}
+      onDragStart={(e) => e.preventDefault()}
     >
-      <div
-        className="flex flex-col items-center"
-        style={{ paddingTop: TOP_PADDING }}
-        onDragStart={(e) => e.preventDefault()}
-      >
-        {pages.map((page, i) => {
-          const isVisible = visiblePages.has(page.pageNumber);
-          const displayWidth = page.width * zoom;
-          const displayHeight = page.height * zoom;
-
-          return (
-            <div
-              key={page.pageNumber}
-              className="relative bg-white shadow-md shrink-0"
-              style={{
-                width: `${displayWidth}px`,
-                height: `${displayHeight}px`,
-                marginBottom: i < pages.length - 1 ? PAGE_GAP : 0,
-              }}
-              data-page-wrapper={page.pageNumber}
-              data-page-number={page.pageNumber}
-            >
-              {isVisible && (
-                <PdfPage
-                  pageNumber={page.pageNumber}
-                  zoom={zoom}
-                  width={page.width}
-                  height={page.height}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
+      {visiblePageItems.map(({ page, layout }) => (
+        <div
+          key={page.pageNumber}
+          className="absolute bg-white shadow-md"
+          style={{
+            top: layout.yOffset,
+            left: layout.xOffset,
+            width: layout.screenWidth,
+            height: layout.screenHeight,
+          }}
+          data-page-wrapper={page.pageNumber}
+          data-page-number={page.pageNumber}
+        >
+          <PdfPage
+            pageNumber={page.pageNumber}
+            zoom={zoom}
+            width={page.width}
+            height={page.height}
+          />
+        </div>
+      ))}
       <VisiblePagesContext.Provider value={visiblePages}>
         {children}
       </VisiblePagesContext.Provider>

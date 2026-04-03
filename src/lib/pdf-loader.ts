@@ -18,6 +18,11 @@ export interface RenderResult {
   height: number;
 }
 
+export interface CancellableRender {
+  promise: Promise<RenderResult>;
+  cancel: () => void;
+}
+
 export interface PdfDocument {
   proxy: pdfjsLib.PDFDocumentProxy;
   fingerprint: string;
@@ -29,6 +34,7 @@ export interface PdfDocument {
     onBatch?: (accumulated: PageInfo[]) => void,
   ): Promise<PageInfo[]>;
   renderPage(pageNumber: number, scale: number): Promise<RenderResult>;
+  startRender(pageNumber: number, scale: number): CancellableRender;
   destroy(): void;
 }
 
@@ -103,6 +109,41 @@ async function loadDocument(pdfBytes: Uint8Array): Promise<PdfDocument> {
     return promise;
   };
 
+  const startRenderFn = (
+    pageNumber: number,
+    scale: number,
+  ): CancellableRender => {
+    let renderTask: ReturnType<pdfjsLib.PDFPageProxy["render"]> | null = null;
+    let cancelled = false;
+
+    const promise = getPage(pageNumber).then(async (page) => {
+      if (cancelled) throw new Error("Render cancelled");
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      const ctx = canvas.getContext("2d", { alpha: false });
+      if (!ctx) throw new Error("Cannot get 2d context");
+      renderTask = page.render({ canvas, canvasContext: ctx, viewport });
+      await renderTask.promise;
+      const bitmap = await createImageBitmap(canvas);
+      return {
+        pageNumber,
+        bitmap,
+        width: canvas.width,
+        height: canvas.height,
+      };
+    });
+
+    return {
+      promise,
+      cancel() {
+        cancelled = true;
+        renderTask?.cancel();
+      },
+    };
+  };
+
   return {
     proxy,
     fingerprint: proxy.fingerprints?.[0] ?? `${proxy.numPages}`,
@@ -113,22 +154,9 @@ async function loadDocument(pdfBytes: Uint8Array): Promise<PdfDocument> {
       return pageInfoCache.get(pageNumber) ?? null;
     },
     getPageInfos,
+    startRender: startRenderFn,
     async renderPage(pageNumber: number, scale: number): Promise<RenderResult> {
-      const page = await getPage(pageNumber);
-      const viewport = page.getViewport({ scale });
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.ceil(viewport.width);
-      canvas.height = Math.ceil(viewport.height);
-      const ctx = canvas.getContext("2d", { alpha: false });
-      if (!ctx) throw new Error("Cannot get 2d context");
-      await page.render({ canvas, canvasContext: ctx, viewport }).promise;
-      const bitmap = await createImageBitmap(canvas);
-      return {
-        pageNumber,
-        bitmap,
-        width: canvas.width,
-        height: canvas.height,
-      };
+      return startRenderFn(pageNumber, scale).promise;
     },
     destroy() {
       destroyed = true;
