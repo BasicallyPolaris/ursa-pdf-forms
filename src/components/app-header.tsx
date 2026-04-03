@@ -10,7 +10,13 @@ import {
   undo,
   useEditorStore,
 } from "@/stores/editor-store";
-import { ZOOM_PRESETS } from "@/hooks/use-zoom";
+import {
+  clampZoom,
+  ZOOM_PRESETS,
+  ZOOM_STEP,
+} from "@/hooks/use-zoom";
+import { getZoomEngine } from "@/lib/use-zoom-animation";
+import { getScrollViewportTopCenterOrigin } from "@/lib/zoom-visual-transform";
 import {
   FileDown,
   FolderOpen,
@@ -33,14 +39,20 @@ import { formatShortcut } from "@/lib/shortcuts";
 function ZoomControls() {
   const { t } = useTranslation();
   const zoom = useEditorStore((s) => s.zoom);
-  const setZoom = useEditorStore((s) => s.setZoom);
+  const pdfBytes = useEditorStore((s) => s.pdfBytes);
+
+  const zoomFromUi = (next: number) => {
+    if (!pdfBytes) return;
+    const engine = getZoomEngine();
+    engine.setTarget(clampZoom(next), getScrollViewportTopCenterOrigin());
+  };
 
   return (
     <div className="flex items-center gap-1">
       <Tooltip>
         <TooltipTrigger
           onClick={() =>
-            setZoom(Math.round(Math.max(0.5, zoom - 0.1) * 100) / 100)
+            zoomFromUi(getZoomEngine().getTargetZoom() - ZOOM_STEP)
           }
           className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
         >
@@ -56,7 +68,7 @@ function ZoomControls() {
       <select
         aria-label={t("header.zoomLevel")}
         value={zoom}
-        onChange={(e) => setZoom(Number(e.target.value))}
+        onChange={(e) => zoomFromUi(Number(e.target.value))}
         className="h-7 rounded-md border border-border bg-card px-1 text-xs tabular-nums text-foreground outline-none focus:ring-2 focus:ring-ring/50 focus:ring-offset-1 focus:ring-offset-card"
       >
         {!ZOOM_PRESETS.includes(zoom) && (
@@ -71,7 +83,7 @@ function ZoomControls() {
       <Tooltip>
         <TooltipTrigger
           onClick={() =>
-            setZoom(Math.round(Math.min(4, zoom + 0.1) * 100) / 100)
+            zoomFromUi(getZoomEngine().getTargetZoom() + ZOOM_STEP)
           }
           className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
         >

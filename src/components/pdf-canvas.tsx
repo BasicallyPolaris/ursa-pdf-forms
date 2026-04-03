@@ -1,8 +1,12 @@
 import { Kbd } from "@/components/ui/kbd";
+import { VisiblePagesContext } from "@/contexts/visible-pages";
 import {
-  computePageLayouts,
-  getVisiblePageNumbers,
+  computePageLayouts as computeLayouts,
   getTotalContentHeight,
+  getVisiblePageNumbers,
+  H_PADDING,
+  PAGE_GAP,
+  TOP_PADDING,
   type PageLayout,
 } from "@/lib/page-layout";
 import {
@@ -10,12 +14,14 @@ import {
   type RenderHandle,
   type RenderResult,
 } from "@/lib/render-worker-manager";
-import { VisiblePagesContext } from "@/contexts/visible-pages";
+import { getZoomEngine, type ZoomListener } from "@/lib/use-zoom-animation";
+import { getPdfScaleTransformOrigin } from "@/lib/zoom-visual-transform";
 import { useEditorStore } from "@/stores/editor-store";
 import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -23,11 +29,16 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-const ZOOM_RASTERIZE_DELAY = 250;
+const RASTERIZE_DEBOUNCE_MS = 200;
+
+// ─── PdfPage ────────────────────────────────────────────────────────────────
+// Renders one page. Rasterizes at the committed zoom (debounced).
+// During animation the parent scale wrapper handles visual zoom — this
+// component does nothing extra per frame.
 
 interface PdfPageProps {
   pageNumber: number;
-  zoom: number;
+  zoom: number; // committed zoom — drives rasterization
   width: number;
   height: number;
 }
@@ -40,17 +51,19 @@ const PdfPage = memo(function PdfPage({
 }: PdfPageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handleRef = useRef<RenderHandle | null>(null);
-  const renderedZoomRef = useRef<number | null>(null);
-  const [renderedZoom, setRenderedZoom] = useState<number | null>(null);
+  const rasterZoomRef = useRef<number | null>(null);
+  const prevZoomRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const hasRendered = renderedZoomRef.current !== null;
-    const delay = hasRendered ? ZOOM_RASTERIZE_DELAY : 0;
+    const isFirst = rasterZoomRef.current === null;
+    const zoomChanged = prevZoomRef.current !== null && prevZoomRef.current !== zoom;
+    prevZoomRef.current = zoom;
+    const delay = isFirst || zoomChanged ? 0 : RASTERIZE_DEBOUNCE_MS;
 
     const timer = window.setTimeout(() => {
       if (
-        renderedZoomRef.current === zoom &&
-        canvasRef.current &&
+        rasterZoomRef.current === zoom &&
+        canvasRef.current?.width &&
         canvasRef.current.width > 0
       )
         return;
@@ -68,15 +81,17 @@ const PdfPage = memo(function PdfPage({
           }
           canvas.width = bitmap.width;
           canvas.height = bitmap.height;
-          const ctx = canvas.getContext("2d", { alpha: false });
+          const ctx = canvas.getContext("2d", {
+            alpha: false,
+            willReadFrequently: false,
+          });
           if (ctx) ctx.drawImage(bitmap, 0, 0);
           bitmap.close();
-          renderedZoomRef.current = renderedScale;
-          setRenderedZoom(renderedScale);
+          rasterZoomRef.current = renderedScale;
         })
         .catch((err) => {
           if (!(err instanceof Error) || !err.message.includes("cancelled"))
-            console.error("[PdfPage] Render failed:", err);
+            console.error("[PdfPage] render failed:", err);
         });
     }, delay);
 
@@ -87,21 +102,18 @@ const PdfPage = memo(function PdfPage({
     };
   }, [pageNumber, zoom]);
 
-  const effectiveRenderedZoom = renderedZoom ?? zoom;
-  const scaleRatio = renderedZoom ? zoom / renderedZoom : 1;
-
+  // Canvas is sized to match the committed zoom. The scale wrapper above
+  // handles any visual difference during animation.
   return (
     <canvas
       ref={canvasRef}
-      className="absolute top-0 left-0 origin-top-left pointer-events-none"
-      style={{
-        transform: `scale(${scaleRatio})`,
-        width: `${width * effectiveRenderedZoom}px`,
-        height: `${height * effectiveRenderedZoom}px`,
-      }}
+      className="block pointer-events-none"
+      style={{ width: width * zoom, height: height * zoom }}
     />
   );
 });
+
+// ─── PdfCanvas ──────────────────────────────────────────────────────────────
 
 interface PdfCanvasProps {
   children?: ReactNode;
@@ -111,45 +123,105 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   const { t } = useTranslation();
   const pdfBytes = useEditorStore((s) => s.pdfBytes);
   const pages = useEditorStore((s) => s.pages);
-  const zoom = useEditorStore((s) => s.zoom);
+  // committedZoom: the store value, only updates when animation settles.
+  // Layout, rasterization, and children (CanvasOverlay) all use this.
+  const committedZoom = useEditorStore((s) => s.zoom);
 
-  const [visiblePages, setVisiblePages] = useState<Set<number>>(new Set());
-  const rafRef = useRef<number | null>(null);
-  const containerRef = useRef<HTMLElement | null>(null);
-  const layoutsRef = useRef<Map<number, PageLayout>>(new Map());
+  // ── Scale wrapper ref ──────────────────────────────────────────────────
+  // During animation, we apply transform: scale(liveZoom / committedZoom)
+  // to this single div. One CSS property change → GPU composite, zero React.
+  const scaleWrapperRef = useRef<HTMLDivElement>(null);
+  const committedZoomRef = useRef(committedZoom);
 
+  // Keep committedZoomRef in sync
+  useLayoutEffect(() => {
+    committedZoomRef.current = committedZoom;
+    // Reset scale when committed zoom updates (animation settled)
+    if (scaleWrapperRef.current) {
+      scaleWrapperRef.current.style.transform = "scale(1)";
+      scaleWrapperRef.current.style.transformOrigin = "50% 0";
+    }
+  }, [committedZoom]);
+
+  // ── Zoom engine listener ───────────────────────────────────────────────
+  useEffect(() => {
+    const listener: ZoomListener = {
+      onZoomTick(liveZoom) {
+        const wrapper = scaleWrapperRef.current;
+        if (!wrapper) return;
+        const base = committedZoomRef.current;
+        if (base <= 0) return;
+
+        const s = liveZoom / base;
+
+        const scrollEl = document.querySelector<HTMLElement>(
+          "[data-pdf-scroll-container]",
+        );
+        const engine = getZoomEngine();
+        const origin = engine.getOrigin();
+
+        wrapper.style.transform = `scale(${s})`;
+        wrapper.style.transformOrigin = scrollEl
+          ? getPdfScaleTransformOrigin(scrollEl, wrapper, origin)
+          : "50% 0";
+      },
+      onZoomSettle() {
+        // committedZoom will update via store, useLayoutEffect resets scale
+      },
+    };
+
+    getZoomEngine().addListener(listener);
+    return () => getZoomEngine().removeListener(listener);
+  }, []);
+
+  // ── PDF load ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (!pdfBytes) return;
     getRenderManager()
       .load(pdfBytes)
-      .catch((err) =>
-        console.error("[PdfCanvas] Failed to load PDF in render manager:", err),
-      );
+      .catch((err) => console.error("[PdfCanvas] load failed:", err));
     return () => getRenderManager().cancelAll();
   }, [pdfBytes]);
 
-  const layouts = useMemo(() => {
-    const el = containerRef.current;
-    const containerWidth = el?.clientWidth ?? 0;
-    const result = computePageLayouts(pages, zoom, containerWidth);
-    layoutsRef.current = result;
-    return result;
-  }, [pages, zoom]);
+  // ── Container width (for layout) ──────────────────────────────────────
+  const [containerWidth, setContainerWidth] = useState(0);
+  useEffect(() => {
+    const el = document.querySelector<HTMLElement>(
+      "[data-pdf-scroll-container]",
+    );
+    if (!el) return;
+    setContainerWidth(el.clientWidth);
+    const ro = new ResizeObserver((entries) => {
+      setContainerWidth(entries[0].contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // ── Layout (runs only when committed zoom or pages/width change) ───────
+  const layouts = useMemo(
+    () => computeLayouts(pages, committedZoom, containerWidth),
+    [pages, committedZoom, containerWidth],
+  );
+
+  // ── Visible pages ──────────────────────────────────────────────────────
+  const [visiblePages, setVisiblePages] = useState<Set<number>>(new Set());
+  const layoutsRef = useRef(layouts);
+  layoutsRef.current = layouts;
+  const pagesRef = useRef(pages);
+  pagesRef.current = pages;
+  const scrollRafRef = useRef<number | null>(null);
 
   const updateVisiblePages = useCallback(() => {
-    const el = containerRef.current;
-    if (!el || pages.length === 0) return;
-
-    if (layoutsRef.current.size === 0) {
-      layoutsRef.current = computePageLayouts(pages, zoom, el.clientWidth);
-    }
-
+    const el = document.querySelector<HTMLElement>(
+      "[data-pdf-scroll-container]",
+    );
+    if (!el || pagesRef.current.length === 0) return;
     const next = getVisiblePageNumbers(
       layoutsRef.current,
       el.scrollTop,
       el.clientHeight,
     );
-
     setVisiblePages((prev) => {
       if (prev.size === next.size) {
         let same = true;
@@ -163,62 +235,52 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
       }
       return next;
     });
-  }, [pages, zoom]);
+  }, []);
 
   useEffect(() => {
-    const scrollEl = document.querySelector<HTMLElement>(
+    const el = document.querySelector<HTMLElement>(
       "[data-pdf-scroll-container]",
     );
-    if (!scrollEl) return;
-    containerRef.current = scrollEl;
-
+    if (!el) return;
     updateVisiblePages();
-
     const onScroll = () => {
-      if (rafRef.current !== null) return;
-      rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = null;
+      if (scrollRafRef.current !== null) return;
+      scrollRafRef.current = requestAnimationFrame(() => {
+        scrollRafRef.current = null;
         updateVisiblePages();
       });
     };
-
-    scrollEl.addEventListener("scroll", onScroll, { passive: true });
-    const resizeObserver = new ResizeObserver(() => updateVisiblePages());
-    resizeObserver.observe(scrollEl);
-
+    el.addEventListener("scroll", onScroll, { passive: true });
     return () => {
-      scrollEl.removeEventListener("scroll", onScroll);
-      resizeObserver.disconnect();
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
+      el.removeEventListener("scroll", onScroll);
+      if (scrollRafRef.current !== null)
+        cancelAnimationFrame(scrollRafRef.current);
     };
   }, [updateVisiblePages]);
 
   useEffect(() => {
     updateVisiblePages();
-  }, [pages, zoom, updateVisiblePages]);
+  }, [committedZoom, pages, updateVisiblePages]);
 
+  // ── Total scroll height (committed zoom — sets scroll container height) ─
   const totalHeight = useMemo(
-    () => getTotalContentHeight(pages, zoom),
-    [pages, zoom],
+    () => getTotalContentHeight(pages, committedZoom),
+    [pages, committedZoom],
   );
 
+  // ── Visible page items ─────────────────────────────────────────────────
   const visiblePageItems = useMemo(() => {
-    const items: Array<{
-      page: (typeof pages)[0];
-      layout: PageLayout;
-    }> = [];
-    for (const pageNum of visiblePages) {
-      const page = pages[pageNum - 1];
-      const layout = layouts.get(pageNum);
+    const items: Array<{ page: (typeof pages)[number]; layout: PageLayout }> =
+      [];
+    for (const num of visiblePages) {
+      const page = pages[num - 1];
+      const layout = layouts.get(num);
       if (page && layout) items.push({ page, layout });
     }
-    items.sort((a, b) => a.page.pageNumber - b.page.pageNumber);
-    return items;
+    return items.sort((a, b) => a.page.pageNumber - b.page.pageNumber);
   }, [pages, visiblePages, layouts]);
 
+  // ── Empty / loading states ─────────────────────────────────────────────
   if (!pdfBytes) {
     return (
       <div className="flex h-full items-center justify-center select-none">
@@ -332,33 +394,45 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   return (
     <div
       className="relative min-w-full w-fit bg-muted/20"
-      style={{ height: totalHeight > 0 ? totalHeight : undefined }}
+      style={{
+        height: totalHeight > 0 ? totalHeight : undefined,
+      }}
       onDragStart={(e) => e.preventDefault()}
     >
-      {visiblePageItems.map(({ page, layout }) => (
-        <div
-          key={page.pageNumber}
-          className="absolute bg-white shadow-md"
-          style={{
-            top: layout.yOffset,
-            left: layout.xOffset,
-            width: layout.screenWidth,
-            height: layout.screenHeight,
-          }}
-          data-page-wrapper={page.pageNumber}
-          data-page-number={page.pageNumber}
-        >
-          <PdfPage
-            pageNumber={page.pageNumber}
-            zoom={zoom}
-            width={page.width}
-            height={page.height}
-          />
-        </div>
-      ))}
-      <VisiblePagesContext.Provider value={visiblePages}>
-        {children}
-      </VisiblePagesContext.Provider>
+      {/* Scale wrapper: GPU-composited during animation */}
+      <div
+        ref={scaleWrapperRef}
+        className="relative flex items-center flex-col w-fit mx-auto"
+        style={{
+          willChange: "transform",
+          transformOrigin: "50% 0",
+          gap: PAGE_GAP,
+          paddingTop: TOP_PADDING,
+          paddingLeft: H_PADDING,
+          paddingRight: H_PADDING,
+        }}
+      >
+        {visiblePageItems.map(({ page }) => (
+          <div
+            key={page.pageNumber}
+            className="bg-white shadow-md overflow-hidden w-fit mx-auto"
+            data-page-wrapper={page.pageNumber}
+            data-page-number={page.pageNumber}
+          >
+            <PdfPage
+              pageNumber={page.pageNumber}
+              zoom={committedZoom}
+              width={page.width}
+              height={page.height}
+            />
+          </div>
+        ))}
+
+        {/* CanvasOverlay is inside the scale wrapper so it moves with pages */}
+        <VisiblePagesContext.Provider value={visiblePages}>
+          {children}
+        </VisiblePagesContext.Provider>
+      </div>
     </div>
   );
 }

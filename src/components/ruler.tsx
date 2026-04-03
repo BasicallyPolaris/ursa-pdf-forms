@@ -1,17 +1,237 @@
+/**
+ * Rulers — imperative <canvas> drawing only (no CSS scale on rulers).
+ * Tick spacing and positions use the zoom value passed in: during animation
+ * onZoomTick passes live zoom so rulers match the PDF visually; on settle,
+ * useLayoutEffect redraws at committed zoom.
+ */
+
 import { H_PADDING, PAGE_GAP, TOP_PADDING } from "@/lib/coordinates";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
+import { getZoomEngine, type ZoomListener } from "@/lib/use-zoom-animation";
 import { useEditorStore } from "@/stores/editor-store";
-import { useCallback, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 const RULER_SIZE = 36;
-const MAJOR_INTERVAL = 50;
-const MINOR_INTERVAL = 10;
-const SUB_INTERVAL = 5;
+const MAJOR_INTERVAL = 50; // pt
+const MINOR_INTERVAL = 10; // pt
+const SUB_INTERVAL = 5; // pt
 
 function snapToGrid(value: number, gridSize: number): number {
   return Math.round(value / gridSize) * gridSize;
 }
+
+function verticalRulerContentHeight(
+  pages: Array<{ height: number }>,
+  zoom: number,
+  canvasHeight: number,
+): number {
+  let h = TOP_PADDING;
+  for (let i = 0; i < pages.length; i++) {
+    h += pages[i].height * zoom;
+    if (i < pages.length - 1) h += PAGE_GAP;
+  }
+  return Math.max(h + TOP_PADDING, canvasHeight);
+}
+
+// ─── Draw helpers ────────────────────────────────────────────────────────────
+
+function drawHorizontalRuler(
+  canvas: HTMLCanvasElement,
+  zoom: number,
+  pages: Array<{ width: number; height: number }>,
+  contentWidth: number,
+  guides: Array<{ orientation: string; position: number }>,
+  scrollLeft: number,
+  devicePixelRatio = window.devicePixelRatio || 1,
+) {
+  const W = canvas.clientWidth || contentWidth;
+  const H = RULER_SIZE;
+  canvas.width = Math.round(W * devicePixelRatio);
+  canvas.height = Math.round(H * devicePixelRatio);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+
+  const bg =
+    getComputedStyle(canvas).getPropertyValue("--ruler-bg").trim() || "#1e1e1e";
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  if (pages.length === 0) return;
+
+  const widestPage = pages.reduce(
+    (a, b) => (b.width > a.width ? b : a),
+    pages[0],
+  );
+  const screenWidth = widestPage.width * zoom;
+  const xOffset = Math.max(H_PADDING, (contentWidth - screenWidth) / 2);
+
+  const majorColor =
+    getComputedStyle(canvas).getPropertyValue("--ruler-tick-major").trim() ||
+    "#555";
+  const minorColor =
+    getComputedStyle(canvas).getPropertyValue("--ruler-tick-minor").trim() ||
+    "#444";
+  const subColor =
+    getComputedStyle(canvas).getPropertyValue("--ruler-tick-sub").trim() ||
+    "#333";
+  const labelColor =
+    getComputedStyle(canvas).getPropertyValue("--ruler-label").trim() || "#888";
+
+  const screenSub = SUB_INTERVAL * zoom;
+
+  ctx.font = "10px monospace";
+  ctx.textBaseline = "top";
+
+  const step =
+    screenSub >= 2.5
+      ? SUB_INTERVAL
+      : screenSub * (MINOR_INTERVAL / SUB_INTERVAL) >= 3
+        ? MINOR_INTERVAL
+        : MAJOR_INTERVAL;
+
+  for (let px = 0; px <= widestPage.width; px += step) {
+    const screenX = xOffset + px * zoom - scrollLeft;
+    if (screenX < 0 || screenX > W) continue;
+    const isMajor = px % MAJOR_INTERVAL === 0;
+    const isMinor = px % MINOR_INTERVAL === 0;
+
+    const startY = isMajor ? 0 : isMinor ? H * 0.5 : H * 0.65;
+    ctx.strokeStyle = isMajor ? majorColor : isMinor ? minorColor : subColor;
+    ctx.lineWidth = isMajor ? 1 : 0.5;
+    ctx.beginPath();
+    ctx.moveTo(screenX, startY);
+    ctx.lineTo(screenX, H);
+    ctx.stroke();
+
+    if (isMajor && screenX > 2) {
+      ctx.fillStyle = labelColor;
+      ctx.fillText(String(px), screenX + 3, 3);
+    }
+  }
+
+  // Draw vertical guide markers
+  for (const g of guides) {
+    if (g.orientation !== "vertical") continue;
+    const gx = xOffset + g.position * zoom - scrollLeft;
+    if (gx < 0 || gx > W) continue;
+    ctx.strokeStyle =
+      getComputedStyle(canvas).getPropertyValue("--guide-ruler").trim() ||
+      "#4af";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(gx, 0);
+    ctx.lineTo(gx, H);
+    ctx.stroke();
+  }
+}
+
+function drawVerticalRuler(
+  canvas: HTMLCanvasElement,
+  zoom: number,
+  pages: Array<{ width: number; height: number; pageNumber?: number }>,
+  contentHeight: number,
+  guides: Array<{ orientation: string; position: number }>,
+  devicePixelRatio = window.devicePixelRatio || 1,
+) {
+  const W = RULER_SIZE;
+  const H = canvas.clientHeight || contentHeight;
+  canvas.width = Math.round(W * devicePixelRatio);
+  canvas.height = Math.round(H * devicePixelRatio);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+
+  const bg =
+    getComputedStyle(canvas).getPropertyValue("--ruler-bg").trim() || "#1e1e1e";
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  if (pages.length === 0) return;
+
+  const majorColor =
+    getComputedStyle(canvas).getPropertyValue("--ruler-tick-major").trim() ||
+    "#555";
+  const minorColor =
+    getComputedStyle(canvas).getPropertyValue("--ruler-tick-minor").trim() ||
+    "#444";
+  const subColor =
+    getComputedStyle(canvas).getPropertyValue("--ruler-tick-sub").trim() ||
+    "#333";
+  const labelColor =
+    getComputedStyle(canvas).getPropertyValue("--ruler-label").trim() || "#888";
+
+  ctx.font = "10px monospace";
+  ctx.textBaseline = "bottom";
+
+  let currentY = TOP_PADDING;
+  for (const page of pages) {
+    const screenHeight = page.height * zoom;
+    const screenSub = SUB_INTERVAL * zoom;
+    const step =
+      screenSub >= 2.5
+        ? SUB_INTERVAL
+        : screenSub * (MINOR_INTERVAL / SUB_INTERVAL) >= 3
+          ? MINOR_INTERVAL
+          : MAJOR_INTERVAL;
+
+    for (let py = 0; py <= page.height; py += step) {
+      const screenY = currentY + py * zoom;
+      if (screenY < 0 || screenY > H) continue;
+      const isMajor = py % MAJOR_INTERVAL === 0;
+      const isMinor = py % MINOR_INTERVAL === 0;
+
+      const startX = isMajor ? 0 : isMinor ? W * 0.5 : W * 0.65;
+      ctx.strokeStyle = isMajor ? majorColor : isMinor ? minorColor : subColor;
+      ctx.lineWidth = isMajor ? 1 : 0.5;
+      ctx.beginPath();
+      ctx.moveTo(startX, screenY);
+      ctx.lineTo(W, screenY);
+      ctx.stroke();
+
+      if (isMajor && py > 0) {
+        ctx.save();
+        ctx.fillStyle = labelColor;
+        ctx.translate(W / 2, screenY - 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText(String(py), 0, 0);
+        ctx.restore();
+      }
+    }
+    currentY += screenHeight + PAGE_GAP;
+  }
+
+  // Draw horizontal guide markers
+  let gCurrentY = TOP_PADDING;
+  for (const g of guides) {
+    if (g.orientation !== "horizontal") continue;
+    // Draw on every page (guides are per-page-relative)
+    for (const page of pages) {
+      const gy = gCurrentY + g.position * zoom;
+      if (gy >= 0 && gy <= H) {
+        ctx.strokeStyle =
+          getComputedStyle(canvas).getPropertyValue("--guide-ruler").trim() ||
+          "#4af";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, gy);
+        ctx.lineTo(W, gy);
+        ctx.stroke();
+      }
+      gCurrentY += page.height * zoom + PAGE_GAP;
+    }
+    break; // position drawn relative to all pages above
+  }
+}
+
+// ─── HorizontalRuler ─────────────────────────────────────────────────────────
 
 interface HorizontalRulerProps {
   overlayWidth: number;
@@ -23,90 +243,112 @@ export function HorizontalRuler({
   containerRef,
 }: HorizontalRulerProps) {
   const { t } = useTranslation();
-  const { pages, zoom, pdfBytes } = useEditorStore();
+  const pages = useEditorStore((s) => s.pages);
+  const committedZoom = useEditorStore((s) => s.zoom);
+  const pdfBytes = useEditorStore((s) => s.pdfBytes);
+  const guides = useEditorStore((s) => s.guides);
   const addGuide = useEditorStore((s) => s.addGuide);
   const removeGuide = useEditorStore((s) => s.removeGuide);
   const setPreviewGuide = useEditorStore((s) => s.setPreviewGuide);
-  const guides = useEditorStore((s) => s.guides);
 
-  const maxScreenWidth =
-    pages.length > 0 ? Math.max(...pages.map((p) => p.width * zoom)) : 0;
-  const contentWidth = Math.max(maxScreenWidth + 2 * H_PADDING, overlayWidth);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const committedZoomRef = useRef(committedZoom);
+  const liveZoomRef = useRef(committedZoom);
 
-  const ticks: Array<{ x: number; level: number; label?: string }> = [];
-
-  const widestPage = pages.reduce<(typeof pages)[number] | null>(
-    (best, p) => (!best || p.width > best.width ? p : best),
-    null,
+  const drawHorizontalAt = useCallback(
+    (zoom: number) => {
+      if (!canvasRef.current) return;
+      const scrollEl = document.querySelector<HTMLElement>(
+        "[data-pdf-scroll-container]",
+      );
+      const sl = scrollEl?.scrollLeft ?? 0;
+      const maxW =
+        pages.length > 0 ? Math.max(...pages.map((p) => p.width * zoom)) : 0;
+      const cw = Math.max(maxW + 2 * H_PADDING, overlayWidth);
+      drawHorizontalRuler(
+        canvasRef.current,
+        zoom,
+        pages,
+        cw,
+        guides,
+        sl,
+      );
+    },
+    [pages, guides, overlayWidth],
   );
 
-  if (widestPage) {
-    const screenWidth = widestPage.width * zoom;
-    const xOffset = (contentWidth - screenWidth) / 2;
-    const screenSubInterval = SUB_INTERVAL * zoom;
+  useLayoutEffect(() => {
+    committedZoomRef.current = committedZoom;
+    liveZoomRef.current = committedZoom;
+    drawHorizontalAt(committedZoom);
+  }, [committedZoom, drawHorizontalAt]);
 
-    if (screenSubInterval >= 2.5) {
-      for (let px = 0; px <= screenWidth; px += screenSubInterval) {
-        const screenX = xOffset + px;
-        const pdfVal = Math.round(px / zoom);
-        const isMajor = pdfVal % MAJOR_INTERVAL === 0;
-        const isMinor = pdfVal % MINOR_INTERVAL === 0;
-        ticks.push({
-          x: screenX,
-          level: isMajor ? 0 : isMinor ? 1 : 2,
-          label: isMajor ? String(pdfVal) : undefined,
-        });
-      }
-    } else {
-      const screenMinorInterval = MINOR_INTERVAL * zoom;
-      if (screenMinorInterval >= 3) {
-        for (let px = 0; px <= screenWidth; px += screenMinorInterval) {
-          const screenX = xOffset + px;
-          const isMajor = Math.abs(Math.round(px / zoom) % MAJOR_INTERVAL) < 1;
-          ticks.push({
-            x: screenX,
-            level: isMajor ? 0 : 1,
-            label: isMajor ? String(Math.round(px / zoom)) : undefined,
-          });
-        }
-      }
-    }
-  }
+  useEffect(() => {
+    const scrollEl = document.querySelector<HTMLElement>(
+      "[data-pdf-scroll-container]",
+    );
+    if (!scrollEl) return;
+    const onScroll = () => drawHorizontalAt(liveZoomRef.current);
+    scrollEl.addEventListener("scroll", onScroll, { passive: true });
+    return () => scrollEl.removeEventListener("scroll", onScroll);
+  }, [drawHorizontalAt]);
+
+  useEffect(() => {
+    const listener: ZoomListener = {
+      onZoomTick(liveZoom) {
+        liveZoomRef.current = liveZoom;
+        drawHorizontalAt(liveZoom);
+      },
+      onZoomSettle(zoom) {
+        liveZoomRef.current = zoom;
+      },
+    };
+    getZoomEngine().addListener(listener);
+    return () => getZoomEngine().removeListener(listener);
+  }, [drawHorizontalAt]);
 
   const getPdfXFromClientX = useCallback(
-    (clientX: number): number | null => {
+    (clientX: number, zoom = liveZoomRef.current): number | null => {
       if (pages.length === 0) return null;
       const page = pages[0];
       const screenWidth = page.width * zoom;
-      const xOff = (contentWidth - screenWidth) / 2;
+      const maxW = Math.max(...pages.map((p) => p.width * zoom));
+      const cw = Math.max(maxW + 2 * H_PADDING, overlayWidth);
+      const xOff = Math.max(H_PADDING, (cw - screenWidth) / 2);
       const rulerEl = containerRef.current;
       if (!rulerEl) return null;
+      const scrollEl = document.querySelector<HTMLElement>(
+        "[data-pdf-scroll-container]",
+      );
+      const sl = scrollEl?.scrollLeft ?? rulerEl.scrollLeft;
       const rulerLeft = rulerEl.getBoundingClientRect().left;
-      const currentScrollLeft = rulerEl.scrollLeft;
-      const relX = clientX - rulerLeft + currentScrollLeft;
-      const pdfX = (relX - xOff) / zoom;
-      return Math.max(0, Math.min(page.width, pdfX));
+      const relX = clientX - rulerLeft + sl;
+      return Math.max(0, Math.min(page.width, (relX - xOff) / zoom));
     },
-    [pages, zoom, contentWidth, containerRef],
+    [pages, overlayWidth, containerRef],
   );
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
-      const rulerEl = containerRef.current;
-      if (!rulerEl || pages.length === 0) return;
-      const rulerLeft = rulerEl.getBoundingClientRect().left;
-      const currentScrollLeft = rulerEl.scrollLeft;
+      if (!pdfBytes || pages.length === 0) return;
 
       const existingGuideHit = guides.find((g) => {
         if (g.orientation !== "vertical") return false;
-        const page = pages[0];
-        if (!page) return false;
-        const screenWidth = page.width * zoom;
-        const xOff = (contentWidth - screenWidth) / 2;
-        const contentGuideX = xOff + g.position * zoom;
-        const visibleGuideX = contentGuideX - currentScrollLeft;
-        return Math.abs(e.clientX - rulerLeft - visibleGuideX) < 6;
+        const rulerEl = containerRef.current;
+        if (!rulerEl) return false;
+        const scrollEl = document.querySelector<HTMLElement>(
+          "[data-pdf-scroll-container]",
+        );
+        const sl = scrollEl?.scrollLeft ?? rulerEl.scrollLeft;
+        const zoom = liveZoomRef.current;
+        const maxW = Math.max(...pages.map((p) => p.width * zoom));
+        const cw = Math.max(maxW + 2 * H_PADDING, overlayWidth);
+        const screenWidth = pages[0].width * zoom;
+        const xOff = Math.max(H_PADDING, (cw - screenWidth) / 2);
+        const gx = xOff + g.position * zoom - sl;
+        const rulerLeft = rulerEl.getBoundingClientRect().left;
+        return Math.abs(e.clientX - rulerLeft - gx) < 6;
       });
 
       if (existingGuideHit) {
@@ -115,53 +357,51 @@ export function HorizontalRuler({
       }
 
       const pdfX = getPdfXFromClientX(e.clientX);
-      if (pdfX !== null) {
-        const pos = e.shiftKey ? snapToGrid(pdfX, SUB_INTERVAL) : pdfX;
-        setPreviewGuide({ orientation: "vertical", position: pos });
-      }
+      if (pdfX !== null)
+        setPreviewGuide({
+          orientation: "vertical",
+          position: e.shiftKey ? snapToGrid(pdfX, SUB_INTERVAL) : pdfX,
+        });
       lockCursor("ew");
-
       const shiftHeld = e.shiftKey;
 
-      const onMouseMove = (moveEvent: MouseEvent) => {
-        const rawPos = getPdfXFromClientX(moveEvent.clientX);
-        if (rawPos !== null) {
-          const pos =
-            shiftHeld || moveEvent.shiftKey
-              ? snapToGrid(rawPos, SUB_INTERVAL)
-              : rawPos;
-          setPreviewGuide({ orientation: "vertical", position: pos });
-        }
+      const onMove = (ev: MouseEvent) => {
+        const raw = getPdfXFromClientX(ev.clientX);
+        if (raw !== null)
+          setPreviewGuide({
+            orientation: "vertical",
+            position:
+              shiftHeld || ev.shiftKey ? snapToGrid(raw, SUB_INTERVAL) : raw,
+          });
       };
-
-      const onMouseUp = (upEvent: MouseEvent) => {
+      const onUp = (ev: MouseEvent) => {
         unlockCursor();
         setPreviewGuide(null);
-        const rawPos = getPdfXFromClientX(upEvent.clientX);
-        if (rawPos !== null) {
-          const pos =
-            shiftHeld || upEvent.shiftKey
-              ? snapToGrid(rawPos, SUB_INTERVAL)
-              : rawPos;
-          addGuide("vertical", Math.round(pos * 10) / 10);
-        }
-        document.removeEventListener("mousemove", onMouseMove);
-        document.removeEventListener("mouseup", onMouseUp);
+        const raw = getPdfXFromClientX(ev.clientX);
+        if (raw !== null)
+          addGuide(
+            "vertical",
+            Math.round(
+              (shiftHeld || ev.shiftKey ? snapToGrid(raw, SUB_INTERVAL) : raw) *
+                10,
+            ) / 10,
+          );
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
       };
-
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", onMouseUp);
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
     },
     [
+      pdfBytes,
+      pages,
+      guides,
+      overlayWidth,
+      containerRef,
+      getPdfXFromClientX,
       addGuide,
       removeGuide,
       setPreviewGuide,
-      guides,
-      pages,
-      zoom,
-      contentWidth,
-      containerRef,
-      getPdfXFromClientX,
     ],
   );
 
@@ -174,49 +414,15 @@ export function HorizontalRuler({
       style={{ height: RULER_SIZE, width: overlayWidth }}
       onMouseDown={handleMouseDown}
     >
-      <svg width={contentWidth} height={RULER_SIZE} className="block">
-        {ticks.map((tick, i) => {
-          const startY =
-            tick.level === 0
-              ? 0
-              : tick.level === 1
-                ? RULER_SIZE * 0.5
-                : RULER_SIZE * 0.65;
-          const stroke =
-            tick.level === 0
-              ? "var(--ruler-tick-major)"
-              : tick.level === 1
-                ? "var(--ruler-tick-minor)"
-                : "var(--ruler-tick-sub)";
-          return (
-            <g key={i}>
-              <line
-                x1={tick.x}
-                y1={startY}
-                x2={tick.x}
-                y2={RULER_SIZE}
-                stroke={stroke}
-                strokeWidth={tick.level === 0 ? 1 : 0.5}
-              />
-              {tick.label && (
-                <text
-                  x={Math.round(tick.x) + 4}
-                  y={12}
-                  fill="var(--ruler-label)"
-                  fontSize={10}
-                  fontFamily="monospace"
-                  textAnchor="start"
-                >
-                  {tick.label}
-                </text>
-              )}
-            </g>
-          );
-        })}
-      </svg>
+      <canvas
+        ref={canvasRef}
+        style={{ display: "block", width: overlayWidth, height: RULER_SIZE }}
+      />
     </div>
   );
 }
+
+// ─── VerticalRuler ───────────────────────────────────────────────────────────
 
 interface VerticalRulerProps {
   canvasHeight: number;
@@ -228,103 +434,90 @@ export function VerticalRuler({
   containerRef,
 }: VerticalRulerProps) {
   const { t } = useTranslation();
-  const { pages, zoom, pdfBytes } = useEditorStore();
+  const pages = useEditorStore((s) => s.pages);
+  const committedZoom = useEditorStore((s) => s.zoom);
+  const pdfBytes = useEditorStore((s) => s.pdfBytes);
+  const guides = useEditorStore((s) => s.guides);
   const addGuide = useEditorStore((s) => s.addGuide);
   const removeGuide = useEditorStore((s) => s.removeGuide);
   const setPreviewGuide = useEditorStore((s) => s.setPreviewGuide);
-  const guides = useEditorStore((s) => s.guides);
 
-  let contentHeight = TOP_PADDING;
-  for (let i = 0; i < pages.length; i++) {
-    contentHeight += pages[i].height * zoom;
-    if (i < pages.length - 1) contentHeight += PAGE_GAP;
-  }
-  contentHeight += TOP_PADDING;
-  contentHeight = Math.max(contentHeight, canvasHeight);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const committedZoomRef = useRef(committedZoom);
+  const liveZoomRef = useRef(committedZoom);
 
-  const ticks: Array<{ y: number; level: number; label?: string }> = [];
-  let currentY = TOP_PADDING;
+  const drawVerticalAt = useCallback(
+    (zoom: number) => {
+      if (!canvasRef.current) return;
+      const ch = verticalRulerContentHeight(pages, zoom, canvasHeight);
+      canvasRef.current.style.height = `${ch}px`;
+      drawVerticalRuler(canvasRef.current, zoom, pages, ch, guides);
+    },
+    [pages, canvasHeight, guides],
+  );
 
-  for (const page of pages) {
-    const screenHeight = page.height * zoom;
-    const screenSubInterval = SUB_INTERVAL * zoom;
+  useLayoutEffect(() => {
+    committedZoomRef.current = committedZoom;
+    liveZoomRef.current = committedZoom;
+    drawVerticalAt(committedZoom);
+  }, [committedZoom, canvasHeight, drawVerticalAt]);
 
-    if (screenSubInterval >= 2.5) {
-      for (let py = 0; py <= screenHeight; py += screenSubInterval) {
-        const screenY = currentY + py;
-        const pdfVal = Math.round(py / zoom);
-        const isMajor = pdfVal % MAJOR_INTERVAL === 0;
-        const isMinor = pdfVal % MINOR_INTERVAL === 0;
-        ticks.push({
-          y: screenY,
-          level: isMajor ? 0 : isMinor ? 1 : 2,
-          label: isMajor ? String(pdfVal) : undefined,
-        });
-      }
-    } else {
-      const screenMinorInterval = MINOR_INTERVAL * zoom;
-      if (screenMinorInterval >= 3) {
-        for (let py = 0; py <= screenHeight; py += screenMinorInterval) {
-          const screenY = currentY + py;
-          const isMajor = Math.abs(Math.round(py / zoom) % MAJOR_INTERVAL) < 1;
-          ticks.push({
-            y: screenY,
-            level: isMajor ? 0 : 1,
-            label: isMajor ? String(Math.round(py / zoom)) : undefined,
-          });
-        }
-      }
-    }
-
-    currentY += screenHeight + PAGE_GAP;
-  }
+  useEffect(() => {
+    const listener: ZoomListener = {
+      onZoomTick(liveZoom) {
+        liveZoomRef.current = liveZoom;
+        drawVerticalAt(liveZoom);
+      },
+      onZoomSettle(zoom) {
+        liveZoomRef.current = zoom;
+      },
+    };
+    getZoomEngine().addListener(listener);
+    return () => getZoomEngine().removeListener(listener);
+  }, [drawVerticalAt]);
 
   const getPdfYFromClientY = useCallback(
-    (clientY: number): number | null => {
+    (clientY: number, zoom = liveZoomRef.current): number | null => {
       if (pages.length === 0) return null;
       const rulerEl = containerRef.current;
       if (!rulerEl) return null;
       const rulerTop = rulerEl.getBoundingClientRect().top;
-      const currentScrollTop = rulerEl.scrollTop;
-      const relY = clientY - rulerTop + currentScrollTop;
-      let pageYOffset = TOP_PADDING;
+      const relY = clientY - rulerTop + rulerEl.scrollTop;
+      let yOff = TOP_PADDING;
       for (const page of pages) {
-        const pageScreenHeight = page.height * zoom;
-        if (relY >= pageYOffset && relY < pageYOffset + pageScreenHeight) {
-          const pdfY = (relY - pageYOffset) / zoom;
-          return Math.max(0, Math.min(page.height, pdfY));
-        }
-        pageYOffset += pageScreenHeight + PAGE_GAP;
+        const ph = page.height * zoom;
+        if (relY >= yOff && relY < yOff + ph)
+          return Math.max(0, Math.min(page.height, (relY - yOff) / zoom));
+        yOff += ph + PAGE_GAP;
       }
-      const lastPage = pages[pages.length - 1];
+      const last = pages[pages.length - 1];
       return Math.max(
         0,
         Math.min(
-          lastPage.height,
-          (relY - pageYOffset + lastPage.height * zoom + PAGE_GAP) / zoom,
+          last.height,
+          (relY - yOff + last.height * zoom + PAGE_GAP) / zoom,
         ),
       );
     },
-    [pages, zoom, containerRef],
+    [pages, containerRef],
   );
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
-      const rulerEl = containerRef.current;
-      if (!rulerEl || pages.length === 0) return;
-      const rulerTop = rulerEl.getBoundingClientRect().top;
-      const currentScrollTop = rulerEl.scrollTop;
+      if (!pdfBytes || pages.length === 0) return;
 
       const existingGuideHit = guides.find((g) => {
         if (g.orientation !== "horizontal") return false;
-        let pageYOffset = TOP_PADDING;
+        const rulerEl = containerRef.current;
+        if (!rulerEl) return false;
+        const zoom = liveZoomRef.current;
+        const rulerTop = rulerEl.getBoundingClientRect().top;
+        let yOff = TOP_PADDING;
         for (const page of pages) {
-          const pageScreenHeight = page.height * zoom;
-          const contentGuideY = pageYOffset + g.position * zoom;
-          const visibleGuideY = contentGuideY - currentScrollTop;
-          if (Math.abs(e.clientY - rulerTop - visibleGuideY) < 6) return true;
-          pageYOffset += pageScreenHeight + PAGE_GAP;
+          const gy = yOff + g.position * zoom - rulerEl.scrollTop;
+          if (Math.abs(e.clientY - rulerTop - gy) < 6) return true;
+          yOff += page.height * zoom + PAGE_GAP;
         }
         return false;
       });
@@ -335,52 +528,50 @@ export function VerticalRuler({
       }
 
       const pdfY = getPdfYFromClientY(e.clientY);
-      if (pdfY !== null) {
-        const pos = e.shiftKey ? snapToGrid(pdfY, SUB_INTERVAL) : pdfY;
-        setPreviewGuide({ orientation: "horizontal", position: pos });
-      }
+      if (pdfY !== null)
+        setPreviewGuide({
+          orientation: "horizontal",
+          position: e.shiftKey ? snapToGrid(pdfY, SUB_INTERVAL) : pdfY,
+        });
       lockCursor("ns");
-
       const shiftHeld = e.shiftKey;
 
-      const onMouseMove = (moveEvent: MouseEvent) => {
-        const rawPos = getPdfYFromClientY(moveEvent.clientY);
-        if (rawPos !== null) {
-          const pos =
-            shiftHeld || moveEvent.shiftKey
-              ? snapToGrid(rawPos, SUB_INTERVAL)
-              : rawPos;
-          setPreviewGuide({ orientation: "horizontal", position: pos });
-        }
+      const onMove = (ev: MouseEvent) => {
+        const raw = getPdfYFromClientY(ev.clientY);
+        if (raw !== null)
+          setPreviewGuide({
+            orientation: "horizontal",
+            position:
+              shiftHeld || ev.shiftKey ? snapToGrid(raw, SUB_INTERVAL) : raw,
+          });
       };
-
-      const onMouseUp = (upEvent: MouseEvent) => {
+      const onUp = (ev: MouseEvent) => {
         unlockCursor();
         setPreviewGuide(null);
-        const rawPos = getPdfYFromClientY(upEvent.clientY);
-        if (rawPos !== null) {
-          const pos =
-            shiftHeld || upEvent.shiftKey
-              ? snapToGrid(rawPos, SUB_INTERVAL)
-              : rawPos;
-          addGuide("horizontal", Math.round(pos * 10) / 10);
-        }
-        document.removeEventListener("mousemove", onMouseMove);
-        document.removeEventListener("mouseup", onMouseUp);
+        const raw = getPdfYFromClientY(ev.clientY);
+        if (raw !== null)
+          addGuide(
+            "horizontal",
+            Math.round(
+              (shiftHeld || ev.shiftKey ? snapToGrid(raw, SUB_INTERVAL) : raw) *
+                10,
+            ) / 10,
+          );
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
       };
-
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", onMouseUp);
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
     },
     [
+      pdfBytes,
+      pages,
+      guides,
+      containerRef,
+      getPdfYFromClientY,
       addGuide,
       removeGuide,
       setPreviewGuide,
-      guides,
-      pages,
-      zoom,
-      containerRef,
-      getPdfYFromClientY,
     ],
   );
 
@@ -393,46 +584,10 @@ export function VerticalRuler({
       style={{ width: RULER_SIZE, height: canvasHeight, overflow: "hidden" }}
       onMouseDown={handleMouseDown}
     >
-      <svg width={RULER_SIZE} height={contentHeight} className="block">
-        {ticks.map((tick, i) => {
-          const startX =
-            tick.level === 0
-              ? 0
-              : tick.level === 1
-                ? RULER_SIZE * 0.5
-                : RULER_SIZE * 0.65;
-          const stroke =
-            tick.level === 0
-              ? "var(--ruler-tick-major)"
-              : tick.level === 1
-                ? "var(--ruler-tick-minor)"
-                : "var(--ruler-tick-sub)";
-          return (
-            <g key={i}>
-              <line
-                y1={tick.y}
-                x1={startX}
-                y2={tick.y}
-                x2={RULER_SIZE}
-                stroke={stroke}
-                strokeWidth={tick.level === 0 ? 1 : 0.5}
-              />
-              {tick.label && (
-                <text
-                  x={RULER_SIZE / 2}
-                  y={Math.round(tick.y) - 4}
-                  fill="var(--ruler-label)"
-                  fontSize={10}
-                  fontFamily="monospace"
-                  textAnchor="middle"
-                >
-                  {tick.label}
-                </text>
-              )}
-            </g>
-          );
-        })}
-      </svg>
+      <canvas
+        ref={canvasRef}
+        style={{ display: "block", width: RULER_SIZE }}
+      />
     </div>
   );
 }

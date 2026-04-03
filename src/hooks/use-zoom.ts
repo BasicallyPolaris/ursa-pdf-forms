@@ -1,33 +1,59 @@
-import { useEffect } from "react";
+import { getZoomEngine } from "@/lib/use-zoom-animation";
+import { getScrollViewportTopCenterOrigin } from "@/lib/zoom-visual-transform";
 import { useEditorStore } from "@/stores/editor-store";
+import { useEffect } from "react";
 
-const ZOOM_MIN = 0.5;
-const ZOOM_MAX = 4;
-const ZOOM_STEP = 0.1;
-const ZOOM_PRESETS = [0.5, 0.75, 1, 1.5, 2, 4];
+export const ZOOM_MIN = 0.5;
+export const ZOOM_MAX = 4;
+export const ZOOM_STEP = 0.1;
+export const ZOOM_PRESETS = [0.5, 0.75, 1, 1.5, 2, 4];
 
-export { ZOOM_MIN, ZOOM_MAX, ZOOM_STEP, ZOOM_PRESETS };
+export function clampZoom(z: number): number {
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+}
 
-function clampZoom(z: number): number {
-  return Math.round(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)) * 100) / 100;
+function getScrollEl(): HTMLElement | null {
+  return document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
 }
 
 export function useZoom() {
+  useEffect(() => {
+    const store = useEditorStore.getState();
+    getZoomEngine().init(store.zoom, (zoom) =>
+      useEditorStore.getState().setZoom(zoom),
+    );
+  }, []);
+
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
       if (!e.metaKey && !e.ctrlKey) return;
       e.preventDefault();
       e.stopPropagation();
+
       const store = useEditorStore.getState();
       if (!store.pdfBytes) return;
+
+      const scrollEl = getScrollEl();
+      if (!scrollEl) return;
+
+      const engine = getZoomEngine();
       const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-      store.setZoom(clampZoom(store.zoom + delta));
+
+      // ✅ Accumulate against the QUEUED TARGET, not the current lerped value.
+      // This is the fix for "only 1 step at a time": rapid wheel events now
+      // stack correctly — each adds on top of where the animation is heading,
+      // not where it currently is.
+      const newTarget = clampZoom(engine.getTargetZoom() + delta);
+
+      const rect = scrollEl.getBoundingClientRect();
+      engine.setTarget(newTarget, {
+        clientX: e.clientX - rect.left,
+        clientY: e.clientY - rect.top,
+      });
     };
 
     window.addEventListener("wheel", handleWheel, { passive: false });
-    return () => {
-      window.removeEventListener("wheel", handleWheel);
-    };
+    return () => window.removeEventListener("wheel", handleWheel);
   }, []);
 
   useEffect(() => {
@@ -35,9 +61,8 @@ export function useZoom() {
       if (
         e.target instanceof HTMLElement &&
         ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)
-      ) {
+      )
         return;
-      }
 
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
@@ -45,32 +70,33 @@ export function useZoom() {
       const store = useEditorStore.getState();
       if (!store.pdfBytes) return;
 
+      const engine = getZoomEngine();
+
+      const topCenter = getScrollViewportTopCenterOrigin();
+
       if (e.key === "=" || e.key === "+") {
         e.preventDefault();
-        store.setZoom(clampZoom(store.zoom + ZOOM_STEP));
-      }
-
-      if (e.key === "-") {
-        e.preventDefault();
-        store.setZoom(clampZoom(store.zoom - ZOOM_STEP));
-      }
-
-      if (e.key === "0") {
-        e.preventDefault();
-        const container = document.querySelector(
-          '[data-testid="canvas-area"]',
+        engine.setTarget(
+          clampZoom(engine.getTargetZoom() + ZOOM_STEP),
+          topCenter,
         );
+      } else if (e.key === "-") {
+        e.preventDefault();
+        engine.setTarget(
+          clampZoom(engine.getTargetZoom() - ZOOM_STEP),
+          topCenter,
+        );
+      } else if (e.key === "0") {
+        e.preventDefault();
+        const container = document.querySelector('[data-testid="canvas-area"]');
         if (container && store.pages.length > 0) {
           const viewportWidth = container.clientWidth - 32;
-          const firstPage = store.pages[0];
-          const fitZoom = viewportWidth / firstPage.width;
-          store.setZoom(clampZoom(fitZoom));
+          const fitZoom = clampZoom(viewportWidth / store.pages[0].width);
+          engine.snapTo(fitZoom);
         }
-      }
-
-      if (e.key === "1") {
+      } else if (e.key === "1") {
         e.preventDefault();
-        store.setZoom(1);
+        engine.setTarget(1, topCenter);
       }
     };
 
