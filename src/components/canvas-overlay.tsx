@@ -139,26 +139,45 @@ export function CanvasOverlay() {
     [zoom, findPageAtPoint],
   );
 
+  const elementsByPage = useMemo(() => {
+    const map = new Map<number, Array<{ id: string; x: number; y: number; width: number; height: number }>>();
+    for (const el of elements) {
+      let arr = map.get(el.pageNumber);
+      if (!arr) {
+        arr = [];
+        map.set(el.pageNumber, arr);
+      }
+      arr.push({ id: el.id, x: el.x, y: el.y, width: el.width, height: el.height });
+    }
+    return map;
+  }, [elements]);
+
+  const rulerGuideSnapData = useMemo(
+    () => guides.map((g) => ({ orientation: g.orientation, position: g.position })),
+    [guides],
+  );
+
   const buildSnapContext = useCallback(
     (excludedIds: Set<string>, pageNumber: number, modifiers: { shiftKey: boolean; ctrlKey: boolean }): SnapContext => {
       const page = pages.find((p) => p.pageNumber === pageNumber);
       const freeMovement = modifiers.ctrlKey;
+      const pageElements = elementsByPage.get(pageNumber) ?? [];
       return {
         gridSize,
         snapThreshold: 5,
         pageWidth: page?.width ?? 612,
         pageHeight: page?.height ?? 792,
-        otherElements: elements
-          .filter((el) => !excludedIds.has(el.id) && el.pageNumber === pageNumber)
-          .map((el) => ({ id: el.id, x: el.x, y: el.y, width: el.width, height: el.height })),
-        rulerGuides: guides.map((g) => ({ orientation: g.orientation, position: g.position })),
+        otherElements: excludedIds.size > 0
+          ? pageElements.filter((el) => !excludedIds.has(el.id))
+          : pageElements,
+        rulerGuides: rulerGuideSnapData,
         snapToGrid: modifiers.shiftKey && !freeMovement,
         snapToPageEdges: !modifiers.shiftKey && !freeMovement,
         snapToElements: !modifiers.shiftKey && !freeMovement,
         snapToGuides: !modifiers.shiftKey && !freeMovement,
       };
     },
-    [elements, pages, gridSize, guides],
+    [elementsByPage, pages, gridSize, rulerGuideSnapData],
   );
 
   const handleCanvasMouseDown = useCallback(
@@ -220,9 +239,29 @@ export function CanvasOverlay() {
       }
 
       if (HORIZONTAL_DRAW_TOOLS.has(activeTool) || RECT_DRAW_TOOLS.has(activeTool)) {
+        const pdf = screenToPdf(
+          { x: screenX, y: screenY },
+          { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
+        );
+        const snapCtx = buildSnapContext(new Set(), pageNumber, {
+          shiftKey: e.shiftKey,
+          ctrlKey: e.ctrlKey || e.metaKey,
+        });
+        const hasSnap = snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides || snapCtx.snapToPageEdges;
+        let startX = screenX;
+        let startY = screenY;
+        if (hasSnap) {
+          const snap = snapPosition(pdf.x, pdf.y, 0, 0, snapCtx);
+          const snapped = pdfToScreen(
+            { x: snap.x, y: snap.y },
+            { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
+          );
+          startX = snapped.x;
+          startY = snapped.y;
+        }
         drawStartRef.current = {
-          x: screenX,
-          y: screenY,
+          x: startX,
+          y: startY,
           pageX: layout.xOffset,
           pageY: layout.yOffset,
           pageNumber,
@@ -233,7 +272,7 @@ export function CanvasOverlay() {
       }
 
     },
-    [activeTool, zoom, elements.length, addElement, selectElements, clearSelection, getPageLayouts, findPageAtPoint],
+    [activeTool, zoom, elements.length, addElement, selectElements, clearSelection, getPageLayouts, findPageAtPoint, buildSnapContext],
   );
 
   const handleCanvasMouseMove = useCallback(
@@ -244,11 +283,35 @@ export function CanvasOverlay() {
 
       if (drawStartRef.current) {
         isDrawingRef.current = true;
+        const start = drawStartRef.current;
+        const pdfCurrent = screenToPdf(
+          { x: currentX, y: currentY },
+          { zoom, pageX: start.pageX, pageY: start.pageY },
+        );
+        const snapCtx = buildSnapContext(new Set(), start.pageNumber, {
+          shiftKey: e.shiftKey,
+          ctrlKey: e.ctrlKey || e.metaKey,
+        });
+        const hasSnap = snapCtx.snapToGrid || snapCtx.snapToElements || snapCtx.snapToGuides || snapCtx.snapToPageEdges;
+        let snappedCurrentX = currentX;
+        let snappedCurrentY = currentY;
+        if (hasSnap) {
+          const snap = snapPosition(pdfCurrent.x, pdfCurrent.y, 0, 0, snapCtx);
+          const snappedScreen = pdfToScreen(
+            { x: snap.x, y: snap.y },
+            { zoom, pageX: start.pageX, pageY: start.pageY },
+          );
+          snappedCurrentX = snappedScreen.x;
+          snappedCurrentY = snappedScreen.y;
+          setActiveGuides(snap.guides);
+        } else {
+          setActiveGuides([]);
+        }
         setDrawRect({
-          startX: drawStartRef.current.x,
-          startY: drawStartRef.current.y,
-          currentX,
-          currentY,
+          startX: start.x,
+          startY: start.y,
+          currentX: snappedCurrentX,
+          currentY: snappedCurrentY,
         });
         return;
       }
@@ -262,7 +325,7 @@ export function CanvasOverlay() {
         currentY,
       });
     },
-    [],
+    [zoom, buildSnapContext],
   );
 
   const handleCanvasMouseUp = useCallback(
@@ -316,12 +379,14 @@ export function CanvasOverlay() {
         drawStartRef.current = null;
         isDrawingRef.current = false;
         setDrawRect(null);
+        setActiveGuides([]);
         return;
       }
 
       drawStartRef.current = null;
       isDrawingRef.current = false;
       setDrawRect(null);
+      setActiveGuides([]);
 
       if (marqueeStartRef.current && isDraggingRef.current && marquee) {
         const layouts = getPageLayouts();

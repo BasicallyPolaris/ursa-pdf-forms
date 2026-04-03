@@ -35,8 +35,13 @@ export function HorizontalRuler({
 
   const ticks: Array<{ x: number; level: number; label?: string }> = [];
 
-  for (const page of pages) {
-    const screenWidth = page.width * zoom;
+  const widestPage = pages.reduce<(typeof pages)[number] | null>(
+    (best, p) => (!best || p.width > best.width ? p : best),
+    null,
+  );
+
+  if (widestPage) {
+    const screenWidth = widestPage.width * zoom;
     const xOffset = (contentWidth - screenWidth) / 2;
     const screenSubInterval = SUB_INTERVAL * zoom;
 
