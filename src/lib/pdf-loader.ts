@@ -37,7 +37,7 @@ let cachedDoc: PdfDocument | null = null;
 
 async function loadDocument(pdfBytes: Uint8Array): Promise<PdfDocument> {
   const loadingTask = pdfjsLib.getDocument({
-    data: pdfBytes,
+    data: pdfBytes.slice(),
     cMapUrl: "/cmaps/",
     cMapPacked: true,
     standardFontDataUrl: "/standard_fonts/",

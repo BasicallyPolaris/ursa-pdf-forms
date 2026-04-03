@@ -1,12 +1,16 @@
 import { Kbd } from "@/components/ui/kbd";
-import { loadPdfDocument, type PdfDocument } from "@/lib/pdf-loader";
 import {
   computePageLayouts,
   getVisiblePageNumbers,
   getTotalContentHeight,
   TOP_PADDING,
   PAGE_GAP,
+  type PageLayout,
 } from "@/lib/page-layout";
+import {
+  getRenderManager,
+  type RenderHandle,
+} from "@/lib/render-worker-manager";
 import { VisiblePagesContext } from "@/contexts/visible-pages";
 import { useEditorStore } from "@/stores/editor-store";
 import {
@@ -19,66 +23,65 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-const RASTERIZE_DELAY = 16;
+const ZOOM_RASTERIZE_DELAY = 250;
 
 interface PdfPageProps {
-  doc: PdfDocument;
   pageNumber: number;
   zoom: number;
   width: number;
   height: number;
 }
 
-function PdfPage({ doc, pageNumber, zoom, width, height }: PdfPageProps) {
+function PdfPage({ pageNumber, zoom, width, height }: PdfPageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const renderTaskRef = useRef<{
-    cancel: () => void;
-    promise: Promise<void>;
-  } | null>(null);
+  const handleRef = useRef<RenderHandle | null>(null);
+  const renderedZoomRef = useRef<number | null>(null);
   const [renderedZoom, setRenderedZoom] = useState<number | null>(null);
 
   useEffect(() => {
-    const timer = window.setTimeout(async () => {
-      const canvas = canvasRef.current;
-      if (!canvas || (renderedZoom === zoom && canvas.width > 0)) return;
+    const hasRendered = renderedZoomRef.current !== null;
+    const delay = hasRendered ? ZOOM_RASTERIZE_DELAY : 0;
 
-      try {
-        const page = await doc.getPage(pageNumber);
-        const viewport = page.getViewport({ scale: zoom });
+    const timer = window.setTimeout(() => {
+      if (
+        renderedZoomRef.current === zoom &&
+        canvasRef.current &&
+        canvasRef.current.width > 0
+      )
+        return;
 
-        if (!canvasRef.current) return;
-        canvas.width = Math.ceil(viewport.width);
-        canvas.height = Math.ceil(viewport.height);
+      handleRef.current?.cancel();
+      const targetZoom = zoom;
+      const handle = getRenderManager().renderPage(pageNumber, targetZoom);
+      handleRef.current = handle;
 
-        const ctx = canvas.getContext("2d", { alpha: false });
-        if (!ctx) return;
-
-        if (renderTaskRef.current) {
-          renderTaskRef.current.cancel();
-        }
-
-        renderTaskRef.current = page.render({
-          canvas,
-          canvasContext: ctx,
-          viewport,
+      handle.promise
+        .then((bitmap) => {
+          const canvas = canvasRef.current;
+          if (!canvas) {
+            bitmap.close();
+            return;
+          }
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+          const ctx = canvas.getContext("2d", { alpha: false });
+          if (ctx) ctx.drawImage(bitmap, 0, 0);
+          bitmap.close();
+          renderedZoomRef.current = targetZoom;
+          setRenderedZoom(targetZoom);
+        })
+        .catch((err) => {
+          if (!(err instanceof Error) || !err.message.includes("cancelled"))
+            console.error("[PdfPage] Render failed:", err);
         });
-        await renderTaskRef.current.promise;
-
-        setRenderedZoom(zoom);
-      } catch (err: unknown) {
-        if (
-          !(err instanceof Error && err.name === "RenderingCancelledException")
-        ) {
-          console.error(`Error rendering page ${pageNumber}:`, err);
-        }
-      }
-    }, RASTERIZE_DELAY);
+    }, delay);
 
     return () => {
       clearTimeout(timer);
-      if (renderTaskRef.current) renderTaskRef.current.cancel();
+      handleRef.current?.cancel();
+      handleRef.current = null;
     };
-  }, [doc, pageNumber, renderedZoom, zoom]);
+  }, [pageNumber, zoom]);
 
   const effectiveRenderedZoom = renderedZoom ?? zoom;
   const scaleRatio = renderedZoom ? zoom / renderedZoom : 1;
@@ -106,38 +109,46 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   const pages = useEditorStore((s) => s.pages);
   const zoom = useEditorStore((s) => s.zoom);
 
-  const [pdfDoc, setPdfDoc] = useState<PdfDocument | null>(null);
   const [visiblePages, setVisiblePages] = useState<Set<number>>(new Set());
   const rafRef = useRef<number | null>(null);
   const containerRef = useRef<HTMLElement | null>(null);
+  const layoutCacheRef = useRef<{
+    zoom: number;
+    containerWidth: number;
+    layouts: Map<number, PageLayout>;
+  } | null>(null);
 
   useEffect(() => {
-    if (!pdfBytes) {
-      setPdfDoc(null);
-      return;
-    }
-
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const doc = await loadPdfDocument(pdfBytes);
-        if (!cancelled) setPdfDoc(doc);
-      } catch (error) {
-        console.error("Failed to load PDF:", error);
-      }
-    };
-
-    load();
-    return () => {
-      cancelled = true;
-    };
+    if (!pdfBytes) return;
+    getRenderManager()
+      .load(pdfBytes)
+      .catch((err) =>
+        console.error("[PdfCanvas] Failed to load PDF in render manager:", err),
+      );
+    return () => getRenderManager().cancelAll();
   }, [pdfBytes]);
 
   const updateVisiblePages = useCallback(() => {
     const el = containerRef.current;
     if (!el || pages.length === 0) return;
 
-    const layouts = computePageLayouts(pages, zoom, el.clientWidth);
+    const cache = layoutCacheRef.current;
+    let layouts: Map<number, PageLayout>;
+    if (
+      cache &&
+      cache.zoom === zoom &&
+      cache.containerWidth === el.clientWidth
+    ) {
+      layouts = cache.layouts;
+    } else {
+      layouts = computePageLayouts(pages, zoom, el.clientWidth);
+      layoutCacheRef.current = {
+        zoom,
+        containerWidth: el.clientWidth,
+        layouts,
+      };
+    }
+
     const next = getVisiblePageNumbers(layouts, el.scrollTop, el.clientHeight);
 
     setVisiblePages((prev) => {
@@ -275,7 +286,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     );
   }
 
-  if (!pdfDoc || pages.length === 0) {
+  if (pages.length === 0) {
     return (
       <div className="flex h-full items-center justify-center select-none">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
@@ -334,7 +345,6 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
             >
               {isVisible && (
                 <PdfPage
-                  doc={pdfDoc}
                   pageNumber={page.pageNumber}
                   zoom={zoom}
                   width={page.width}

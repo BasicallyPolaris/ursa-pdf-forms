@@ -1,12 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useEditorStore } from "@/stores/editor-store";
-import { loadPdfDocument } from "@/lib/pdf-loader";
+import {
+  getRenderManager,
+  type RenderHandle,
+} from "@/lib/render-worker-manager";
 
 const THUMB_SCALE = 0.2;
-const MAX_CONCURRENT = 3;
 const THUMB_ITEM_HEIGHT = 130;
 const THUMB_BUFFER = 5;
+const THUMB_MAX_H = 94;
+const THUMB_MAX_W = 140;
+
+function getThumbDimensions(pageWidth: number, pageHeight: number) {
+  const scaleW = THUMB_MAX_W / pageWidth;
+  const scaleH = THUMB_MAX_H / pageHeight;
+  const scale = Math.min(scaleW, scaleH, THUMB_SCALE);
+  return {
+    width: Math.max(1, Math.round(pageWidth * scale)),
+    height: Math.max(1, Math.round(pageHeight * scale)),
+    scale,
+  };
+}
 
 export function PageSidebar() {
   const { t } = useTranslation();
@@ -77,78 +92,50 @@ export function PageSidebar() {
     if (!pdfBytes || pages.length === 0) return;
 
     let cancelled = false;
-    const queue: number[] = [];
-    const queuedPages = new Set<number>();
-    let activeRenders = 0;
+    const handles: RenderHandle[] = [];
+    const manager = getRenderManager();
 
-    const processQueue = (doc: Awaited<ReturnType<typeof loadPdfDocument>>) => {
-      while (queue.length > 0 && activeRenders < MAX_CONCURRENT && !cancelled) {
-        const pageNum = queue.shift();
-        if (pageNum === undefined) return;
+    for (
+      let i = visibleRange[0];
+      i < visibleRange[1] && i < pages.length;
+      i++
+    ) {
+      const page = pages[i];
+      if (renderedPagesRef.current.has(page.pageNumber)) continue;
 
-        activeRenders++;
-        void (async () => {
-          const canvas = canvasRefs.current.get(pageNum);
-          if (!canvas) {
-            activeRenders--;
-            queuedPages.delete(pageNum);
-            processQueue(doc);
+      const dims = getThumbDimensions(page.width, page.height);
+      const handle = manager.renderPage(page.pageNumber, dims.scale);
+      handles.push(handle);
+
+      handle.promise
+        .then((bitmap) => {
+          if (cancelled) {
+            bitmap.close();
             return;
           }
-
-          try {
-            const result = await doc.renderPage(pageNum, THUMB_SCALE);
-            if (cancelled) {
-              result.bitmap.close();
-              return;
-            }
-            canvas.width = result.width;
-            canvas.height = result.height;
-            const ctx = canvas.getContext("2d", { alpha: false });
-            if (ctx) {
-              ctx.drawImage(result.bitmap, 0, 0);
-              renderedPagesRef.current.add(pageNum);
-            }
-            result.bitmap.close();
-          } catch {
-          } finally {
-            activeRenders--;
-            queuedPages.delete(pageNum);
-            processQueue(doc);
+          const canvas = canvasRefs.current.get(page.pageNumber);
+          if (!canvas) {
+            bitmap.close();
+            return;
           }
-        })();
-      }
-    };
-
-    const queuePage = (
-      pageNum: number,
-      doc: Awaited<ReturnType<typeof loadPdfDocument>>,
-    ) => {
-      if (queuedPages.has(pageNum) || renderedPagesRef.current.has(pageNum)) {
-        return;
-      }
-      queue.push(pageNum);
-      queuedPages.add(pageNum);
-      processQueue(doc);
-    };
-
-    const loadAndRender = async () => {
-      const doc = await loadPdfDocument(pdfBytes);
-      if (cancelled) return;
-
-      for (
-        let i = visibleRange[0];
-        i < visibleRange[1] && i < pages.length;
-        i++
-      ) {
-        queuePage(pages[i].pageNumber, doc);
-      }
-    };
-
-    loadAndRender();
+          canvas.width = dims.width;
+          canvas.height = dims.height;
+          const ctx = canvas.getContext("2d", { alpha: false });
+          if (ctx) {
+            ctx.drawImage(bitmap, 0, 0);
+            renderedPagesRef.current.add(page.pageNumber);
+          }
+          bitmap.close();
+        })
+        .catch((err) => {
+          if (!(err instanceof Error) || !err.message.includes("cancelled"))
+            console.error("[PageSidebar] Thumb render failed:", err);
+        });
+    }
 
     return () => {
       cancelled = true;
+      for (const h of handles) h.cancel();
     };
   }, [pdfBytes, pages, visibleRange]);
 
@@ -198,53 +185,59 @@ export function PageSidebar() {
       {pdfBytes && (
         <div ref={containerRef} className="flex-1 overflow-auto px-2 pb-2 pt-1">
           <div style={{ height: totalHeight, position: "relative" }}>
-            {visibleItems.map(({ page, index }) => (
-              <div
-                key={page.pageNumber}
-                style={{
-                  position: "absolute",
-                  top: index * THUMB_ITEM_HEIGHT,
-                  left: 0,
-                  right: 0,
-                  height: THUMB_ITEM_HEIGHT,
-                }}
-              >
-                <button
-                  onClick={() => scrollToPage(page.pageNumber)}
-                  className="group flex flex-col items-center gap-1 rounded-md border border-transparent p-1.5 hover:border-border hover:bg-accent/40 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card w-full"
+            {visibleItems.map(({ page, index }) => {
+              const dims = getThumbDimensions(page.width, page.height);
+              return (
+                <div
+                  key={page.pageNumber}
+                  style={{
+                    position: "absolute",
+                    top: index * THUMB_ITEM_HEIGHT,
+                    left: 0,
+                    right: 0,
+                    height: THUMB_ITEM_HEIGHT,
+                  }}
                 >
-                  <div
-                    data-thumb-wrapper
-                    data-page-num={page.pageNumber}
-                    className="overflow-hidden rounded-sm border border-border/50"
+                  <button
+                    onClick={() => scrollToPage(page.pageNumber)}
+                    className="group flex flex-col items-center gap-1 rounded-md border border-transparent p-1.5 hover:border-border hover:bg-accent/40 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card w-full"
                   >
-                    <canvas
-                      ref={(el) => {
-                        if (el) {
-                          canvasRefs.current.set(page.pageNumber, el);
-                          if (!renderedPagesRef.current.has(page.pageNumber)) {
-                            el.width = Math.max(
-                              1,
-                              Math.round(page.width * THUMB_SCALE),
-                            );
-                            el.height = Math.max(
-                              1,
-                              Math.round(page.height * THUMB_SCALE),
-                            );
-                          }
-                        } else {
-                          canvasRefs.current.delete(page.pageNumber);
-                        }
+                    <div
+                      data-thumb-wrapper
+                      data-page-num={page.pageNumber}
+                      className="flex items-center justify-center overflow-hidden rounded-sm border border-border/50"
+                      style={{
+                        width: `${dims.width}px`,
+                        height: `${dims.height}px`,
                       }}
-                      className="max-w-full"
-                    />
-                  </div>
-                  <span className="text-[10px] tabular-nums text-muted-foreground group-hover:text-foreground">
-                    {page.pageNumber}
-                  </span>
-                </button>
-              </div>
-            ))}
+                    >
+                      <canvas
+                        ref={(el) => {
+                          if (el) {
+                            canvasRefs.current.set(page.pageNumber, el);
+                            if (
+                              !renderedPagesRef.current.has(page.pageNumber)
+                            ) {
+                              el.width = dims.width;
+                              el.height = dims.height;
+                            }
+                          } else {
+                            canvasRefs.current.delete(page.pageNumber);
+                          }
+                        }}
+                        style={{
+                          width: `${dims.width}px`,
+                          height: `${dims.height}px`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-[10px] tabular-nums text-muted-foreground group-hover:text-foreground">
+                      {page.pageNumber}
+                    </span>
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
