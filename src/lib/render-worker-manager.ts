@@ -100,7 +100,7 @@ class RenderManager {
         .finally(() => {
           entry.activeRender = null;
           this.active--;
-          this.drain();
+          setTimeout(() => this.drain(), 0);
         });
     }
   }

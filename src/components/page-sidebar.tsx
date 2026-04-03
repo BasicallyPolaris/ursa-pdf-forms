@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useEditorStore } from "@/stores/editor-store";
-import {
-  loadPdfDocument,
-  type PdfDocument,
-  type CancellableRender,
-} from "@/lib/pdf-loader";
+import { loadPdfDocument, type PdfDocument } from "@/lib/pdf-loader";
 import { computePageLayouts } from "@/lib/page-layout";
 
 const THUMB_ITEM_HEIGHT = 130;
@@ -13,7 +9,7 @@ const THUMB_BUFFER = 8;
 const THUMB_MAX_H = 94;
 const THUMB_MAX_W = 140;
 const THUMB_MAX_SCALE = 0.18;
-const MAX_THUMB_CONCURRENT = 4;
+const MAX_THUMB_CONCURRENT = 2;
 
 function getThumbDimensions(pageWidth: number, pageHeight: number) {
   const scaleW = THUMB_MAX_W / pageWidth;
@@ -32,21 +28,17 @@ export function PageSidebar() {
   const pages = useEditorStore((s) => s.pages);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
-  const renderedPagesRef = useRef<Set<number>>(new Set());
   const docRef = useRef<PdfDocument | null>(null);
-  const activeRenders = useRef<Map<number, CancellableRender>>(new Map());
-  const thumbQueue = useRef<number[]>([]);
-  const thumbActive = useRef(0);
+  const bitmapCache = useRef<Map<number, ImageBitmap>>(new Map());
+  const renderGeneration = useRef(0);
   const [visibleRange, setVisibleRange] = useState<[number, number]>([0, 20]);
 
   useEffect(() => {
-    renderedPagesRef.current.clear();
+    for (const [, bmp] of bitmapCache.current) bmp.close();
+    bitmapCache.current.clear();
     canvasRefs.current.clear();
     docRef.current = null;
-    for (const [, r] of activeRenders.current) r.cancel();
-    activeRenders.current.clear();
-    thumbQueue.current = [];
-    thumbActive.current = 0;
+    renderGeneration.current++;
 
     if (!pdfBytes) return;
     let cancelled = false;
@@ -111,73 +103,14 @@ export function PageSidebar() {
     updateVisibleRange();
   }, [pages.length, updateVisibleRange]);
 
-  const drainThumbQueue = useCallback(() => {
+  useEffect(() => {
+    if (!pdfBytes || pages.length === 0) return;
     const doc = docRef.current;
     if (!doc) return;
 
-    while (
-      thumbQueue.current.length > 0 &&
-      thumbActive.current < MAX_THUMB_CONCURRENT
-    ) {
-      const pageNum = thumbQueue.current.pop()!;
-      if (renderedPagesRef.current.has(pageNum)) continue;
-
-      const page = pages[pageNum - 1];
-      if (!page) continue;
-
-      const dims = getThumbDimensions(page.width, page.height);
-      thumbActive.current++;
-
-      const render = doc.startRender(pageNum, dims.scale);
-      activeRenders.current.set(pageNum, render);
-
-      render.promise
-        .then((result) => {
-          activeRenders.current.delete(pageNum);
-          const canvas = canvasRefs.current.get(pageNum);
-          if (!canvas) {
-            result.bitmap.close();
-            return;
-          }
-          canvas.width = dims.width;
-          canvas.height = dims.height;
-          const ctx = canvas.getContext("2d", { alpha: false });
-          if (ctx) {
-            ctx.drawImage(result.bitmap, 0, 0);
-            renderedPagesRef.current.add(pageNum);
-          }
-          result.bitmap.close();
-        })
-        .catch((err) => {
-          activeRenders.current.delete(pageNum);
-          if (
-            !(err instanceof Error) ||
-            (!err.message.includes("cancelled") &&
-              !err.message.includes("RenderingCancelled"))
-          )
-            console.error("[PageSidebar] Thumb render failed:", err);
-        })
-        .finally(() => {
-          thumbActive.current--;
-          drainThumbQueue();
-        });
-    }
-  }, [pages]);
-
-  useEffect(() => {
-    if (!pdfBytes || pages.length === 0) return;
-
-    for (const [pageNum, r] of activeRenders.current) {
-      const inRange =
-        pageNum > 0 &&
-        pages[pageNum - 1] &&
-        pageNum - 1 >= visibleRange[0] &&
-        pageNum - 1 < visibleRange[1];
-      if (!inRange) {
-        r.cancel();
-        activeRenders.current.delete(pageNum);
-      }
-    }
+    const gen = ++renderGeneration.current;
+    let active = 0;
+    const pending = new Map<number, ReturnType<typeof doc.startRender>>();
 
     const needed: number[] = [];
     for (
@@ -186,23 +119,70 @@ export function PageSidebar() {
       i++
     ) {
       const pageNum = pages[i].pageNumber;
-      if (
-        !renderedPagesRef.current.has(pageNum) &&
-        !activeRenders.current.has(pageNum)
-      ) {
+      if (!bitmapCache.current.has(pageNum)) {
         needed.push(pageNum);
       }
     }
-    thumbQueue.current = needed;
-    drainThumbQueue();
+
+    const drain = () => {
+      if (gen !== renderGeneration.current) return;
+
+      while (needed.length > 0 && active < MAX_THUMB_CONCURRENT) {
+        const pageNum = needed.pop()!;
+        if (bitmapCache.current.has(pageNum)) continue;
+
+        const page = pages[pageNum - 1];
+        if (!page) continue;
+
+        const dims = getThumbDimensions(page.width, page.height);
+        active++;
+
+        const render = doc.startRender(pageNum, dims.scale);
+        pending.set(pageNum, render);
+
+        render.promise
+          .then((result) => {
+            if (gen !== renderGeneration.current) {
+              result.bitmap.close();
+              return;
+            }
+            pending.delete(pageNum);
+
+            bitmapCache.current.set(pageNum, result.bitmap);
+
+            const canvas = canvasRefs.current.get(pageNum);
+            if (canvas) {
+              canvas.width = dims.width;
+              canvas.height = dims.height;
+              const ctx = canvas.getContext("2d", { alpha: false });
+              if (ctx) ctx.drawImage(result.bitmap, 0, 0);
+            }
+          })
+          .catch((err) => {
+            if (gen !== renderGeneration.current) return;
+            pending.delete(pageNum);
+            if (
+              !(err instanceof Error) ||
+              (!err.message.includes("cancelled") &&
+                !err.message.includes("RenderingCancelled"))
+            )
+              console.error("[PageSidebar] Thumb render failed:", err);
+          })
+          .finally(() => {
+            if (gen !== renderGeneration.current) return;
+            active--;
+            setTimeout(drain, 0);
+          });
+      }
+    };
+
+    drain();
 
     return () => {
-      for (const [, r] of activeRenders.current) r.cancel();
-      activeRenders.current.clear();
-      thumbQueue.current = [];
-      thumbActive.current = 0;
+      renderGeneration.current++;
+      for (const [, r] of pending) r.cancel();
     };
-  }, [pdfBytes, pages, visibleRange, drainThumbQueue]);
+  }, [pdfBytes, pages, visibleRange]);
 
   const scrollToPage = useCallback(
     (pageNumber: number) => {
@@ -282,9 +262,17 @@ export function PageSidebar() {
                         ref={(el) => {
                           if (el) {
                             canvasRefs.current.set(page.pageNumber, el);
-                            if (
-                              !renderedPagesRef.current.has(page.pageNumber)
-                            ) {
+                            const cached = bitmapCache.current.get(
+                              page.pageNumber,
+                            );
+                            if (cached) {
+                              el.width = dims.width;
+                              el.height = dims.height;
+                              const ctx = el.getContext("2d", {
+                                alpha: false,
+                              });
+                              if (ctx) ctx.drawImage(cached, 0, 0);
+                            } else {
                               el.width = dims.width;
                               el.height = dims.height;
                             }
