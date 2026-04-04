@@ -171,6 +171,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     scrollTop: number;
     oldZoom: number;
     visualAnchor: { pageNum: number; pdfY: number } | null;
+    oldVpH: number;
   } | null>(null);
 
   useEffect(() => {
@@ -182,6 +183,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
             scrollTop:    scrollEl.scrollTop,
             oldZoom:      committedZoomRef.current,
             visualAnchor: sampleViewportPdfAnchor(scrollEl, pagesRef.current),
+            oldVpH:       scrollEl.clientHeight,
           };
         }
       },
@@ -198,7 +200,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
       if (scrollEl) {
         preserveViewportScrollAfterZoomChange(
           scrollEl, pages, pending.oldZoom, committedZoom,
-          pending.scrollTop, pending.visualAnchor,
+          pending.scrollTop, pending.visualAnchor, pending.oldVpH,
         );
       }
       pendingScrollCorrectionRef.current = null;

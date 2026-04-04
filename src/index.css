@@ -221,6 +221,7 @@
   [data-pdf-scroll-container] {
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    overflow-anchor: none;
   }
 
   [data-pdf-scroll-container]::-webkit-scrollbar {

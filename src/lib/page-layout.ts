@@ -92,6 +92,7 @@ export function findPageAtScreenPoint(
 
 const SCROLL_EDGE_PX = 8;
 const TOP_ANCHOR_FRAC = 0.15;
+let pendingScrollRaf: number | null = null;
 
 /**
  * Sample which PDF point is at the viewport center using hit-testing (matches the scaled
@@ -102,8 +103,8 @@ export function sampleViewportPdfAnchor(
   pages: PageInfo[],
 ): { pageNum: number; pdfY: number } | null {
   const r = scrollEl.getBoundingClientRect();
-  const cx = r.left + r.width / 2;
-  const cy = r.top + r.height / 2;
+  const cx = r.left + scrollEl.clientWidth / 2;
+  const cy = r.top + scrollEl.clientHeight / 2;
   const stack = document.elementsFromPoint(cx, cy);
   for (const node of stack) {
     if (!(node instanceof HTMLElement)) continue;
@@ -143,11 +144,13 @@ export function preserveViewportScrollAfterZoomChange(
   newZoom: number,
   scrollTopForAnchor?: number,
   visualAnchor?: { pageNum: number; pdfY: number } | null,
+  oldVpH?: number,
 ): void {
   if (pages.length === 0 || oldZoom === newZoom) return;
 
   const vpW = scrollEl.clientWidth;
   const vpH = scrollEl.clientHeight;
+  const anchorVpH = oldVpH ?? vpH;
   const oldLayouts = computePageLayouts(pages, oldZoom, vpW);
   const st =
     scrollTopForAnchor !== undefined ? scrollTopForAnchor : scrollEl.scrollTop;
@@ -173,11 +176,11 @@ export function preserveViewportScrollAfterZoomChange(
     const totalOldH = getTotalContentHeight(pages, oldZoom);
     let anchorY: number;
     if (st <= SCROLL_EDGE_PX) {
-      anchorY = st + vpH * TOP_ANCHOR_FRAC;
-    } else if (st + vpH >= totalOldH - SCROLL_EDGE_PX) {
-      anchorY = st + vpH * (1 - TOP_ANCHOR_FRAC);
+      anchorY = st + anchorVpH * TOP_ANCHOR_FRAC;
+    } else if (st + anchorVpH >= totalOldH - SCROLL_EDGE_PX) {
+      anchorY = st + anchorVpH * (1 - TOP_ANCHOR_FRAC);
     } else {
-      anchorY = st + vpH / 2;
+      anchorY = st + anchorVpH / 2;
     }
 
     for (const p of sorted) {
@@ -215,10 +218,15 @@ export function preserveViewportScrollAfterZoomChange(
   if (!LN) return;
 
   const newScreenY = LN.yOffset + pdfY * newZoom;
-  let scrollTop = newScreenY - vpH / 2;
+  let scrollTop = newScreenY - anchorVpH / 2;
   const totalH = getTotalContentHeight(pages, newZoom);
   const maxTop = Math.max(0, totalH - vpH);
   scrollTop = Math.max(0, Math.min(maxTop, scrollTop));
+
+  if (pendingScrollRaf !== null) {
+    cancelAnimationFrame(pendingScrollRaf);
+    pendingScrollRaf = null;
+  }
 
   const apply = () => {
     const sw = scrollEl.scrollWidth;
@@ -229,5 +237,8 @@ export function preserveViewportScrollAfterZoomChange(
   };
 
   apply();
-  requestAnimationFrame(apply);
+  pendingScrollRaf = requestAnimationFrame(() => {
+    pendingScrollRaf = null;
+    apply();
+  });
 }
