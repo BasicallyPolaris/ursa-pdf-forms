@@ -27,8 +27,8 @@ export interface ZoomListener {
   onZoomSettle(zoom: number): void;
 }
 
-// Exponential decay lerp. 0.16 ≈ Firefox/Figma feel.
-const LERP_FACTOR = 0.16;
+// Exponential decay lerp. 0.25 is snappy — ~12 frames to 95% settle.
+const LERP_FACTOR = 0.25;
 const SETTLE_THRESHOLD = 0.0003;
 
 class ZoomAnimationEngine {

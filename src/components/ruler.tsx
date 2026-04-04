@@ -119,14 +119,13 @@ function drawHorizontalRuler(
     }
   }
 
-  // Draw vertical guide markers
   for (const g of guides) {
     if (g.orientation !== "vertical") continue;
     const gx = xOffset + g.position * zoom - scrollLeft;
     if (gx < 0 || gx > W) continue;
     ctx.strokeStyle =
-      getComputedStyle(canvas).getPropertyValue("--guide-ruler").trim() ||
-      "#4af";
+      getComputedStyle(canvas).getPropertyValue("--ruler-tick-major").trim() ||
+      "#555";
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(gx, 0);
@@ -210,13 +209,12 @@ function drawVerticalRuler(
   let gCurrentY = TOP_PADDING;
   for (const g of guides) {
     if (g.orientation !== "horizontal") continue;
-    // Draw on every page (guides are per-page-relative)
     for (const page of pages) {
       const gy = gCurrentY + g.position * zoom;
       if (gy >= 0 && gy <= H) {
         ctx.strokeStyle =
-          getComputedStyle(canvas).getPropertyValue("--guide-ruler").trim() ||
-          "#4af";
+          getComputedStyle(canvas).getPropertyValue("--ruler-tick-major").trim() ||
+          "#555";
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(0, gy);
@@ -225,7 +223,7 @@ function drawVerticalRuler(
       }
       gCurrentY += page.height * zoom + PAGE_GAP;
     }
-    break; // position drawn relative to all pages above
+    break;
   }
 }
 
