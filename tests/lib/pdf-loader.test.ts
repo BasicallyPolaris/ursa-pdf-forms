@@ -1,4 +1,3 @@
-import { waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getDocumentMock } = vi.hoisted(() => ({
@@ -21,14 +20,6 @@ function createMockPage(width: number, height: number) {
       cancel: vi.fn(),
     })),
   };
-}
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((res) => {
-    resolve = res;
-  });
-  return { promise, resolve };
 }
 
 describe("pdf loading", () => {
@@ -74,14 +65,8 @@ describe("pdf loading", () => {
     expect(getPage).toHaveBeenCalledTimes(1);
   });
 
-  it("loads PDF bytes into the store before background page metadata finishes", async () => {
-    const firstPage = deferred<ReturnType<typeof createMockPage>>();
-    const secondPage = deferred<ReturnType<typeof createMockPage>>();
-    const getPage = vi
-      .fn()
-      .mockImplementation((pageNumber: number) =>
-        pageNumber === 1 ? firstPage.promise : secondPage.promise,
-      );
+  it("loads PDF bytes and page metadata into the store", async () => {
+    const getPage = vi.fn().mockResolvedValue(createMockPage(612, 792));
     const proxy = {
       numPages: 2,
       fingerprint: "doc-background-pages",
@@ -101,16 +86,9 @@ describe("pdf loading", () => {
     await loadPdfIntoStore(bytes, "test.pdf");
 
     expect(useEditorStore.getState().pdfBytes).toBe(bytes);
-    expect(useEditorStore.getState().pages).toEqual([]);
-
-    firstPage.resolve(createMockPage(612, 792));
-    secondPage.resolve(createMockPage(612, 792));
-
-    await waitFor(() => {
-      expect(useEditorStore.getState().pages).toEqual([
-        { pageNumber: 1, width: 612, height: 792 },
-        { pageNumber: 2, width: 612, height: 792 },
-      ]);
-    });
+    expect(useEditorStore.getState().pages).toEqual([
+      { pageNumber: 1, width: 612, height: 792 },
+      { pageNumber: 2, width: 612, height: 792 },
+    ]);
   });
 });

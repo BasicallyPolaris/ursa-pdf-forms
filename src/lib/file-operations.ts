@@ -15,6 +15,19 @@ async function loadPdfIntoStore(pdfBytes: Uint8Array, fileName: string) {
   const store = useEditorStore.getState();
   store.setPdf(fileName, pdfBytes, []);
 
+  try {
+    const pages = await doc.getPageInfos();
+    const currentStore = useEditorStore.getState();
+    if (currentStore.pdfBytes === pdfBytes) {
+      currentStore.setPdfPages(pages);
+    }
+  } catch (error) {
+    const currentStore = useEditorStore.getState();
+    if (currentStore.pdfBytes === pdfBytes) {
+      console.error("Failed to load PDF page metadata:", error);
+    }
+  }
+
   let hasExistingFields = false;
   try {
     const fields = await extractAcroFormFields(pdfBytes);
@@ -40,20 +53,6 @@ async function loadPdfIntoStore(pdfBytes: Uint8Array, fileName: string) {
       console.error("Failed to strip AcroForm for rendering:", error);
     }
   }
-
-  void doc
-    .getPageInfos((accumulated) => {
-      const currentStore = useEditorStore.getState();
-      if (currentStore.pdfBytes === pdfBytes) {
-        currentStore.setPdfPages(accumulated);
-      }
-    })
-    .catch((error) => {
-      const currentStore = useEditorStore.getState();
-      if (currentStore.pdfBytes === pdfBytes) {
-        console.error("Failed to load PDF page metadata:", error);
-      }
-    });
 }
 
 export async function openPdfFile(): Promise<string | null> {
