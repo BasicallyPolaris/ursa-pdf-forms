@@ -112,14 +112,6 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   }, [pdfBytes]);
 
   const [containerWidth, setContainerWidth] = useState(0);
-  useEffect(() => {
-    const el = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
-    if (!el) return;
-    setContainerWidth(el.clientWidth);
-    const ro = new ResizeObserver((entries) => setContainerWidth(entries[0].contentRect.width));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   const layouts = useMemo(
     () => computeLayouts(pages, committedZoom, containerWidth),
@@ -154,18 +146,6 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     return s;
   }, []);
 
-  const updateVisiblePages = useCallback(() => {
-    const next = computeVisibleSet();
-    setVisiblePages((prev) => {
-      if (prev.size === next.size) {
-        let same = true;
-        for (const p of next) { if (!prev.has(p)) { same = false; break; } }
-        if (same) return prev;
-      }
-      return next;
-    });
-  }, [computeVisibleSet]);
-
   const pendingScrollCorrectionRef = useRef<{
     scrollTop: number;
     oldZoom: number;
@@ -191,29 +171,52 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   }, []);
 
   useLayoutEffect(() => {
+    const scrollEl = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
+    if (!scrollEl) return;
+
+    const w = scrollEl.clientWidth;
+    if (w !== containerWidth) {
+      setContainerWidth(w);
+      return;
+    }
+
     const pending = pendingScrollCorrectionRef.current;
     if (pending && pages.length > 0) {
-      const scrollEl = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
-      if (scrollEl) {
-        preserveViewportScrollAfterZoomChange(
-          scrollEl, pages, pending.oldZoom, committedZoom,
-          pending.scrollTop, pending.oldVpH,
-        );
-      }
+      preserveViewportScrollAfterZoomChange(
+        scrollEl, pages, pending.oldZoom, committedZoom,
+        pending.scrollTop, pending.oldVpH,
+      );
       pendingScrollCorrectionRef.current = null;
     }
     committedZoomRef.current = committedZoom;
-  }, [committedZoom, pages]);
+
+    const next = computeVisibleSet();
+    setVisiblePages((prev) => {
+      if (prev.size === next.size) {
+        let same = true;
+        for (const p of next) { if (!prev.has(p)) { same = false; break; } }
+        if (same) return prev;
+      }
+      return next;
+    });
+  });
 
   useEffect(() => {
     const el = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
     if (!el) return;
-    updateVisiblePages();
     const onScroll = () => {
       if (scrollRafRef.current !== null) return;
       scrollRafRef.current = requestAnimationFrame(() => {
         scrollRafRef.current = null;
-        updateVisiblePages();
+        const next = computeVisibleSet();
+        setVisiblePages((prev) => {
+          if (prev.size === next.size) {
+            let same = true;
+            for (const p of next) { if (!prev.has(p)) { same = false; break; } }
+            if (same) return prev;
+          }
+          return next;
+        });
       });
     };
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -221,9 +224,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
       el.removeEventListener("scroll", onScroll);
       if (scrollRafRef.current !== null) cancelAnimationFrame(scrollRafRef.current);
     };
-  }, [updateVisiblePages]);
-
-  useEffect(() => { updateVisiblePages(); }, [committedZoom, pages, updateVisiblePages]);
+  }, [computeVisibleSet]);
 
   const visiblePageItems = useMemo(() => {
     const items: Array<{ page: (typeof pages)[number]; layout: PageLayout }> = [];
