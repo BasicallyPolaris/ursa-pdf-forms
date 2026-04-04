@@ -92,50 +92,17 @@ export function findPageAtScreenPoint(
 
 const SCROLL_EDGE_PX = 8;
 const TOP_ANCHOR_FRAC = 0.15;
-let pendingScrollRaf: number | null = null;
-
-/**
- * Sample which PDF point is at the viewport center using hit-testing (matches the scaled
- * visual during CSS zoom lerp). Call from `onZoomSettle` before the store commits.
- */
-export function sampleViewportPdfAnchor(
-  scrollEl: HTMLElement,
-  pages: PageInfo[],
-): { pageNum: number; pdfY: number } | null {
-  const r = scrollEl.getBoundingClientRect();
-  const cx = r.left + scrollEl.clientWidth / 2;
-  const cy = r.top + scrollEl.clientHeight / 2;
-  const stack = document.elementsFromPoint(cx, cy);
-  for (const node of stack) {
-    if (!(node instanceof HTMLElement)) continue;
-    const wrapper = node.closest<HTMLElement>("[data-page-wrapper]");
-    if (!wrapper) continue;
-    const raw = wrapper.getAttribute("data-page-wrapper");
-    if (!raw) continue;
-    const pageNum = parseInt(raw, 10);
-    const page = pages.find((p) => p.pageNumber === pageNum);
-    if (!page) continue;
-    const br = wrapper.getBoundingClientRect();
-    const relY = cy - br.top;
-    if (relY < 0 || relY > br.height) continue;
-    const pdfY = Math.max(
-      0,
-      Math.min(page.height, (relY / br.height) * page.height),
-    );
-    return { pageNum, pdfY };
-  }
-  return null;
-}
-
 /**
  * After zoom settles, keep the same PDF point under the viewport vertical center
- * and center horizontally when the content is wider than the viewport (matches ruler strip).
+ * and center horizontally when the content is wider than the viewport.
  *
- * @param scrollTopForAnchor — scrollTop **before** layout height updates (e.g. captured in
- *   `onZoomSettle`). If omitted, uses current `scrollEl.scrollTop` (can be wrong after the
- *   browser clamps scroll when content shrinks).
- * @param visualAnchor — PDF point at viewport center from {@link sampleViewportPdfAnchor}
- *   (preferred; matches CSS scale animation endpoint).
+ * Purely mathematical — no DOM hit-testing — so the correction is deterministic
+ * and never drifts across rapid zoom frames.
+ *
+ * @param scrollTopForAnchor — scrollTop captured **before** layout height updates
+ *   (e.g. in `onZoomSettle`). If omitted, uses current `scrollEl.scrollTop`.
+ * @param oldVpH — viewport height captured alongside scrollTopForAnchor so the
+ *   anchor position matches the pre-update visual state.
  */
 export function preserveViewportScrollAfterZoomChange(
   scrollEl: HTMLElement,
@@ -143,7 +110,6 @@ export function preserveViewportScrollAfterZoomChange(
   oldZoom: number,
   newZoom: number,
   scrollTopForAnchor?: number,
-  visualAnchor?: { pageNum: number; pdfY: number } | null,
   oldVpH?: number,
 ): void {
   if (pages.length === 0 || oldZoom === newZoom) return;
@@ -157,64 +123,47 @@ export function preserveViewportScrollAfterZoomChange(
 
   const sorted = [...pages].sort((a, b) => a.pageNumber - b.pageNumber);
 
-  let pageNum: number | null = null;
-  let pdfY: number;
-
-  if (
-    visualAnchor &&
-    sorted.some((p) => p.pageNumber === visualAnchor.pageNum)
-  ) {
-    pageNum = visualAnchor.pageNum;
-    pdfY = Math.max(
-      0,
-      Math.min(
-        pages.find((p) => p.pageNumber === pageNum)!.height - 1e-6,
-        visualAnchor.pdfY,
-      ),
-    );
+  const totalOldH = getTotalContentHeight(pages, oldZoom);
+  let anchorY: number;
+  if (st <= SCROLL_EDGE_PX) {
+    anchorY = st + anchorVpH * TOP_ANCHOR_FRAC;
+  } else if (st + anchorVpH >= totalOldH - SCROLL_EDGE_PX) {
+    anchorY = st + anchorVpH * (1 - TOP_ANCHOR_FRAC);
   } else {
-    const totalOldH = getTotalContentHeight(pages, oldZoom);
-    let anchorY: number;
-    if (st <= SCROLL_EDGE_PX) {
-      anchorY = st + anchorVpH * TOP_ANCHOR_FRAC;
-    } else if (st + anchorVpH >= totalOldH - SCROLL_EDGE_PX) {
-      anchorY = st + anchorVpH * (1 - TOP_ANCHOR_FRAC);
-    } else {
-      anchorY = st + anchorVpH / 2;
-    }
+    anchorY = st + anchorVpH / 2;
+  }
 
+  let pageNum: number | null = null;
+  for (const p of sorted) {
+    const L = oldLayouts.get(p.pageNumber);
+    if (!L) continue;
+    if (anchorY >= L.yOffset && anchorY < L.yOffset + L.screenHeight) {
+      pageNum = p.pageNumber;
+      break;
+    }
+  }
+
+  if (pageNum === null) {
+    let best: number | null = null;
     for (const p of sorted) {
       const L = oldLayouts.get(p.pageNumber);
       if (!L) continue;
-      if (anchorY >= L.yOffset && anchorY < L.yOffset + L.screenHeight) {
-        pageNum = p.pageNumber;
-        break;
-      }
+      if (L.yOffset <= anchorY) best = p.pageNumber;
     }
-
-    if (pageNum === null) {
-      let best: number | null = null;
-      for (const p of sorted) {
-        const L = oldLayouts.get(p.pageNumber);
-        if (!L) continue;
-        if (L.yOffset <= anchorY) best = p.pageNumber;
-      }
-      pageNum = best ?? sorted[0]?.pageNumber ?? null;
-    }
-    if (pageNum === null) return;
-
-    const LO = oldLayouts.get(pageNum);
-    if (!LO) return;
-
-    const yWithinPage = Math.max(
-      0,
-      Math.min(anchorY - LO.yOffset, LO.screenHeight - 1e-6),
-    );
-    pdfY = yWithinPage / oldZoom;
+    pageNum = best ?? sorted[0]?.pageNumber ?? null;
   }
+  if (pageNum === null) return;
+
+  const LO = oldLayouts.get(pageNum);
+  if (!LO) return;
+
+  const pdfY = Math.max(
+    0,
+    Math.min(anchorY - LO.yOffset, LO.screenHeight) / oldZoom,
+  );
 
   const newLayouts = computePageLayouts(pages, newZoom, vpW);
-  const LN = newLayouts.get(pageNum!);
+  const LN = newLayouts.get(pageNum);
   if (!LN) return;
 
   const newScreenY = LN.yOffset + pdfY * newZoom;
@@ -223,22 +172,8 @@ export function preserveViewportScrollAfterZoomChange(
   const maxTop = Math.max(0, totalH - vpH);
   scrollTop = Math.max(0, Math.min(maxTop, scrollTop));
 
-  if (pendingScrollRaf !== null) {
-    cancelAnimationFrame(pendingScrollRaf);
-    pendingScrollRaf = null;
-  }
-
-  const apply = () => {
-    const sw = scrollEl.scrollWidth;
-    const cw = scrollEl.clientWidth;
-    const scrollLeft = sw > cw ? (sw - cw) / 2 : 0;
-    scrollEl.scrollLeft = scrollLeft;
-    scrollEl.scrollTop = scrollTop;
-  };
-
-  apply();
-  pendingScrollRaf = requestAnimationFrame(() => {
-    pendingScrollRaf = null;
-    apply();
-  });
+  const sw = scrollEl.scrollWidth;
+  const cw = scrollEl.clientWidth;
+  scrollEl.scrollLeft = sw > cw ? (sw - cw) / 2 : 0;
+  scrollEl.scrollTop = scrollTop;
 }

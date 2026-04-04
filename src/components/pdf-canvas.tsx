@@ -6,7 +6,6 @@ import {
   getTotalContentHeight,
   getVisiblePageNumbers,
   preserveViewportScrollAfterZoomChange,
-  sampleViewportPdfAnchor,
   type PageLayout,
 } from "@/lib/page-layout";
 import {
@@ -170,7 +169,6 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   const pendingScrollCorrectionRef = useRef<{
     scrollTop: number;
     oldZoom: number;
-    visualAnchor: { pageNum: number; pdfY: number } | null;
     oldVpH: number;
   } | null>(null);
 
@@ -180,10 +178,9 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
         const scrollEl = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
         if (scrollEl && pagesRef.current.length > 0) {
           pendingScrollCorrectionRef.current = {
-            scrollTop:    scrollEl.scrollTop,
-            oldZoom:      committedZoomRef.current,
-            visualAnchor: sampleViewportPdfAnchor(scrollEl, pagesRef.current),
-            oldVpH:       scrollEl.clientHeight,
+            scrollTop: scrollEl.scrollTop,
+            oldZoom:   committedZoomRef.current,
+            oldVpH:    scrollEl.clientHeight,
           };
         }
       },
@@ -200,7 +197,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
       if (scrollEl) {
         preserveViewportScrollAfterZoomChange(
           scrollEl, pages, pending.oldZoom, committedZoom,
-          pending.scrollTop, pending.visualAnchor, pending.oldVpH,
+          pending.scrollTop, pending.oldVpH,
         );
       }
       pendingScrollCorrectionRef.current = null;
