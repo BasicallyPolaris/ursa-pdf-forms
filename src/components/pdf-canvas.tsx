@@ -96,7 +96,7 @@ interface PdfCanvasProps {
 
 export function PdfCanvas({ children }: PdfCanvasProps) {
   const { t }         = useTranslation();
-  const pdfBytes      = useEditorStore((s) => s.pdfBytes);
+  const pdfBytes      = useEditorStore((s) => s.renderPdfBytes ?? s.pdfBytes);
   const pages         = useEditorStore((s) => s.pages);
   const committedZoom = useEditorStore((s) => s.zoom);
 

@@ -24,7 +24,7 @@ function getThumbDimensions(pageWidth: number, pageHeight: number) {
 
 export function PageSidebar() {
   const { t } = useTranslation();
-  const pdfBytes = useEditorStore((s) => s.pdfBytes);
+  const pdfBytes = useEditorStore((s) => s.renderPdfBytes ?? s.pdfBytes);
   const pages = useEditorStore((s) => s.pages);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());

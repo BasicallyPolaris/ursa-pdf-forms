@@ -43,6 +43,7 @@ export interface GuideLine {
 interface EditorState {
   pdfFileName: string | null;
   pdfBytes: Uint8Array | null;
+  renderPdfBytes: Uint8Array | null;
   pages: PageInfo[];
   zoom: number;
   activeTool: "select" | "input" | "textarea" | "checkbox" | "radio";
@@ -68,6 +69,7 @@ interface EditorState {
   setActiveTool: (tool: EditorState["activeTool"]) => void;
 
   clearPdf: () => void;
+  setRenderPdfBytes: (bytes: Uint8Array) => void;
   setInitialElements: (elements: FormElement[]) => void;
   addElement: (element: FormElement) => void;
   updateElement: (id: string, updates: Partial<FormElement>) => void;
@@ -117,6 +119,7 @@ export const useEditorStore = create<EditorState>()(
     (set, get) => ({
       pdfFileName: null,
       pdfBytes: null,
+      renderPdfBytes: null,
       pages: [],
       zoom: 1,
       activeTool: "select",
@@ -134,6 +137,7 @@ export const useEditorStore = create<EditorState>()(
         set({
           pdfFileName: fileName,
           pdfBytes: bytes,
+          renderPdfBytes: null,
           pages,
           elements: [],
           selectedIds: new Set<string>(),
@@ -157,6 +161,7 @@ export const useEditorStore = create<EditorState>()(
         set({
           pdfFileName: null,
           pdfBytes: null,
+          renderPdfBytes: null,
           pages: [],
           elements: [],
           selectedIds: new Set<string>(),
@@ -169,6 +174,8 @@ export const useEditorStore = create<EditorState>()(
         });
         useEditorStore.temporal.getState().clear();
       },
+
+      setRenderPdfBytes: (bytes) => set({ renderPdfBytes: bytes }),
 
       setInitialElements: (elements: FormElement[]) => {
         set({ elements });

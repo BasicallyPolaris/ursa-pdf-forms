@@ -4,6 +4,7 @@ import { readFile } from "@tauri-apps/plugin-fs";
 import { useEditorStore } from "@/stores/editor-store";
 import { loadPdfDocument } from "./pdf-loader";
 import { extractAcroFormFields } from "./pdf-form-reader";
+import { stripAcroFormFromPdf } from "./pdf-export-engine";
 
 function extractFileName(filePath: string, fallback: string): string {
   return filePath.split(/[/\\]/).pop() ?? fallback;
@@ -14,9 +15,11 @@ async function loadPdfIntoStore(pdfBytes: Uint8Array, fileName: string) {
   const store = useEditorStore.getState();
   store.setPdf(fileName, pdfBytes, []);
 
+  let hasExistingFields = false;
   try {
     const fields = await extractAcroFormFields(pdfBytes);
     if (fields.length > 0) {
+      hasExistingFields = true;
       const currentStore = useEditorStore.getState();
       if (currentStore.pdfBytes === pdfBytes) {
         currentStore.setInitialElements(fields);
@@ -24,6 +27,18 @@ async function loadPdfIntoStore(pdfBytes: Uint8Array, fileName: string) {
     }
   } catch (error) {
     console.error("Failed to extract AcroForm fields:", error);
+  }
+
+  if (hasExistingFields) {
+    try {
+      const renderBytes = await stripAcroFormFromPdf(pdfBytes);
+      const currentStore = useEditorStore.getState();
+      if (currentStore.pdfBytes === pdfBytes) {
+        currentStore.setRenderPdfBytes(renderBytes);
+      }
+    } catch (error) {
+      console.error("Failed to strip AcroForm for rendering:", error);
+    }
   }
 
   void doc
