@@ -440,21 +440,18 @@ export function VerticalRuler({
   const committedZoomRef = useRef(committedZoom);
   const liveZoomRef = useRef(committedZoom);
 
-  const syncVerticalRulerScroll = useCallback(() => {
-    const scrollEl = document.querySelector<HTMLElement>(
-      "[data-pdf-scroll-container]",
-    );
-    const container = containerRef.current;
-    if (!container || !scrollEl) return;
-    const run = () => {
-      container.scrollTop = scrollEl!.scrollTop;
-    };
-    run();
-    requestAnimationFrame(() => {
-      run();
-      requestAnimationFrame(run);
-    });
-  }, [containerRef]);
+  const syncVerticalRulerScroll = useCallback(
+    () => {
+      const scrollEl = document.querySelector<HTMLElement>(
+        "[data-pdf-scroll-container]",
+      );
+      const container = containerRef.current;
+      if (!container || !scrollEl) return;
+
+      container.scrollTop = scrollEl.scrollTop;
+    },
+    [containerRef],
+  );
 
   const drawVerticalAt = useCallback(
     (zoom: number) => {
@@ -484,11 +481,26 @@ export function VerticalRuler({
       },
       onZoomSettle(zoom) {
         liveZoomRef.current = zoom;
+        // On settle, committedZoomRef hasn't updated yet (React hasn't re-rendered).
+        // drawVerticalAt will be called again by the useLayoutEffect above once
+        // committedZoom updates. Just sync scroll for now.
+        syncVerticalRulerScroll();
       },
     };
     getZoomEngine().addListener(listener);
     return () => getZoomEngine().removeListener(listener);
-  }, [drawVerticalAt]);
+  }, [drawVerticalAt, syncVerticalRulerScroll]);
+
+  // Also sync ruler scroll whenever the PDF scroll container scrolls normally.
+  useEffect(() => {
+    const scrollEl = document.querySelector<HTMLElement>(
+      "[data-pdf-scroll-container]",
+    );
+    if (!scrollEl) return;
+    const onScroll = () => syncVerticalRulerScroll();
+    scrollEl.addEventListener("scroll", onScroll, { passive: true });
+    return () => scrollEl.removeEventListener("scroll", onScroll);
+  }, [syncVerticalRulerScroll]);
 
   const getPdfYFromClientY = useCallback(
     (clientY: number, zoom = liveZoomRef.current): number | null => {
