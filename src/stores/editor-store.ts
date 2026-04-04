@@ -92,6 +92,9 @@ interface EditorState {
   addGuide: (orientation: "horizontal" | "vertical", position: number) => void;
   removeGuide: (id: string) => void;
   updateGuidePosition: (id: string, position: number) => void;
+  batchUpdateElements: (
+    updates: Array<{ id: string; changes: Partial<FormElement> }>,
+  ) => void;
   setPreviewGuide: (
     guide: { orientation: "horizontal" | "vertical"; position: number } | null,
   ) => void;
@@ -357,6 +360,18 @@ export const useEditorStore = create<EditorState>()(
           guides: s.guides.map((g) => (g.id === id ? { ...g, position } : g)),
         })),
 
+      batchUpdateElements: (
+        updates: Array<{ id: string; changes: Partial<FormElement> }>,
+      ) =>
+        set((s) => ({
+          elements: s.elements.map((el) => {
+            const u = updates.find((u) => u.id === el.id);
+            return u
+              ? ({ ...el, ...u.changes } as FormElement)
+              : el;
+          }),
+        })),
+
       setPreviewGuide: (guide) => set({ previewGuide: guide }),
 
       selectGuide: (id) =>
@@ -524,14 +539,26 @@ export const useEditorStore = create<EditorState>()(
   ),
 );
 
+function pruneSelectionAfterUndoRedo() {
+  const state = useEditorStore.getState();
+  const validIds = new Set(state.elements.map((e) => e.id));
+  const current = state.selectedIds;
+  const pruned = new Set([...current].filter((id) => validIds.has(id)));
+  if (pruned.size !== current.size) {
+    useEditorStore.setState({ selectedIds: pruned });
+  }
+}
+
 export function undo() {
   if (!useEditorStore.getState().pdfBytes) return;
   useEditorStore.temporal.getState().undo();
+  pruneSelectionAfterUndoRedo();
 }
 
 export function redo() {
   if (!useEditorStore.getState().pdfBytes) return;
   useEditorStore.temporal.getState().redo();
+  pruneSelectionAfterUndoRedo();
 }
 
 export function canUndo(): boolean {

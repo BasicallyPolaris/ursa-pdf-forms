@@ -66,7 +66,10 @@ export function CanvasOverlay() {
   const dragLivePositions = useEditorStore((s) => s.dragLivePositions);
   const selectGuide = useEditorStore((s) => s.selectGuide);
   const updateGuidePosition = useEditorStore((s) => s.updateGuidePosition);
+  const setPreviewGuide = useEditorStore((s) => s.setPreviewGuide);
+  const removeGuide = useEditorStore((s) => s.removeGuide);
   const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
+  const draggingGuideIdRef = useRef<string | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const [overlayWidth, setOverlayWidth] = useState(0);
 
@@ -1498,6 +1501,9 @@ export function CanvasOverlay() {
 
   const persistentGuideElements = guides.flatMap((guide) => {
     const isSelected = selectedGuideId === guide.id;
+    const isBeingDragged = draggingGuideIdRef.current === guide.id;
+
+    if (isBeingDragged) return [];
 
     const handleGuideMouseDown = (e: React.MouseEvent) => {
       if (e.button !== 0) return;
@@ -1506,54 +1512,88 @@ export function CanvasOverlay() {
       selectGuide(guide.id);
       lockCursor(guide.orientation === "horizontal" ? "ns" : "ew");
 
+      const initialPosition = guide.position;
+      let lastValidPosition = initialPosition;
+
       const overlayEl = overlayRef.current;
       if (!overlayEl) return;
-      const overlayRect = overlayEl.getBoundingClientRect();
-      const scrollContainer = document.querySelector<HTMLElement>(
-        "[data-pdf-scroll-container]",
-      );
-      const sLeft = scrollContainer?.scrollLeft ?? 0;
-      const sTop = scrollContainer?.scrollTop ?? 0;
 
-      const onMouseMove = (moveEvent: MouseEvent) => {
+      const computeGuidePosition = (
+        moveEvent: MouseEvent,
+      ): { position: number; valid: boolean } => {
+        const overlayRect = overlayEl.getBoundingClientRect();
+        const scrollContainer = document.querySelector<HTMLElement>(
+          "[data-pdf-scroll-container]",
+        );
+        const sLeft = scrollContainer?.scrollLeft ?? 0;
+        const sTop = scrollContainer?.scrollTop ?? 0;
+
         if (guide.orientation === "horizontal") {
           const relY = moveEvent.clientY - overlayRect.top + sTop;
+          let foundPage = false;
           let pageYOffset = TOP_PADDING;
           for (const p of pages) {
             const pH = p.height * zoom;
             if (relY >= pageYOffset && relY < pageYOffset + pH) {
+              foundPage = true;
               break;
             }
             pageYOffset += pH + PAGE_GAP;
           }
+          if (!foundPage) return { position: lastValidPosition, valid: false };
           let pdfY = (relY - pageYOffset) / zoom;
+          pdfY = Math.max(0, Math.min(pdfY, pages[0]?.height ?? 792));
           if (moveEvent.shiftKey) {
             pdfY = Math.round(pdfY / gridSize) * gridSize;
           }
-          updateGuidePosition(guide.id, Math.round(pdfY * 10) / 10);
+          return { position: Math.round(pdfY * 10) / 10, valid: true };
         } else {
           const relX = moveEvent.clientX - overlayRect.left + sLeft;
           const page = pages[0];
-          if (!page) return;
+          if (!page) return { position: lastValidPosition, valid: false };
           const xOff =
             layouts.get(page.pageNumber)?.xOffset ??
             Math.max(H_PADDING, (overlayWidth - page.width * zoom) / 2);
           let pdfX = (relX - xOff) / zoom;
+          pdfX = Math.max(0, Math.min(pdfX, page.width));
           if (moveEvent.shiftKey) {
             pdfX = Math.round(pdfX / gridSize) * gridSize;
           }
-          updateGuidePosition(guide.id, Math.round(pdfX * 10) / 10);
+          return { position: Math.round(pdfX * 10) / 10, valid: true };
         }
       };
 
-      const onMouseUp = () => {
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        const { position, valid } = computeGuidePosition(moveEvent);
+        if (valid) {
+          lastValidPosition = position;
+        }
+        setPreviewGuide({
+          orientation: guide.orientation,
+          position: lastValidPosition,
+        });
+      };
+
+      const onMouseUp = (moveEvent: MouseEvent) => {
+        setPreviewGuide(null);
+        const { position, valid } = computeGuidePosition(moveEvent);
+        const finalPos = valid ? position : lastValidPosition;
+
+        if (moveEvent.metaKey || moveEvent.ctrlKey) {
+          removeGuide(guide.id);
+        } else {
+          updateGuidePosition(guide.id, finalPos);
+        }
+
         unlockCursor();
+        draggingGuideIdRef.current = null;
         document.removeEventListener("mousemove", onMouseMove);
         document.removeEventListener("mouseup", onMouseUp);
       };
 
       document.addEventListener("mousemove", onMouseMove);
       document.addEventListener("mouseup", onMouseUp);
+      draggingGuideIdRef.current = guide.id;
     };
 
     const lineStyle: React.CSSProperties = {

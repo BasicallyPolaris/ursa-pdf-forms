@@ -371,7 +371,7 @@ function SinglePositionProperties({ elementId }: { elementId: string }) {
 
 function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
   const { t } = useTranslation();
-  const updateElement = useEditorStore((s) => s.updateElement);
+  const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
 
   if (elements.length === 0) return null;
 
@@ -392,13 +392,15 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
           placeholder={allSameFontSize ? undefined : t("properties.mixed")}
           onChange={(e) => {
             const val = Number(e.target.value);
-            for (const el of elements) {
-              const updates: Partial<TextField> = { fontSize: val };
-              if (!el.multiline) {
-                updates.height = heightFromFontSize(val);
-              }
-              updateElement(el.id, updates);
-            }
+            batchUpdateElements(
+              elements.map((el) => ({
+                id: el.id,
+                changes: {
+                  fontSize: val,
+                  ...(!el.multiline ? { height: heightFromFontSize(val) } : {}),
+                },
+              })),
+            );
           }}
         />
       </PropertyField>
@@ -416,9 +418,9 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
         <Switch
           checked={allSameRequired ? elements[0].required : false}
           onCheckedChange={(checked) => {
-            for (const el of elements) {
-              updateElement(el.id, { required: checked });
-            }
+            batchUpdateElements(
+              elements.map((el) => ({ id: el.id, changes: { required: checked } })),
+            );
           }}
         />
       </div>
@@ -428,7 +430,7 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
 
 function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
   const { t } = useTranslation();
-  const updateElement = useEditorStore((s) => s.updateElement);
+  const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
 
   if (elements.length === 0) return null;
 
@@ -444,9 +446,9 @@ function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
           placeholder={allSameGroup ? undefined : t("properties.mixed")}
           onChange={(e) => {
             const val = e.target.value;
-            for (const el of elements) {
-              updateElement(el.id, { groupName: val });
-            }
+            batchUpdateElements(
+              elements.map((el) => ({ id: el.id, changes: { groupName: val } })),
+            );
           }}
           className="h-7 text-xs"
         />
@@ -457,7 +459,7 @@ function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
 
 function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
   const { t } = useTranslation();
-  const updateElement = useEditorStore((s) => s.updateElement);
+  const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
 
   if (elements.length === 0) return null;
 
@@ -486,9 +488,9 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
             placeholder={allSameX ? undefined : t("properties.mixed")}
             onChange={(e) => {
               const val = Number(e.target.value);
-              for (const el of elements) {
-                updateElement(el.id, { x: val });
-              }
+              batchUpdateElements(
+                elements.map((el) => ({ id: el.id, changes: { x: val } })),
+              );
             }}
           />
         </PropertyField>
@@ -498,9 +500,9 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
             placeholder={allSameY ? undefined : t("properties.mixed")}
             onChange={(e) => {
               const val = Number(e.target.value);
-              for (const el of elements) {
-                updateElement(el.id, { y: val });
-              }
+              batchUpdateElements(
+                elements.map((el) => ({ id: el.id, changes: { y: val } })),
+              );
             }}
           />
         </PropertyField>
@@ -512,9 +514,9 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
             placeholder={allSameW ? undefined : t("properties.mixed")}
             onChange={(e) => {
               const val = Number(e.target.value);
-              for (const el of elements) {
-                updateElement(el.id, { width: val });
-              }
+              batchUpdateElements(
+                elements.map((el) => ({ id: el.id, changes: { width: val } })),
+              );
             }}
           />
         </PropertyField>
@@ -524,10 +526,11 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
             placeholder={allSameH ? undefined : t("properties.mixed")}
             onChange={(e) => {
               const val = Number(e.target.value);
-              for (const el of elements) {
-                if (isTextField(el) && !el.multiline) continue;
-                updateElement(el.id, { height: val });
-              }
+              batchUpdateElements(
+                elements
+                  .filter((el) => !(isTextField(el) && !el.multiline))
+                  .map((el) => ({ id: el.id, changes: { height: val } })),
+              );
             }}
           />
         </PropertyField>
