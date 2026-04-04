@@ -1522,14 +1522,9 @@ export function CanvasOverlay() {
         moveEvent: MouseEvent,
       ): { position: number; valid: boolean } => {
         const overlayRect = overlayEl.getBoundingClientRect();
-        const scrollContainer = document.querySelector<HTMLElement>(
-          "[data-pdf-scroll-container]",
-        );
-        const sLeft = scrollContainer?.scrollLeft ?? 0;
-        const sTop = scrollContainer?.scrollTop ?? 0;
 
         if (guide.orientation === "horizontal") {
-          const relY = moveEvent.clientY - overlayRect.top + sTop;
+          const relY = moveEvent.clientY - overlayRect.top;
           let foundPage = false;
           let pageYOffset = TOP_PADDING;
           for (const p of pages) {
@@ -1548,7 +1543,7 @@ export function CanvasOverlay() {
           }
           return { position: Math.round(pdfY * 10) / 10, valid: true };
         } else {
-          const relX = moveEvent.clientX - overlayRect.left + sLeft;
+          const relX = moveEvent.clientX - overlayRect.left;
           const page = pages[0];
           if (!page) return { position: lastValidPosition, valid: false };
           const xOff =
