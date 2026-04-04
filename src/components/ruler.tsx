@@ -1,15 +1,12 @@
 /**
- * Rulers — imperative <canvas> drawing only (no CSS scale on rulers).
- * Tick spacing and positions use the zoom value passed in: during animation
- * onZoomTick passes live zoom so rulers match the PDF visually; on settle,
- * useLayoutEffect redraws at committed zoom.
+ * Rulers — imperative <canvas> drawing.
+ * Redraws on committedZoom change (via useLayoutEffect) and on scroll.
  */
 
 import { H_PADDING, PAGE_GAP, TOP_PADDING } from "@/lib/coordinates";
 import type { PageInfo } from "@/lib/pdf-loader";
 import { getLayoutContentWidth, getTotalContentHeight } from "@/lib/page-layout";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
-import { getZoomEngine, type ZoomListener } from "@/lib/use-zoom-animation";
 import { useEditorStore } from "@/stores/editor-store";
 import {
   useCallback,
@@ -21,17 +18,15 @@ import {
 import { useTranslation } from "react-i18next";
 
 const RULER_SIZE = 36;
-const MAJOR_INTERVAL = 50; // pt
-const MINOR_INTERVAL = 10; // pt
-const SUB_INTERVAL = 5; // pt
-/** Skip sub-major ticks closer than this (px) so the grid does not jump when zoom crosses thresholds. */
+const MAJOR_INTERVAL = 50;
+const MINOR_INTERVAL = 10;
+const SUB_INTERVAL = 5;
 const MIN_VERTICAL_TICK_PX = 2.5;
 
 function snapToGrid(value: number, gridSize: number): number {
   return Math.round(value / gridSize) * gridSize;
 }
 
-/** Must match scroll content height from `getTotalContentHeight` (single TOP_PADDING at top). */
 function verticalRulerContentHeight(
   pages: Array<{ height: number }>,
   zoom: number,
@@ -49,7 +44,6 @@ function drawHorizontalRuler(
   zoom: number,
   pages: Array<{ width: number; height: number }>,
   contentWidth: number,
-  guides: Array<{ orientation: string; position: number }>,
   scrollLeft: number,
   devicePixelRatio = window.devicePixelRatio || 1,
 ) {
@@ -118,28 +112,13 @@ function drawHorizontalRuler(
       ctx.fillText(String(px), screenX + 3, 3);
     }
   }
-
-  for (const g of guides) {
-    if (g.orientation !== "vertical") continue;
-    const gx = xOffset + g.position * zoom - scrollLeft;
-    if (gx < 0 || gx > W) continue;
-    ctx.strokeStyle =
-      getComputedStyle(canvas).getPropertyValue("--ruler-tick-major").trim() ||
-      "#555";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(gx, 0);
-    ctx.lineTo(gx, H);
-    ctx.stroke();
-  }
 }
 
 function drawVerticalRuler(
   canvas: HTMLCanvasElement,
   zoom: number,
-  pages: Array<{ width: number; height: number; pageNumber?: number }>,
+  pages: Array<{ width: number; height: number }>,
   contentHeight: number,
-  guides: Array<{ orientation: string; position: number }>,
   devicePixelRatio = window.devicePixelRatio || 1,
 ) {
   const W = RULER_SIZE;
@@ -204,27 +183,6 @@ function drawVerticalRuler(
     }
     currentY += screenHeight + PAGE_GAP;
   }
-
-  // Draw horizontal guide markers
-  let gCurrentY = TOP_PADDING;
-  for (const g of guides) {
-    if (g.orientation !== "horizontal") continue;
-    for (const page of pages) {
-      const gy = gCurrentY + g.position * zoom;
-      if (gy >= 0 && gy <= H) {
-        ctx.strokeStyle =
-          getComputedStyle(canvas).getPropertyValue("--ruler-tick-major").trim() ||
-          "#555";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(0, gy);
-        ctx.lineTo(W, gy);
-        ctx.stroke();
-      }
-      gCurrentY += page.height * zoom + PAGE_GAP;
-    }
-    break;
-  }
 }
 
 // ─── HorizontalRuler ─────────────────────────────────────────────────────────
@@ -249,7 +207,6 @@ export function HorizontalRuler({
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const committedZoomRef = useRef(committedZoom);
-  const liveZoomRef = useRef(committedZoom);
 
   const drawHorizontalAt = useCallback(
     (zoom: number) => {
@@ -259,21 +216,13 @@ export function HorizontalRuler({
       );
       const sl = scrollEl?.scrollLeft ?? 0;
       const cw = getLayoutContentWidth(pages, zoom, overlayWidth);
-      drawHorizontalRuler(
-        canvasRef.current,
-        zoom,
-        pages,
-        cw,
-        guides,
-        sl,
-      );
+      drawHorizontalRuler(canvasRef.current, zoom, pages, cw, sl);
     },
-    [pages, guides, overlayWidth],
+    [pages, overlayWidth],
   );
 
   useLayoutEffect(() => {
     committedZoomRef.current = committedZoom;
-    liveZoomRef.current = committedZoom;
     drawHorizontalAt(committedZoom);
   }, [committedZoom, drawHorizontalAt]);
 
@@ -282,27 +231,13 @@ export function HorizontalRuler({
       "[data-pdf-scroll-container]",
     );
     if (!scrollEl) return;
-    const onScroll = () => drawHorizontalAt(liveZoomRef.current);
+    const onScroll = () => drawHorizontalAt(committedZoomRef.current);
     scrollEl.addEventListener("scroll", onScroll, { passive: true });
     return () => scrollEl.removeEventListener("scroll", onScroll);
   }, [drawHorizontalAt]);
 
-  useEffect(() => {
-    const listener: ZoomListener = {
-      onZoomTick(liveZoom) {
-        liveZoomRef.current = liveZoom;
-        drawHorizontalAt(liveZoom);
-      },
-      onZoomSettle(zoom) {
-        liveZoomRef.current = zoom;
-      },
-    };
-    getZoomEngine().addListener(listener);
-    return () => getZoomEngine().removeListener(listener);
-  }, [drawHorizontalAt]);
-
   const getPdfXFromClientX = useCallback(
-    (clientX: number, zoom = liveZoomRef.current): number | null => {
+    (clientX: number, zoom = committedZoomRef.current): number | null => {
       if (pages.length === 0) return null;
       const page = pages[0];
       const screenWidth = page.width * zoom;
@@ -334,7 +269,7 @@ export function HorizontalRuler({
           "[data-pdf-scroll-container]",
         );
         const sl = scrollEl?.scrollLeft ?? rulerEl.scrollLeft;
-        const zoom = liveZoomRef.current;
+        const zoom = committedZoomRef.current;
         const cw = getLayoutContentWidth(pages, zoom, overlayWidth);
         const screenWidth = pages[0].width * zoom;
         const xOff = Math.max(H_PADDING, (cw - screenWidth) / 2);
@@ -436,7 +371,6 @@ export function VerticalRuler({
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const committedZoomRef = useRef(committedZoom);
-  const liveZoomRef = useRef(committedZoom);
 
   const syncVerticalRulerScroll = useCallback(
     () => {
@@ -456,40 +390,19 @@ export function VerticalRuler({
       if (!canvasRef.current) return;
       const ch = verticalRulerContentHeight(pages, zoom, canvasHeight);
       canvasRef.current.style.height = `${ch}px`;
-      drawVerticalRuler(canvasRef.current, zoom, pages, ch, guides);
+      drawVerticalRuler(canvasRef.current, zoom, pages, ch);
       syncVerticalRulerScroll();
     },
-    [pages, canvasHeight, guides, syncVerticalRulerScroll],
+    [pages, canvasHeight, syncVerticalRulerScroll],
   );
 
-  // Run after PdfCanvas useLayoutEffect (scroll preservation) — VerticalRuler is earlier in the tree.
   useLayoutEffect(() => {
     committedZoomRef.current = committedZoom;
-    liveZoomRef.current = committedZoom;
     queueMicrotask(() => {
       drawVerticalAt(committedZoom);
     });
   }, [committedZoom, canvasHeight, drawVerticalAt]);
 
-  useEffect(() => {
-    const listener: ZoomListener = {
-      onZoomTick(liveZoom) {
-        liveZoomRef.current = liveZoom;
-        drawVerticalAt(liveZoom);
-      },
-      onZoomSettle(zoom) {
-        liveZoomRef.current = zoom;
-        // On settle, committedZoomRef hasn't updated yet (React hasn't re-rendered).
-        // drawVerticalAt will be called again by the useLayoutEffect above once
-        // committedZoom updates. Just sync scroll for now.
-        syncVerticalRulerScroll();
-      },
-    };
-    getZoomEngine().addListener(listener);
-    return () => getZoomEngine().removeListener(listener);
-  }, [drawVerticalAt, syncVerticalRulerScroll]);
-
-  // Also sync ruler scroll whenever the PDF scroll container scrolls normally.
   useEffect(() => {
     const scrollEl = document.querySelector<HTMLElement>(
       "[data-pdf-scroll-container]",
@@ -501,7 +414,7 @@ export function VerticalRuler({
   }, [syncVerticalRulerScroll]);
 
   const getPdfYFromClientY = useCallback(
-    (clientY: number, zoom = liveZoomRef.current): number | null => {
+    (clientY: number, zoom = committedZoomRef.current): number | null => {
       if (pages.length === 0) return null;
       const rulerEl = containerRef.current;
       if (!rulerEl) return null;
@@ -535,7 +448,7 @@ export function VerticalRuler({
         if (g.orientation !== "horizontal") return false;
         const rulerEl = containerRef.current;
         if (!rulerEl) return false;
-        const zoom = liveZoomRef.current;
+        const zoom = committedZoomRef.current;
         const rulerTop = rulerEl.getBoundingClientRect().top;
         let yOff = TOP_PADDING;
         for (const page of pages) {

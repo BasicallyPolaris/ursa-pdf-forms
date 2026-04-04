@@ -1,5 +1,4 @@
 import { getZoomEngine } from "@/lib/use-zoom-animation";
-import { getScrollViewportTopCenterOrigin } from "@/lib/zoom-visual-transform";
 import { useEditorStore } from "@/stores/editor-store";
 import { useEffect } from "react";
 
@@ -39,14 +38,8 @@ export function useZoom() {
       const engine = getZoomEngine();
       const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
 
-      // ✅ Accumulate against the QUEUED TARGET, not the current lerped value.
-      // This is the fix for "only 1 step at a time": rapid wheel events now
-      // stack correctly — each adds on top of where the animation is heading,
-      // not where it currently is.
       const newTarget = clampZoom(engine.getTargetZoom() + delta);
-
-      // Viewport top-center only: keeps zoom stable vs rulers; scroll is corrected on settle.
-      engine.setTarget(newTarget, getScrollViewportTopCenterOrigin());
+      engine.setTarget(newTarget);
     };
 
     window.addEventListener("wheel", handleWheel, { passive: false });
@@ -69,19 +62,15 @@ export function useZoom() {
 
       const engine = getZoomEngine();
 
-      const topCenter = getScrollViewportTopCenterOrigin();
-
       if (e.key === "=" || e.key === "+") {
         e.preventDefault();
         engine.setTarget(
           clampZoom(engine.getTargetZoom() + ZOOM_STEP),
-          topCenter,
         );
       } else if (e.key === "-") {
         e.preventDefault();
         engine.setTarget(
           clampZoom(engine.getTargetZoom() - ZOOM_STEP),
-          topCenter,
         );
       } else if (e.key === "0") {
         e.preventDefault();
@@ -93,7 +82,7 @@ export function useZoom() {
         }
       } else if (e.key === "1") {
         e.preventDefault();
-        engine.setTarget(1, topCenter);
+        engine.setTarget(1);
       }
     };
 

@@ -1,52 +1,29 @@
 /**
- * Zoom animation engine — zero React renders during animation.
+ * Zoom engine — batches rapid input, commits immediately on next rAF.
  *
- * Architecture:
- *   DURING animation → notify ZoomListeners which update DOM directly
- *     (PDF canvas applies CSS transform: scale(live/committed) on the page stack wrapper)
- *   ON settle        → call commitZoom() once → one React render; wrapper scale reset to 1
+ * Wheel events accumulate against the target zoom. On the next animation
+ * frame the target is committed to the store, triggering a single React
+ * re-render. No interpolation — every frame reflects input directly.
+ * PDF rasterization is debounced separately in PdfCanvas.
  */
-
-export interface ZoomOrigin {
-  /** Cursor X relative to the scroll container's client area (inside border), origin top-left */
-  clientX: number;
-  /** Cursor Y relative to the scroll container's client area (inside border), origin top-left */
-  clientY: number;
-}
 
 export interface ZoomListener {
   /**
-   * Called on every rAF tick (~60fps).
-   * Must only touch the DOM — no setState, no store writes.
-   */
-  onZoomTick(zoom: number, prevZoom: number): void;
-  /**
-   * Called once when animation settles.
-   * React state/store updates are safe here.
+   * Called once immediately before the zoom is committed to the store.
+   * Use to capture DOM state (e.g. scroll position) before React re-renders.
    */
   onZoomSettle(zoom: number): void;
 }
 
-// Exponential decay lerp. 0.25 is snappy — ~12 frames to 95% settle.
-const LERP_FACTOR = 0.25;
-const SETTLE_THRESHOLD = 0.0003;
-
-class ZoomAnimationEngine {
-  private current = 1;
+class ZoomEngine {
   private target = 1;
-  private origin: ZoomOrigin | null = null;
   private rafId: number | null = null;
   private listeners = new Set<ZoomListener>();
   private commitFn: ((zoom: number) => void) | null = null;
 
   init(zoom: number, commitZoom: (zoom: number) => void) {
-    this.current = zoom;
     this.target = zoom;
     this.commitFn = commitZoom;
-  }
-
-  getOrigin(): ZoomOrigin | null {
-    return this.origin;
   }
 
   addListener(l: ZoomListener): void {
@@ -56,34 +33,25 @@ class ZoomAnimationEngine {
     this.listeners.delete(l);
   }
 
-  /** Current lerped zoom — use for display only */
-  getLiveZoom(): number {
-    return this.current;
-  }
-
   /**
    * The queued target zoom.
-   * Use this (not getLiveZoom) when accumulating rapid scroll events so
-   * each wheel tick adds on top of the already-queued destination.
+   * Use this when accumulating rapid scroll events so each wheel tick
+   * adds on top of the already-queued destination.
    */
   getTargetZoom(): number {
     return this.target;
   }
 
-  setTarget(target: number, origin?: ZoomOrigin): void {
+  setTarget(target: number): void {
     this.target = target;
-    if (origin) this.origin = origin;
     this.scheduleRaf();
   }
 
-  /** Instant jump without animation (e.g. Ctrl+0 fit-page) */
+  /** Instant jump without batching (e.g. Ctrl+0 fit-page). */
   snapTo(zoom: number): void {
     this.stop();
-    this.current = zoom;
     this.target = zoom;
-    this.origin = null;
-    for (const l of this.listeners) l.onZoomSettle(zoom);
-    this.commitFn?.(zoom);
+    this.notifyAndCommit(zoom);
   }
 
   private scheduleRaf() {
@@ -101,29 +69,18 @@ class ZoomAnimationEngine {
 
   private tick = () => {
     this.rafId = null;
-    const prev = this.current;
-    const diff = this.target - this.current;
-    const settled = Math.abs(diff) < SETTLE_THRESHOLD;
-    this.current = settled ? this.target : this.current + diff * LERP_FACTOR;
-
-    // Layout + scroll stay at committed zoom during lerp; PdfCanvas CSS-scales the stack.
-
-    for (const l of this.listeners) l.onZoomTick(this.current, prev);
-
-    if (settled) {
-      this.origin = null;
-      // Listeners first while DOM still reflects pre-commit zoom/layout (e.g. sample viewport for scroll).
-      for (const l of this.listeners) l.onZoomSettle(this.current);
-      this.commitFn?.(this.current);
-    } else {
-      this.rafId = requestAnimationFrame(this.tick);
-    }
+    this.notifyAndCommit(this.target);
   };
+
+  private notifyAndCommit(zoom: number) {
+    for (const l of this.listeners) l.onZoomSettle(zoom);
+    this.commitFn?.(zoom);
+  }
 }
 
-let instance: ZoomAnimationEngine | null = null;
+let instance: ZoomEngine | null = null;
 
-export function getZoomEngine(): ZoomAnimationEngine {
-  if (!instance) instance = new ZoomAnimationEngine();
+export function getZoomEngine(): ZoomEngine {
+  if (!instance) instance = new ZoomEngine();
   return instance;
 }

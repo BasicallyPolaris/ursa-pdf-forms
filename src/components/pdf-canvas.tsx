@@ -29,7 +29,6 @@ import {
 import { useTranslation } from "react-i18next";
 
 const RASTERIZE_DEBOUNCE_MS = 200;
-const ZOOM_LERP_ACTIVE_THRESHOLD = 0.0003;
 const VIRTUAL_OVERSCAN = 1;
 
 interface PdfPageProps {
@@ -103,7 +102,6 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   const committedZoom = useEditorStore((s) => s.zoom);
 
   const outerRef           = useRef<HTMLDivElement>(null);
-  const overlayWrapperRef  = useRef<HTMLDivElement>(null);
   const committedZoomRef   = useRef(committedZoom);
   const pageWrapperRefs    = useRef<Map<number, HTMLElement>>(new Map());
 
@@ -137,21 +135,13 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     [pages, committedZoom, containerWidth],
   );
 
-  useLayoutEffect(() => {
-    committedZoomRef.current = committedZoom;
-  }, [committedZoom]);
-
   const [visiblePages, setVisiblePages] = useState<Set<number>>(new Set());
   const layoutsRef  = useRef(layouts);
   layoutsRef.current = layouts;
   const pagesRef    = useRef(pages);
   pagesRef.current  = pages;
-  const renderedSetRef = useRef(visiblePages);
-  renderedSetRef.current = visiblePages;
 
-  const lerpActiveRef       = useRef(false);
-  const lerpExpandedRef     = useRef(false);
-  const scrollRafRef        = useRef<number | null>(null);
+  const scrollRafRef = useRef<number | null>(null);
 
   const computeVisibleSet = useCallback((): Set<number> => {
     const el = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
@@ -166,7 +156,6 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   }, []);
 
   const updateVisiblePages = useCallback(() => {
-    if (lerpActiveRef.current) return;
     const next = computeVisibleSet();
     setVisiblePages((prev) => {
       if (prev.size === next.size) {
@@ -186,78 +175,6 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
 
   useEffect(() => {
     const listener: ZoomListener = {
-      onZoomTick(liveZoom: number) {
-        const outer = outerRef.current;
-        if (!outer) return;
-        const base = committedZoomRef.current;
-        if (base <= 0) return;
-
-        if (!lerpExpandedRef.current && Math.abs(liveZoom - base) > ZOOM_LERP_ACTIVE_THRESHOLD) {
-          lerpActiveRef.current   = true;
-          lerpExpandedRef.current = true;
-
-          const scrollEl = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
-          if (scrollEl) {
-            const targetZoom    = getZoomEngine().getTargetZoom();
-            const targetLayouts = computeLayouts(pagesRef.current, targetZoom, scrollEl.clientWidth);
-            const scaledScroll  = base > 0 ? scrollEl.scrollTop * (targetZoom / base) : scrollEl.scrollTop;
-            const atTarget      = getVisiblePageNumbers(targetLayouts, scaledScroll, scrollEl.clientHeight);
-            const arr           = [...atTarget].sort((a, b) => a - b);
-            const lo            = Math.max(1,                       (arr[0]                   ?? 1) - VIRTUAL_OVERSCAN);
-            const hi            = Math.min(pagesRef.current.length, (arr[arr.length - 1] ?? 1) + VIRTUAL_OVERSCAN);
-            const expanded      = new Set(renderedSetRef.current);
-            for (let i = lo; i <= hi; i++) expanded.add(i);
-            if (expanded.size !== renderedSetRef.current.size) setVisiblePages(expanded);
-          }
-        }
-
-        const scrollEl = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
-        if (!scrollEl) return;
-        const cw = scrollEl.clientWidth;
-
-        const liveLayouts = computeLayouts(pagesRef.current, liveZoom, cw);
-
-        const liveTotalHeight = getTotalContentHeight(pagesRef.current, liveZoom);
-        const liveContentWidth = getLayoutContentWidth(pagesRef.current, liveZoom, cw);
-        outer.style.height = liveTotalHeight > 0 ? `${liveTotalHeight}px` : "";
-        outer.style.minWidth = liveContentWidth > 0 ? `${liveContentWidth}px` : "";
-
-        for (const [pageNum, el] of pageWrapperRefs.current) {
-          const layout = liveLayouts.get(pageNum);
-          if (!layout) continue;
-          el.style.left = `${layout.xOffset}px`;
-          el.style.top = `${layout.yOffset}px`;
-          el.style.width = `${layout.screenWidth}px`;
-          el.style.height = `${layout.screenHeight}px`;
-        }
-
-        const ratio = liveZoom / base;
-        const overlayWrapper = overlayWrapperRef.current;
-        if (overlayWrapper) {
-          let tx = 0, ty = 0;
-          const scrollCenter = scrollEl.scrollTop + scrollEl.clientHeight / 2;
-          let closestPageNum = 1;
-          let closestDist = Infinity;
-          for (const [pageNum, ll] of liveLayouts) {
-            const pageCenter = ll.yOffset + ll.screenHeight / 2;
-            const dist = Math.abs(pageCenter - scrollCenter);
-            if (dist < closestDist) {
-              closestDist = dist;
-              closestPageNum = pageNum;
-            }
-          }
-          const liveL = liveLayouts.get(closestPageNum);
-          const committedL = layoutsRef.current.get(closestPageNum);
-          if (liveL && committedL) {
-            tx = liveL.xOffset - committedL.xOffset * ratio;
-            ty = liveL.yOffset - committedL.yOffset * ratio;
-          }
-          overlayWrapper.style.transform = `translate(${tx}px, ${ty}px) scale(${ratio})`;
-          overlayWrapper.style.willChange = "transform";
-          overlayWrapper.style.pointerEvents = "none";
-        }
-      },
-
       onZoomSettle(_zoom: number) {
         const scrollEl = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
         if (scrollEl && pagesRef.current.length > 0) {
@@ -267,29 +184,14 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
             visualAnchor: sampleViewportPdfAnchor(scrollEl, pagesRef.current),
           };
         }
-
-        lerpActiveRef.current   = false;
-        lerpExpandedRef.current = false;
-
-        queueMicrotask(() => {
-          const next = computeVisibleSet();
-          setVisiblePages(next);
-        });
       },
     };
 
     getZoomEngine().addListener(listener);
     return () => getZoomEngine().removeListener(listener);
-  }, [computeVisibleSet]);
+  }, []);
 
   useLayoutEffect(() => {
-    const overlayWrapper = overlayWrapperRef.current;
-    if (overlayWrapper) {
-      overlayWrapper.style.transform = "";
-      overlayWrapper.style.willChange = "";
-      overlayWrapper.style.pointerEvents = "";
-    }
-
     const pending = pendingScrollCorrectionRef.current;
     if (pending && pages.length > 0) {
       const scrollEl = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
@@ -301,6 +203,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
       }
       pendingScrollCorrectionRef.current = null;
     }
+    committedZoomRef.current = committedZoom;
   }, [committedZoom, pages]);
 
   useEffect(() => {
@@ -399,14 +302,12 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
       ))}
 
       <div
-        ref={overlayWrapperRef}
         style={{
           position: "absolute",
           left: 0,
           top: 0,
           width: layoutContentWidth > 0 ? layoutContentWidth : undefined,
           height: totalHeight > 0 ? totalHeight : undefined,
-          transformOrigin: "0 0",
         }}
       >
         <VisiblePagesContext.Provider value={visiblePages}>

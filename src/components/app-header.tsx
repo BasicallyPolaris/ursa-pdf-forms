@@ -16,7 +16,7 @@ import {
   ZOOM_STEP,
 } from "@/hooks/use-zoom";
 import { getZoomEngine } from "@/lib/use-zoom-animation";
-import { getScrollViewportTopCenterOrigin } from "@/lib/zoom-visual-transform";
+
 import {
   FileDown,
   FolderOpen,
@@ -44,7 +44,7 @@ function ZoomControls() {
   const zoomFromUi = (next: number) => {
     if (!pdfBytes) return;
     const engine = getZoomEngine();
-    engine.setTarget(clampZoom(next), getScrollViewportTopCenterOrigin());
+    engine.setTarget(clampZoom(next));
   };
 
   return (

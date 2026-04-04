@@ -1457,43 +1457,38 @@ export function CanvasOverlay() {
 
   const guideLineElements = activeGuides.flatMap((guide, i) => {
     if (guide.orientation === "horizontal") {
-      const page = pages.find((p) => {
-        return guide.position >= 0 && guide.position <= p.height;
+      return pages.map((page, pi) => {
+        const layout = layouts.get(page.pageNumber);
+        const screenY =
+          (layout?.yOffset ?? TOP_PADDING) + guide.position * zoom;
+        return (
+          <div
+            key={`guide-${i}-page-${pi}`}
+            className="pointer-events-none absolute z-50"
+            style={{
+              left: 0,
+              top: screenY - 0.5,
+              width: overlayWidth,
+              height: 2,
+              backgroundColor: guideColor(guide.type),
+            }}
+          />
+        );
       });
-      if (!page) return [];
-      const layout = layouts.get(page.pageNumber);
-      if (!layout) return [];
-      const screenY = layout.yOffset + guide.position * zoom;
-      return [
-        <div
-          key={`guide-${i}`}
-          className="pointer-events-none absolute z-50"
-          style={{
-            left: layout.xOffset,
-            top: screenY - 0.5,
-            width: layout.screenWidth,
-            height: 2,
-            backgroundColor: guideColor(guide.type),
-          }}
-        />,
-      ];
     } else {
-      const page = pages.find((p) => {
-        return guide.position >= 0 && guide.position <= p.width;
-      });
-      if (!page) return [];
-      const layout = layouts.get(page.pageNumber);
-      if (!layout) return [];
-      const screenX = layout.xOffset + guide.position * zoom;
+      const firstLayout = layouts.get(1);
+      const screenX = firstLayout
+        ? firstLayout.xOffset + guide.position * zoom
+        : guide.position * zoom;
       return [
         <div
           key={`guide-${i}`}
           className="pointer-events-none absolute z-50"
           style={{
             left: screenX - 0.5,
-            top: layout.yOffset,
+            top: 0,
             width: 2,
-            height: layout.screenHeight,
+            height: totalContentHeight,
             backgroundColor: guideColor(guide.type),
           }}
         />,
