@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { exportPdf } from "@/lib/export-pdf";
 import {
   openPdfFile,
-  saveProjectFile,
 } from "@/lib/file-operations";
 import {
   redo,
@@ -23,7 +22,6 @@ import {
   Minus,
   Plus,
   Redo2,
-  Save,
   Undo2,
 } from "lucide-react";
 import {
@@ -119,18 +117,6 @@ export function AppHeader() {
               <span className="flex items-center gap-2">
                 {t("header.open")}
                 <Kbd>{formatShortcut("open")}</Kbd>
-              </span>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger render={<ToolButton onClick={() => saveProjectFile()} />}>
-              <Save className="h-3.5 w-3.5" />
-              <span>{t("header.save")}</span>
-            </TooltipTrigger>
-            <TooltipContent>
-              <span className="flex items-center gap-2">
-                {t("header.saveProject")}
-                <Kbd>{formatShortcut("save")}</Kbd>
               </span>
             </TooltipContent>
           </Tooltip>

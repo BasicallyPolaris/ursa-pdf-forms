@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useEditorStore, undo, redo } from "@/stores/editor-store";
-import { openPdfFile, saveProjectFile } from "@/lib/file-operations";
+import { openPdfFile } from "@/lib/file-operations";
 import { exportPdf } from "@/lib/export-pdf";
 import { TOP_PADDING, PAGE_GAP } from "@/lib/coordinates";
 import {
@@ -89,12 +89,6 @@ export function useKeyboardShortcuts() {
       if (mod && e.key === "o") {
         e.preventDefault();
         openPdfFile();
-        return;
-      }
-
-      if (mod && e.key === "s") {
-        e.preventDefault();
-        saveProjectFile();
         return;
       }
 

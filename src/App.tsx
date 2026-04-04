@@ -79,6 +79,7 @@ function App() {
                 <div
                   ref={scrollContainerRef}
                   className="relative flex-1 min-w-0 min-h-0 overflow-auto"
+                  style={{ overflowAnchor: 'none' }}
                   data-pdf-scroll-container
                 >
                   <PdfCanvas>

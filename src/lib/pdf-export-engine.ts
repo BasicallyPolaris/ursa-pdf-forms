@@ -1,4 +1,4 @@
-import { PDFDocument, PDFName, PDFPage } from "pdf-lib";
+import { PDFDocument, PDFName, PDFPage, PDFArray, PDFDict, PDFRef } from "pdf-lib";
 import type { FormElement, TextField, Checkbox, RadioButton } from "./form-element-model";
 
 export class ExportValidationError extends Error {
@@ -34,6 +34,7 @@ export async function exportFormElements(
   const existingForm = pdf.catalog.lookup(PDFName.of("AcroForm"));
   if (existingForm) {
     pdf.catalog.delete(PDFName.of("AcroForm"));
+    stripWidgetAnnotations(pdf);
   }
 
   const form = pdf.getForm();
@@ -162,4 +163,41 @@ function addCheckboxField(
   if (el.defaultChecked) {
     field.check();
   }
+}
+
+function stripWidgetAnnotations(pdf: PDFDocument): void {
+  const pages = pdf.getPages();
+  for (const page of pages) {
+    const annots = page.node.lookup(PDFName.of("Annots"));
+    if (!(annots instanceof PDFArray)) continue;
+
+    const kept: (PDFRef | PDFDict)[] = [];
+    for (let i = 0; i < annots.size(); i++) {
+      const annotRef = annots.get(i) as PDFRef | PDFDict;
+      const annotDict = annotRef instanceof PDFRef
+        ? pdf.context.lookup(annotRef)
+        : annotRef;
+
+      if (annotDict instanceof PDFDict) {
+        const subtype = annotDict.get(PDFName.of("Subtype"));
+        if (subtype === PDFName.of("Widget")) continue;
+      }
+      kept.push(annotRef);
+    }
+
+    if (kept.length === 0) {
+      page.node.delete(PDFName.of("Annots"));
+    } else {
+      page.node.set(PDFName.of("Annots"), pdf.context.obj(kept));
+    }
+  }
+}
+
+export async function stripAcroFormFromPdf(pdfBytes: Uint8Array): Promise<Uint8Array> {
+  const pdf = await PDFDocument.load(pdfBytes);
+  const existingForm = pdf.catalog.lookup(PDFName.of("AcroForm"));
+  if (!existingForm) return pdfBytes;
+  pdf.catalog.delete(PDFName.of("AcroForm"));
+  stripWidgetAnnotations(pdf);
+  return pdf.save();
 }

@@ -4,8 +4,6 @@
   },
   "header": {
     "open": "Open",
-    "save": "Save",
-    "saveProject": "Save project",
     "export": "Export",
     "zoomOut": "Zoom out",
     "zoomIn": "Zoom in",
@@ -109,7 +107,6 @@
     "tools": "Tools",
     "view": "View",
     "open": "Open PDF",
-    "save": "Save project",
     "export": "Export PDF",
     "undo": "Undo",
     "redo": "Redo",
@@ -155,15 +152,10 @@
   },
   "file": {
     "pdfFilter": "PDF",
-    "projectFilter": "PDF Form Maker Project",
     "defaultPdfName": "document.pdf",
-    "defaultProjectName": "project.pfm",
     "defaultExportName": "form-output.pdf",
-    "invalidProject": "Invalid project file format",
     "openFailed": "Failed to open file. Please check the file is a valid PDF.",
-    "saveFailed": "Failed to save project.",
     "exportFailed": "Failed to export PDF. Please try again.",
-    "projectOpenFailed": "Failed to open project. The file may be corrupted.",
     "invalidPdf": "The selected file is not a valid PDF."
   },
   "errors": {

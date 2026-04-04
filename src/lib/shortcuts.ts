@@ -1,6 +1,5 @@
 export type ShortcutId =
   | "open"
-  | "save"
   | "export"
   | "undo"
   | "redo"
@@ -45,7 +44,6 @@ export const shiftSymbol = isMac ? "⇧" : "Shift";
 
 export const SHORTCUTS: ShortcutDef[] = [
   { id: "open", i18nKey: "shortcuts.open", group: "file", mod: true, key: "o" },
-  { id: "save", i18nKey: "shortcuts.save", group: "file", mod: true, key: "s" },
   { id: "export", i18nKey: "shortcuts.export", group: "file", mod: true, key: "e" },
   { id: "undo", i18nKey: "shortcuts.undo", group: "edit", mod: true, key: "z" },
   { id: "redo", i18nKey: "shortcuts.redo", group: "edit", mod: true, shift: true, key: "z" },

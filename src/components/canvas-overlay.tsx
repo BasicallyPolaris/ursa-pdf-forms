@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Rnd } from "react-rnd";
 import { useEditorStore } from "@/stores/editor-store";
 import {
@@ -131,7 +131,7 @@ export function CanvasOverlay() {
   } | null>(null);
   const closeContextMenu = useCallback(() => setContextMenuState(null), []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = overlayRef.current;
     if (!el) return;
     setOverlayWidth(el.clientWidth);

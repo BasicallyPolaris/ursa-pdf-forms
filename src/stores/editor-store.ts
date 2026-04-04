@@ -43,6 +43,7 @@ export interface GuideLine {
 interface EditorState {
   pdfFileName: string | null;
   pdfBytes: Uint8Array | null;
+  renderPdfBytes: Uint8Array | null;
   pages: PageInfo[];
   zoom: number;
   activeTool: "select" | "input" | "textarea" | "checkbox" | "radio";
@@ -68,6 +69,8 @@ interface EditorState {
   setActiveTool: (tool: EditorState["activeTool"]) => void;
 
   clearPdf: () => void;
+  setRenderPdfBytes: (bytes: Uint8Array) => void;
+  setInitialElements: (elements: FormElement[]) => void;
   addElement: (element: FormElement) => void;
   updateElement: (id: string, updates: Partial<FormElement>) => void;
   moveElements: (
@@ -116,6 +119,7 @@ export const useEditorStore = create<EditorState>()(
     (set, get) => ({
       pdfFileName: null,
       pdfBytes: null,
+      renderPdfBytes: null,
       pages: [],
       zoom: 1,
       activeTool: "select",
@@ -129,8 +133,23 @@ export const useEditorStore = create<EditorState>()(
       selectedGuideId: null,
       dragLivePositions: new Map(),
 
-      setPdf: (fileName, bytes, pages) =>
-        set({ pdfFileName: fileName, pdfBytes: bytes, pages }),
+      setPdf: (fileName, bytes, pages) => {
+        set({
+          pdfFileName: fileName,
+          pdfBytes: bytes,
+          renderPdfBytes: null,
+          pages,
+          elements: [],
+          selectedIds: new Set<string>(),
+          clipboard: [],
+          guides: [],
+          selectedGuideId: null,
+          previewGuide: null,
+          dragLivePositions: new Map(),
+          activeTool: "select",
+        });
+        useEditorStore.temporal.getState().clear();
+      },
 
       setPdfPages: (pages) => set({ pages }),
 
@@ -138,7 +157,30 @@ export const useEditorStore = create<EditorState>()(
 
       setActiveTool: (activeTool) => set({ activeTool }),
 
-      clearPdf: () => set({ pdfFileName: null, pdfBytes: null, pages: [] }),
+      clearPdf: () => {
+        set({
+          pdfFileName: null,
+          pdfBytes: null,
+          renderPdfBytes: null,
+          pages: [],
+          elements: [],
+          selectedIds: new Set<string>(),
+          clipboard: [],
+          guides: [],
+          selectedGuideId: null,
+          previewGuide: null,
+          dragLivePositions: new Map(),
+          activeTool: "select",
+        });
+        useEditorStore.temporal.getState().clear();
+      },
+
+      setRenderPdfBytes: (bytes) => set({ renderPdfBytes: bytes }),
+
+      setInitialElements: (elements: FormElement[]) => {
+        set({ elements });
+        useEditorStore.temporal.getState().clear();
+      },
 
       addElement: (element) =>
         set((s) => ({ elements: [...s.elements, element] })),

@@ -1,5 +1,6 @@
 import { getZoomEngine } from "@/lib/use-zoom-animation";
 import { useEditorStore } from "@/stores/editor-store";
+import { flushSync } from "react-dom";
 import { useEffect } from "react";
 
 export const ZOOM_MIN = 0.5;
@@ -19,7 +20,7 @@ export function useZoom() {
   useEffect(() => {
     const store = useEditorStore.getState();
     getZoomEngine().init(store.zoom, (zoom) =>
-      useEditorStore.getState().setZoom(zoom),
+      flushSync(() => useEditorStore.getState().setZoom(zoom)),
     );
   }, []);
 
