@@ -174,12 +174,6 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     const scrollEl = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
     if (!scrollEl) return;
 
-    const w = scrollEl.clientWidth;
-    if (w !== containerWidth) {
-      setContainerWidth(w);
-      return;
-    }
-
     const pending = pendingScrollCorrectionRef.current;
     if (pending && pages.length > 0) {
       preserveViewportScrollAfterZoomChange(
@@ -199,6 +193,11 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
       }
       return next;
     });
+
+    const w = scrollEl.clientWidth;
+    if (w !== containerWidth) {
+      setContainerWidth(w);
+    }
   });
 
   useEffect(() => {
