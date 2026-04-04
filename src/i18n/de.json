@@ -4,8 +4,6 @@
   },
   "header": {
     "open": "Öffnen",
-    "save": "Speichern",
-    "saveProject": "Projekt speichern",
     "export": "Exportieren",
     "zoomOut": "Verkleinern",
     "zoomIn": "Vergrößern",
@@ -111,15 +109,10 @@
   },
   "file": {
     "pdfFilter": "PDF",
-    "projectFilter": "PDF-Formular-Designer Projekt",
     "defaultPdfName": "dokument.pdf",
-    "defaultProjectName": "projekt.pfm",
     "defaultExportName": "formular-ausgabe.pdf",
-    "invalidProject": "Ungültiges Projektdateiformat",
     "openFailed": "Datei konnte nicht geöffnet werden. Bitte überprüfen Sie, ob die Datei ein gültiges PDF ist.",
-    "saveFailed": "Projekt konnte nicht gespeichert werden.",
     "exportFailed": "PDF konnte nicht exportiert werden. Bitte versuchen Sie es erneut.",
-    "projectOpenFailed": "Projekt konnte nicht geöffnet werden. Die Datei ist möglicherweise beschädigt.",
     "invalidPdf": "Die ausgewählte Datei ist kein gültiges PDF."
   },
   "errors": {
@@ -138,7 +131,6 @@
     "tools": "Werkzeuge",
     "view": "Ansicht",
     "open": "PDF öffnen",
-    "save": "Projekt speichern",
     "export": "PDF exportieren",
     "undo": "Rückgängig",
     "redo": "Wiederholen",

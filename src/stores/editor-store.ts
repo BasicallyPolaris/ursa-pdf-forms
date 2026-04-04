@@ -68,6 +68,7 @@ interface EditorState {
   setActiveTool: (tool: EditorState["activeTool"]) => void;
 
   clearPdf: () => void;
+  setInitialElements: (elements: FormElement[]) => void;
   addElement: (element: FormElement) => void;
   updateElement: (id: string, updates: Partial<FormElement>) => void;
   moveElements: (
@@ -129,8 +130,22 @@ export const useEditorStore = create<EditorState>()(
       selectedGuideId: null,
       dragLivePositions: new Map(),
 
-      setPdf: (fileName, bytes, pages) =>
-        set({ pdfFileName: fileName, pdfBytes: bytes, pages }),
+      setPdf: (fileName, bytes, pages) => {
+        set({
+          pdfFileName: fileName,
+          pdfBytes: bytes,
+          pages,
+          elements: [],
+          selectedIds: new Set<string>(),
+          clipboard: [],
+          guides: [],
+          selectedGuideId: null,
+          previewGuide: null,
+          dragLivePositions: new Map(),
+          activeTool: "select",
+        });
+        useEditorStore.temporal.getState().clear();
+      },
 
       setPdfPages: (pages) => set({ pages }),
 
@@ -138,7 +153,27 @@ export const useEditorStore = create<EditorState>()(
 
       setActiveTool: (activeTool) => set({ activeTool }),
 
-      clearPdf: () => set({ pdfFileName: null, pdfBytes: null, pages: [] }),
+      clearPdf: () => {
+        set({
+          pdfFileName: null,
+          pdfBytes: null,
+          pages: [],
+          elements: [],
+          selectedIds: new Set<string>(),
+          clipboard: [],
+          guides: [],
+          selectedGuideId: null,
+          previewGuide: null,
+          dragLivePositions: new Map(),
+          activeTool: "select",
+        });
+        useEditorStore.temporal.getState().clear();
+      },
+
+      setInitialElements: (elements: FormElement[]) => {
+        set({ elements });
+        useEditorStore.temporal.getState().clear();
+      },
 
       addElement: (element) =>
         set((s) => ({ elements: [...s.elements, element] })),
