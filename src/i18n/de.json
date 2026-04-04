@@ -165,7 +165,7 @@
   "contextMenu": {
     "cut": "Ausschneiden",
     "copy": "Kopieren",
-    "paste": "Einfügen",
+    "pasteHere": "Hier einfügen",
     "duplicate": "Duplizieren",
     "delete": "Löschen",
     "deleteGuide": "Hilfslinie löschen",

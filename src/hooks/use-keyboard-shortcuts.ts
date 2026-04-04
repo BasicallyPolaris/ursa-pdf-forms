@@ -3,6 +3,11 @@ import { useEditorStore, undo, redo } from "@/stores/editor-store";
 import { openPdfFile, saveProjectFile } from "@/lib/file-operations";
 import { exportPdf } from "@/lib/export-pdf";
 import { TOP_PADDING, PAGE_GAP } from "@/lib/coordinates";
+import {
+  computePageLayouts,
+  findPageAtScreenPoint,
+  getLayoutContentWidth,
+} from "@/lib/page-layout";
 
 const TOOL_KEY_MAP: Record<string, string> = {
   v: "select",
@@ -16,6 +21,30 @@ function isInputElement(e: KeyboardEvent): boolean {
     e.target instanceof HTMLElement &&
     ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)
   );
+}
+
+let lastMouseX = 0;
+let lastMouseY = 0;
+
+function getMousePage(): number | null {
+  const scrollEl = document.querySelector("[data-pdf-scroll-container]");
+  if (!scrollEl) return null;
+  const store = useEditorStore.getState();
+  if (store.pages.length === 0) return null;
+  const scrollRect = scrollEl.getBoundingClientRect();
+  const relX = lastMouseX - scrollRect.left + scrollEl.scrollLeft;
+  const relY = lastMouseY - scrollRect.top + scrollEl.scrollTop;
+  const layoutWidth = getLayoutContentWidth(
+    store.pages,
+    store.zoom,
+    scrollEl.clientWidth,
+  );
+  const layouts = computePageLayouts(
+    store.pages,
+    store.zoom,
+    layoutWidth,
+  );
+  return findPageAtScreenPoint(relX, relY, layouts);
 }
 
 function getVisiblePage(): number | undefined {
@@ -42,6 +71,15 @@ function getVisiblePage(): number | undefined {
 }
 
 export function useKeyboardShortcuts() {
+  useEffect(() => {
+    const trackMouse = (e: MouseEvent) => {
+      lastMouseX = e.clientX;
+      lastMouseY = e.clientY;
+    };
+    document.addEventListener("mousemove", trackMouse);
+    return () => document.removeEventListener("mousemove", trackMouse);
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isInputElement(e)) return;
@@ -86,7 +124,8 @@ export function useKeyboardShortcuts() {
 
       if (mod && e.key === "v") {
         e.preventDefault();
-        store.pasteClipboard(getVisiblePage());
+        const mousePage = getMousePage();
+        store.pasteClipboard(mousePage ?? getVisiblePage());
       }
 
       if (mod && e.key === "z" && !e.shiftKey) {

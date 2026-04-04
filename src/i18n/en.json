@@ -136,7 +136,7 @@
   "contextMenu": {
     "cut": "Cut",
     "copy": "Copy",
-    "paste": "Paste",
+    "pasteHere": "Paste here",
     "duplicate": "Duplicate",
     "delete": "Delete",
     "deleteGuide": "Delete Guide",

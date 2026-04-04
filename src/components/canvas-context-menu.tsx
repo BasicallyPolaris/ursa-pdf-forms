@@ -83,7 +83,7 @@ export function CanvasContextMenu({
           action: () => store.copySelection(),
         },
         {
-          label: t("contextMenu.paste"),
+          label: t("contextMenu.pasteHere"),
           shortcut: formatShortcut("paste"),
           icon: ClipboardPaste,
           action: () => store.pasteClipboard(context.pageNumber, context.pdfX, context.pdfY),
@@ -123,7 +123,7 @@ export function CanvasContextMenu({
 
       if (clipboard.length > 0) {
         result.push({
-          label: t("contextMenu.paste"),
+          label: t("contextMenu.pasteHere"),
           shortcut: formatShortcut("paste"),
           icon: ClipboardPaste,
           action: () => store.pasteClipboard(context.pageNumber, context.pdfX, context.pdfY),
