@@ -3,13 +3,14 @@
  *
  * Architecture:
  *   DURING animation → notify ZoomListeners which update DOM directly
- *   ON settle        → call commitZoom() once → one React render
+ *     (PDF canvas applies CSS transform: scale(live/committed) on the page stack wrapper)
+ *   ON settle        → call commitZoom() once → one React render; wrapper scale reset to 1
  */
 
 export interface ZoomOrigin {
-  /** Cursor X relative to the scroll container's client rect */
+  /** Cursor X relative to the scroll container's client area (inside border), origin top-left */
   clientX: number;
-  /** Cursor Y relative to the scroll container's client rect */
+  /** Cursor Y relative to the scroll container's client area (inside border), origin top-left */
   clientY: number;
 }
 
@@ -81,8 +82,8 @@ class ZoomAnimationEngine {
     this.current = zoom;
     this.target = zoom;
     this.origin = null;
-    this.commitFn?.(zoom);
     for (const l of this.listeners) l.onZoomSettle(zoom);
+    this.commitFn?.(zoom);
   }
 
   private scheduleRaf() {
@@ -105,16 +106,15 @@ class ZoomAnimationEngine {
     const settled = Math.abs(diff) < SETTLE_THRESHOLD;
     this.current = settled ? this.target : this.current + diff * LERP_FACTOR;
 
-    // Scroll compensation is intentionally omitted: layout stays at committed zoom and
-    // PdfCanvas applies transform: scale(live/committed). Linear scroll math assumes
-    // scroll extents scale with zoom and fights that model.
+    // Layout + scroll stay at committed zoom during lerp; PdfCanvas CSS-scales the stack.
 
     for (const l of this.listeners) l.onZoomTick(this.current, prev);
 
     if (settled) {
       this.origin = null;
-      this.commitFn?.(this.current);
+      // Listeners first while DOM still reflects pre-commit zoom/layout (e.g. sample viewport for scroll).
       for (const l of this.listeners) l.onZoomSettle(this.current);
+      this.commitFn?.(this.current);
     } else {
       this.rafId = requestAnimationFrame(this.tick);
     }

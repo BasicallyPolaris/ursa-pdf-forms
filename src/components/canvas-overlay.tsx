@@ -1476,9 +1476,9 @@ export function CanvasOverlay() {
         );
       });
     } else {
-      const screenX = layouts.get(1)
-        ? Math.max(H_PADDING, (overlayWidth - pages[0].width * zoom) / 2) +
-          guide.position * zoom
+      const firstLayout = layouts.get(1);
+      const screenX = firstLayout
+        ? firstLayout.xOffset + guide.position * zoom
         : guide.position * zoom;
       return [
         <div
@@ -1535,10 +1535,9 @@ export function CanvasOverlay() {
           const relX = moveEvent.clientX - overlayRect.left + sLeft;
           const page = pages[0];
           if (!page) return;
-          const xOff = Math.max(
-            H_PADDING,
-            (overlayWidth - page.width * zoom) / 2,
-          );
+          const xOff =
+            layouts.get(page.pageNumber)?.xOffset ??
+            Math.max(H_PADDING, (overlayWidth - page.width * zoom) / 2);
           let pdfX = (relX - xOff) / zoom;
           if (moveEvent.shiftKey) {
             pdfX = Math.round(pdfX / gridSize) * gridSize;

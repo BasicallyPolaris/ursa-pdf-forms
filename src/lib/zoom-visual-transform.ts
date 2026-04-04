@@ -1,42 +1,71 @@
 import type { ZoomOrigin } from "@/lib/use-zoom-animation";
 
 /**
- * Left edge of `el` in scroll-content coordinates (layout only; ignores CSS transform).
- * Walks offsetParent chain until `scrollEl` — `el.offsetLeft` alone is wrong when the
- * wrapper is nested (e.g. mx-auto inside an outer div).
+ * Top-left of the scroll container's client area (where scrollLeft/Top apply).
  */
-function offsetLeftInScrollContent(
-  scrollEl: HTMLElement,
-  el: HTMLElement,
-): number {
-  let left = 0;
-  let node: HTMLElement | null = el;
-  while (node && node !== scrollEl) {
-    left += node.offsetLeft;
-    node = node.offsetParent as HTMLElement | null;
-  }
-  if (node !== scrollEl) {
-    return el.offsetLeft;
-  }
-  return left;
+export function getScrollClientAreaOrigin(scrollEl: HTMLElement): {
+  left: number;
+  top: number;
+} {
+  const r = scrollEl.getBoundingClientRect();
+  const s = getComputedStyle(scrollEl);
+  const bl = parseFloat(s.borderLeftWidth) || 0;
+  const bt = parseFloat(s.borderTopWidth) || 0;
+  const pl = parseFloat(s.paddingLeft) || 0;
+  const pt = parseFloat(s.paddingTop) || 0;
+  return {
+    left: r.left + bl + pl,
+    top: r.top + bt + pt,
+  };
 }
 
 /**
- * PDF scale wrapper: transform-origin X in wrapper-local px (Y = top).
+ * Transform-origin for `scale(live/committed)` on the page stack: viewport center in
+ * wrapper-local px (layout offsets only — never getBoundingClientRect on the scaled node).
  */
 export function getPdfScaleTransformOrigin(
   scrollEl: HTMLElement,
+  outerEl: HTMLElement,
   scaleWrapperEl: HTMLElement,
-  origin: ZoomOrigin | null,
+  _origin: ZoomOrigin | null,
 ): string {
-  const clientX = origin ? origin.clientX : scrollEl.clientWidth / 2;
-  const wrapperLeft = offsetLeftInScrollContent(scrollEl, scaleWrapperEl);
-  const relativeX = scrollEl.scrollLeft + clientX - wrapperLeft;
-  return `${relativeX}px 0`;
+  void _origin;
+  const clientX = scrollEl.clientWidth / 2;
+  const clientY = scrollEl.clientHeight / 2;
+  const clientOrigin = getScrollClientAreaOrigin(scrollEl);
+  const outerRect = outerEl.getBoundingClientRect();
+
+  const outerLeftInScroll =
+    scrollEl.scrollLeft + (outerRect.left - clientOrigin.left);
+  const outerTopInScroll =
+    scrollEl.scrollTop + (outerRect.top - clientOrigin.top);
+
+  let wrapperLeftInScroll = outerLeftInScroll + scaleWrapperEl.offsetLeft;
+  let wrapperTopInScroll = outerTopInScroll + scaleWrapperEl.offsetTop;
+  if (scaleWrapperEl.offsetParent !== outerEl) {
+    let left = 0;
+    let top = 0;
+    let node: HTMLElement | null = scaleWrapperEl;
+    while (node && node !== outerEl) {
+      left += node.offsetLeft;
+      top += node.offsetTop;
+      node = node.offsetParent as HTMLElement | null;
+    }
+    if (node === outerEl) {
+      wrapperLeftInScroll = outerLeftInScroll + left;
+      wrapperTopInScroll = outerTopInScroll + top;
+    }
+  }
+
+  const focalContentX = scrollEl.scrollLeft + clientX;
+  const focalContentY = scrollEl.scrollTop + clientY;
+  const relativeX = focalContentX - wrapperLeftInScroll;
+  const relativeY = focalContentY - wrapperTopInScroll;
+  return `${relativeX}px ${relativeY}px`;
 }
 
 /**
- * Synthetic origin for toolbar / keyboard zoom: top center of the PDF scroll viewport.
+ * Synthetic origin for toolbar / keyboard / wheel zoom: top center of the PDF scroll viewport.
  */
 export function getScrollViewportTopCenterOrigin(): ZoomOrigin {
   const scrollEl = document.querySelector<HTMLElement>(

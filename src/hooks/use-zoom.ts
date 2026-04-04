@@ -45,11 +45,8 @@ export function useZoom() {
       // not where it currently is.
       const newTarget = clampZoom(engine.getTargetZoom() + delta);
 
-      const rect = scrollEl.getBoundingClientRect();
-      engine.setTarget(newTarget, {
-        clientX: e.clientX - rect.left,
-        clientY: e.clientY - rect.top,
-      });
+      // Viewport top-center only: keeps zoom stable vs rulers; scroll is corrected on settle.
+      engine.setTarget(newTarget, getScrollViewportTopCenterOrigin());
     };
 
     window.addEventListener("wheel", handleWheel, { passive: false });
