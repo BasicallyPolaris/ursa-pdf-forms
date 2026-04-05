@@ -7,6 +7,7 @@ import { H_PADDING, PAGE_GAP, TOP_PADDING } from "@/lib/coordinates";
 import { getLayoutContentWidth } from "@/lib/page-layout";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
 import { useEditorStore } from "@/stores/editor-store";
+import { snapToGrid } from "@/lib/snap-engine";
 import {
   useCallback,
   useEffect,
@@ -21,10 +22,6 @@ const MAJOR_INTERVAL = 50;
 const MINOR_INTERVAL = 10;
 const SUB_INTERVAL = 5;
 const MIN_VERTICAL_TICK_PX = 2.5;
-
-function snapToGrid(value: number, gridSize: number): number {
-  return Math.round(value / gridSize) * gridSize;
-}
 
 
 

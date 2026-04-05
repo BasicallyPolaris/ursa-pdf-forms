@@ -16,6 +16,7 @@ export interface SnapContext {
   snapToPageEdges: boolean;
   snapToElements: boolean;
   snapToGuides: boolean;
+  hasAnySnap: boolean;
 }
 
 export interface SnapResult {
@@ -294,35 +295,30 @@ function findAllAlignmentGuides(
   }
 
   if (context.snapToPageEdges) {
-    if (Math.abs(elementEdges.top) <= CONCURRENT_TOLERANCE) {
-      addGuide({ orientation: "horizontal", position: 0, type: "page" });
+    const hEdgeChecks: Array<{ edge: number; target: number }> = [
+      { edge: elementEdges.top, target: 0 },
+      { edge: elementEdges.bottom, target: context.pageHeight },
+      { edge: elementEdges.centerY, target: context.pageHeight / 2 },
+      { edge: elementEdges.top, target: context.pageHeight / 2 },
+      { edge: elementEdges.bottom, target: context.pageHeight / 2 },
+    ];
+    for (const check of hEdgeChecks) {
+      if (Math.abs(check.edge - check.target) <= CONCURRENT_TOLERANCE) {
+        addGuide({ orientation: "horizontal", position: check.target, type: "page" });
+      }
     }
-    if (Math.abs(elementEdges.bottom - context.pageHeight) <= CONCURRENT_TOLERANCE) {
-      addGuide({ orientation: "horizontal", position: context.pageHeight, type: "page" });
-    }
-    if (Math.abs(elementEdges.centerY - context.pageHeight / 2) <= CONCURRENT_TOLERANCE) {
-      addGuide({ orientation: "horizontal", position: context.pageHeight / 2, type: "page" });
-    }
-    if (Math.abs(elementEdges.top - context.pageHeight / 2) <= CONCURRENT_TOLERANCE) {
-      addGuide({ orientation: "horizontal", position: context.pageHeight / 2, type: "page" });
-    }
-    if (Math.abs(elementEdges.bottom - context.pageHeight / 2) <= CONCURRENT_TOLERANCE) {
-      addGuide({ orientation: "horizontal", position: context.pageHeight / 2, type: "page" });
-    }
-    if (Math.abs(elementEdges.left) <= CONCURRENT_TOLERANCE) {
-      addGuide({ orientation: "vertical", position: 0, type: "page" });
-    }
-    if (Math.abs(elementEdges.right - context.pageWidth) <= CONCURRENT_TOLERANCE) {
-      addGuide({ orientation: "vertical", position: context.pageWidth, type: "page" });
-    }
-    if (Math.abs(elementEdges.centerX - context.pageWidth / 2) <= CONCURRENT_TOLERANCE) {
-      addGuide({ orientation: "vertical", position: context.pageWidth / 2, type: "page" });
-    }
-    if (Math.abs(elementEdges.left - context.pageWidth / 2) <= CONCURRENT_TOLERANCE) {
-      addGuide({ orientation: "vertical", position: context.pageWidth / 2, type: "page" });
-    }
-    if (Math.abs(elementEdges.right - context.pageWidth / 2) <= CONCURRENT_TOLERANCE) {
-      addGuide({ orientation: "vertical", position: context.pageWidth / 2, type: "page" });
+
+    const vEdgeChecks: Array<{ edge: number; target: number }> = [
+      { edge: elementEdges.left, target: 0 },
+      { edge: elementEdges.right, target: context.pageWidth },
+      { edge: elementEdges.centerX, target: context.pageWidth / 2 },
+      { edge: elementEdges.left, target: context.pageWidth / 2 },
+      { edge: elementEdges.right, target: context.pageWidth / 2 },
+    ];
+    for (const check of vEdgeChecks) {
+      if (Math.abs(check.edge - check.target) <= CONCURRENT_TOLERANCE) {
+        addGuide({ orientation: "vertical", position: check.target, type: "page" });
+      }
     }
   }
 

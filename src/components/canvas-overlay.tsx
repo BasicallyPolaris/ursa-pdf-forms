@@ -18,14 +18,14 @@ import {
   findPageAtScreenPoint,
   getTotalContentHeight,
 } from "@/lib/page-layout";
-import { rectsOverlap, type Rect } from "@/lib/geometry";
+import { rectsOverlap, computeBoundingRect, type Rect } from "@/lib/geometry";
 import {
   snapPosition,
   snapResizeBounds,
   type SnapGuide,
   type SnapContext,
 } from "@/lib/snap-engine";
-import { computeBoundingRect } from "@/lib/selection-geometry";
+
 import {
   CanvasContextMenu,
   type MenuContext,
@@ -258,6 +258,7 @@ export function CanvasOverlay() {
         snapToPageEdges: !freeMovement,
         snapToElements: !freeMovement,
         snapToGuides: !freeMovement,
+        hasAnySnap: !freeMovement,
       };
     },
     [elementsByPage, pages, gridSize, rulerGuideSnapData],
@@ -335,11 +336,7 @@ export function CanvasOverlay() {
           shiftKey: e.shiftKey,
           ctrlKey: e.ctrlKey || e.metaKey,
         });
-        const hasSnap =
-          snapCtx.snapToGrid ||
-          snapCtx.snapToElements ||
-          snapCtx.snapToGuides ||
-          snapCtx.snapToPageEdges;
+        const hasSnap = snapCtx.hasAnySnap;
         let startX = screenX;
         let startY = screenY;
         if (hasSnap) {
@@ -393,11 +390,7 @@ export function CanvasOverlay() {
           shiftKey: e.shiftKey,
           ctrlKey: e.ctrlKey || e.metaKey,
         });
-        const hasSnap =
-          snapCtx.snapToGrid ||
-          snapCtx.snapToElements ||
-          snapCtx.snapToGuides ||
-          snapCtx.snapToPageEdges;
+        const hasSnap = snapCtx.hasAnySnap;
         let snappedCurrentX = currentX;
         let snappedCurrentY = currentY;
         if (hasSnap) {
@@ -859,10 +852,7 @@ export function CanvasOverlay() {
             { shiftKey: me.shiftKey, ctrlKey: me.ctrlKey || me.metaKey },
           );
           const hasSnap =
-            snapCtx.snapToGrid ||
-            snapCtx.snapToElements ||
-            snapCtx.snapToGuides ||
-            snapCtx.snapToPageEdges;
+            snapCtx.hasAnySnap;
 
           if (hasSnap) {
             const snapOpts = prevSnapRef.current
@@ -1016,10 +1006,7 @@ export function CanvasOverlay() {
               { shiftKey: me.shiftKey, ctrlKey: me.ctrlKey || me.metaKey },
             );
             const hasSnap =
-              snapCtx.snapToGrid ||
-              snapCtx.snapToElements ||
-              snapCtx.snapToGuides ||
-              snapCtx.snapToPageEdges;
+              snapCtx.hasAnySnap;
 
             if (hasSnap) {
               const snapOpts = prevSnapRef.current
@@ -1152,10 +1139,7 @@ export function CanvasOverlay() {
             let finalX = proposedX;
             let finalY = proposedY;
             if (
-              snapCtx.snapToGrid ||
-              snapCtx.snapToElements ||
-              snapCtx.snapToGuides ||
-              snapCtx.snapToPageEdges
+              snapCtx.hasAnySnap
             ) {
               const snapOpts = prevSnapRef.current
                 ? {
@@ -1249,10 +1233,7 @@ export function CanvasOverlay() {
             ctrlKey: me.ctrlKey || me.metaKey,
           });
           const hasSnap =
-            snapCtx.snapToGrid ||
-            snapCtx.snapToElements ||
-            snapCtx.snapToGuides ||
-            snapCtx.snapToPageEdges;
+            snapCtx.hasAnySnap;
 
           if (hasSnap) {
             const snapOpts = prevSnapRef.current

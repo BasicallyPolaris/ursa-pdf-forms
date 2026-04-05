@@ -11,6 +11,93 @@ const THUMB_MAX_W = 140;
 const THUMB_MAX_SCALE = 0.18;
 const MAX_THUMB_CONCURRENT = 4;
 
+interface RenderJobOptions {
+  genRef: React.MutableRefObject<number>;
+  genValue: number;
+  maxConcurrent: number;
+  pageNumbers: number[];
+  delayMs: number;
+  onPageRendered?: (completed: number, remaining: number, total: number) => void;
+}
+
+function renderThumbnails(
+  doc: PdfDocument,
+  pages: Array<{ pageNumber: number; width: number; height: number }>,
+  bitmapCache: React.MutableRefObject<Map<number, ImageBitmap>>,
+  canvasRefs: React.MutableRefObject<Map<number, HTMLCanvasElement>>,
+  opts: RenderJobOptions,
+) {
+  const { genRef, genValue, maxConcurrent, pageNumbers, delayMs, onPageRendered } = opts;
+  const pending = new Map<number, ReturnType<typeof doc.startRender>>();
+  let active = 0;
+  let completed = 0;
+  const needed = pageNumbers.filter((pn) => !bitmapCache.current.has(pn));
+  const total = needed.length;
+
+  if (total === 0) return { pending, drain: () => {}, cancel: () => {} };
+
+  const drain = () => {
+    if (genRef.current !== genValue) return;
+
+    while (needed.length > 0 && active < maxConcurrent) {
+      const pageNum = needed.shift()!;
+      if (bitmapCache.current.has(pageNum)) {
+        completed++;
+        continue;
+      }
+
+      const page = pages[pageNum - 1];
+      if (!page) continue;
+
+      const dims = getThumbDimensions(page.width, page.height);
+      active++;
+
+      const render = doc.startRender(pageNum, dims.scale);
+      pending.set(pageNum, render);
+
+      render.promise
+        .then((result) => {
+          if (genRef.current !== genValue) {
+            result.bitmap.close();
+            return;
+          }
+          pending.delete(pageNum);
+          bitmapCache.current.set(pageNum, result.bitmap);
+
+          const canvas = canvasRefs.current.get(pageNum);
+          if (canvas) {
+            canvas.width = dims.width;
+            canvas.height = dims.height;
+            const ctx = canvas.getContext("2d", { alpha: false });
+            if (ctx) ctx.drawImage(result.bitmap, 0, 0);
+          }
+          completed++;
+          onPageRendered?.(completed, needed.length, total);
+        })
+        .catch((err) => {
+          if (genRef.current !== genValue) return;
+          pending.delete(pageNum);
+          completed++;
+          if (
+            !(err instanceof Error) ||
+            (!err.message.includes("cancelled") &&
+              !err.message.includes("RenderingCancelled"))
+          )
+            console.error("[PageSidebar] Thumb render failed:", err);
+        })
+        .finally(() => {
+          if (genRef.current !== genValue) return;
+          active--;
+          if (needed.length > 0) {
+            setTimeout(() => drain(), delayMs);
+          }
+        });
+    }
+  };
+
+  return { pending, drain, cancel: () => {} };
+}
+
 function getThumbDimensions(pageWidth: number, pageHeight: number) {
   const scaleW = THUMB_MAX_W / pageWidth;
   const scaleH = THUMB_MAX_H / pageHeight;
@@ -120,10 +207,7 @@ export function PageSidebar() {
     if (!doc) return;
 
     const gen = ++renderGeneration.current;
-    let active = 0;
-    const pending = new Map<number, ReturnType<typeof doc.startRender>>();
-
-    const needed: number[] = [];
+    const pageNumbers: number[] = [];
     for (
       let i = visibleRange[0];
       i < visibleRange[1] && i < pages.length;
@@ -131,61 +215,19 @@ export function PageSidebar() {
     ) {
       const pageNum = pages[i].pageNumber;
       if (!bitmapCache.current.has(pageNum)) {
-        needed.push(pageNum);
+        pageNumbers.push(pageNum);
       }
     }
 
-    const drain = () => {
-      if (gen !== renderGeneration.current) return;
-
-      while (needed.length > 0 && active < MAX_THUMB_CONCURRENT) {
-        const pageNum = needed.shift()!;
-        if (bitmapCache.current.has(pageNum)) continue;
-
-        const page = pages[pageNum - 1];
-        if (!page) continue;
-
-        const dims = getThumbDimensions(page.width, page.height);
-        active++;
-
-        const render = doc.startRender(pageNum, dims.scale);
-        pending.set(pageNum, render);
-
-        render.promise
-          .then((result) => {
-            if (gen !== renderGeneration.current) {
-              result.bitmap.close();
-              return;
-            }
-            pending.delete(pageNum);
-
-            bitmapCache.current.set(pageNum, result.bitmap);
-
-            const canvas = canvasRefs.current.get(pageNum);
-            if (canvas) {
-              canvas.width = dims.width;
-              canvas.height = dims.height;
-              const ctx = canvas.getContext("2d", { alpha: false });
-              if (ctx) ctx.drawImage(result.bitmap, 0, 0);
-            }
-          })
-          .catch((err) => {
-            if (gen !== renderGeneration.current) return;
-            pending.delete(pageNum);
-            if (
-              !(err instanceof Error) ||
-              (!err.message.includes("cancelled") &&
-                !err.message.includes("RenderingCancelled"))
-            )
-              console.error("[PageSidebar] Thumb render failed:", err);
-          })
-          .finally(() => {
-            if (gen !== renderGeneration.current) return;
-            active--;
-            setTimeout(drain, 0);
-          });
-      }
-    };
+    const { pending, drain } = renderThumbnails(
+      doc, pages, bitmapCache, canvasRefs, {
+        genRef: renderGeneration,
+        genValue: gen,
+        maxConcurrent: MAX_THUMB_CONCURRENT,
+        pageNumbers,
+        delayMs: 0,
+      },
+    );
 
     drain();
 
@@ -201,10 +243,6 @@ export function PageSidebar() {
     if (!doc) return;
 
     const gen = ++idleGeneration.current;
-    const pending = new Map<number, ReturnType<typeof doc.startRender>>();
-    let active = 0;
-    let completed = 0;
-
     const center = Math.floor((visibleRange[0] + visibleRange[1]) / 2);
     const queue: number[] = [];
     for (let offset = 0; offset < pages.length; offset++) {
@@ -215,73 +253,22 @@ export function PageSidebar() {
       if (after >= 0 && after < pages.length)
         queue.push(pages[after].pageNumber);
     }
-    const needed = queue.filter((pn) => !bitmapCache.current.has(pn));
-    const total = needed.length;
+    const pageNumbers = queue.filter((pn) => !bitmapCache.current.has(pn));
 
-    if (total === 0) return;
+    if (pageNumbers.length === 0) return;
 
-    const MAX_IDLE_CONCURRENT = 3;
-
-    const drain = () => {
-      if (gen !== idleGeneration.current) return;
-
-      while (needed.length > 0 && active < MAX_IDLE_CONCURRENT) {
-        const pageNum = needed.shift()!;
-        if (bitmapCache.current.has(pageNum)) {
-          completed++;
-          continue;
-        }
-
-        const page = pages[pageNum - 1];
-        if (!page) continue;
-
-        const dims = getThumbDimensions(page.width, page.height);
-        active++;
-
-        const render = doc.startRender(pageNum, dims.scale);
-        pending.set(pageNum, render);
-
-        render.promise
-          .then((result) => {
-            if (gen !== idleGeneration.current) {
-              result.bitmap.close();
-              return;
-            }
-            pending.delete(pageNum);
-            bitmapCache.current.set(pageNum, result.bitmap);
-
-            const canvas = canvasRefs.current.get(pageNum);
-            if (canvas) {
-              canvas.width = dims.width;
-              canvas.height = dims.height;
-              const ctx = canvas.getContext("2d", { alpha: false });
-              if (ctx) ctx.drawImage(result.bitmap, 0, 0);
-            }
-            completed++;
-            setPreRenderProgress(
-              needed.length > 0 ? { done: completed, total } : null,
-            );
-          })
-          .catch((err) => {
-            if (gen !== idleGeneration.current) return;
-            pending.delete(pageNum);
-            completed++;
-            if (
-              !(err instanceof Error) ||
-              (!err.message.includes("cancelled") &&
-                !err.message.includes("RenderingCancelled"))
-            )
-              console.error("[PageSidebar] Idle thumb render failed:", err);
-          })
-          .finally(() => {
-            if (gen !== idleGeneration.current) return;
-            active--;
-            if (needed.length > 0) {
-              setTimeout(() => drain(), 50);
-            }
-          });
-      }
-    };
+    const { pending, drain } = renderThumbnails(
+      doc, pages, bitmapCache, canvasRefs, {
+        genRef: idleGeneration,
+        genValue: gen,
+        maxConcurrent: 3,
+        pageNumbers,
+        delayMs: 50,
+        onPageRendered: (completed, remaining, total) => {
+          setPreRenderProgress(remaining > 0 ? { done: completed, total } : null);
+        },
+      },
+    );
 
     const timerId = setTimeout(() => drain(), 200);
 
