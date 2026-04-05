@@ -29,6 +29,10 @@ export function snapToGrid(pos: number, gridSize: number): number {
   return Math.round(pos / gridSize) * gridSize;
 }
 
+export function hasAnySnap(ctx: SnapContext): boolean {
+  return ctx.snapToGrid || ctx.snapToElements || ctx.snapToGuides || ctx.snapToPageEdges;
+}
+
 export function snapToPageEdge(
   pos: number,
   elementSize: number,

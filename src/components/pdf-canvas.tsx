@@ -1,5 +1,6 @@
 import { Kbd } from "@/components/ui/kbd";
 import { VisiblePagesContext } from "@/contexts/visible-pages";
+import { getScrollContainer } from "@/lib/dom-utils";
 import {
   computePageLayouts as computeLayouts,
   getLayoutContentWidth,
@@ -14,7 +15,7 @@ import {
   type RenderResult,
 } from "@/lib/render-worker-manager";
 import { getZoomEngine, type ZoomListener } from "@/lib/use-zoom-animation";
-import { useEditorStore } from "@/stores/editor-store";
+import { useEditorStore, selectEffectivePdfBytes } from "@/stores/editor-store";
 import {
   memo,
   useCallback,
@@ -96,7 +97,7 @@ interface PdfCanvasProps {
 
 export function PdfCanvas({ children }: PdfCanvasProps) {
   const { t }         = useTranslation();
-  const pdfBytes      = useEditorStore((s) => s.renderPdfBytes ?? s.pdfBytes);
+  const pdfBytes      = useEditorStore(selectEffectivePdfBytes);
   const pages         = useEditorStore((s) => s.pages);
   const committedZoom = useEditorStore((s) => s.zoom);
 
@@ -135,7 +136,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   const scrollRafRef = useRef<number | null>(null);
 
   const computeVisibleSet = useCallback((): Set<number> => {
-    const el = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
+    const el = getScrollContainer();
     if (!el || pagesRef.current.length === 0) return new Set();
     const raw = getVisiblePageNumbers(layoutsRef.current, el.scrollTop, el.clientHeight);
     const arr = [...raw].sort((a, b) => a - b);
@@ -155,7 +156,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   useEffect(() => {
     const listener: ZoomListener = {
       onZoomSettle(_zoom: number) {
-        const scrollEl = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
+        const scrollEl = getScrollContainer();
         if (scrollEl && pagesRef.current.length > 0) {
           pendingScrollCorrectionRef.current = {
             scrollTop: scrollEl.scrollTop,
@@ -171,7 +172,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   }, []);
 
   useLayoutEffect(() => {
-    const scrollEl = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
+    const scrollEl = getScrollContainer();
     if (!scrollEl) return;
 
     const pending = pendingScrollCorrectionRef.current;
@@ -201,7 +202,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   });
 
   useEffect(() => {
-    const el = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
+    const el = getScrollContainer();
     if (!el) return;
     const onScroll = () => {
       if (scrollRafRef.current !== null) return;

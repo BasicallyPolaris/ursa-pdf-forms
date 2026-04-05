@@ -1,13 +1,10 @@
-export interface BoundingRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+import { type Rect } from "@/lib/geometry";
+
+export { type Rect };
 
 export function computeBoundingRect(
   items: Array<{ x: number; y: number; width: number; height: number }>,
-): BoundingRect | null {
+): Rect | null {
   if (items.length === 0) return null;
 
   let minX = Infinity;

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { temporal } from "zundo";
-import { type FormElement, getUniqueName } from "@/lib/form-element-model";
+import { type FormElement, getUniqueName, type ActiveTool } from "@/lib/form-element-model";
 import type { PageInfo } from "@/lib/pdf-loader";
 import {
   alignLeft,
@@ -34,6 +34,60 @@ function generateGuideId(): string {
 
 const PASTE_OFFSET = 10;
 
+const docResetFields = {
+  elements: [] as FormElement[],
+  selectedIds: new Set<string>(),
+  clipboard: [] as FormElement[],
+  guides: [] as GuideLine[],
+  selectedGuideId: null as string | null,
+  previewGuide: null as {
+    orientation: "horizontal" | "vertical";
+    position: number;
+  } | null,
+  dragLivePositions: new Map<
+    string,
+    { x: number; y: number; width: number; height: number }
+  >(),
+  activeTool: "select" as const,
+};
+
+function resetTemporalAndMarkClean() {
+  useEditorStore.temporal.getState().clear();
+  _lastSavedElementsJson = "[]";
+  _lastSavedGuidesJson = "[]";
+}
+
+function cloneElementsWithNewIds(
+  source: FormElement[],
+  existing: FormElement[],
+  offsetFn: (el: FormElement, index: number) => {
+    x: number;
+    y: number;
+    pageNumber?: number;
+  },
+): { cloned: FormElement[]; newIds: Set<string> } {
+  const cloned: FormElement[] = [];
+  const newIds = new Set<string>();
+  for (let i = 0; i < source.length; i++) {
+    const el = source[i];
+    const offset = offsetFn(el, i);
+    const newEl = {
+      ...structuredClone(el),
+      id: generatePastedId(),
+      pageNumber: offset.pageNumber ?? el.pageNumber,
+      x: offset.x,
+      y: offset.y,
+    } as FormElement;
+    if ("name" in newEl) {
+      const typed = newEl as FormElement & { name: string };
+      typed.name = getUniqueName(typed.name, [...existing, ...cloned]);
+    }
+    cloned.push(newEl);
+    newIds.add(newEl.id);
+  }
+  return { cloned, newIds };
+}
+
 export interface GuideLine {
   id: string;
   orientation: "horizontal" | "vertical";
@@ -46,7 +100,7 @@ interface EditorState {
   renderPdfBytes: Uint8Array | null;
   pages: PageInfo[];
   zoom: number;
-  activeTool: "select" | "input" | "textarea" | "checkbox" | "radio";
+  activeTool: ActiveTool;
 
   elements: FormElement[];
   selectedIds: Set<string>;
@@ -145,18 +199,9 @@ export const useEditorStore = create<EditorState>()(
           pdfBytes: bytes,
           renderPdfBytes: null,
           pages,
-          elements: [],
-          selectedIds: new Set<string>(),
-          clipboard: [],
-          guides: [],
-          selectedGuideId: null,
-          previewGuide: null,
-          dragLivePositions: new Map(),
-          activeTool: "select",
+          ...docResetFields,
         });
-        useEditorStore.temporal.getState().clear();
-        _lastSavedElementsJson = "[]";
-        _lastSavedGuidesJson = "[]";
+        resetTemporalAndMarkClean();
       },
 
       setPdfPages: (pages) => set({ pages }),
@@ -171,18 +216,9 @@ export const useEditorStore = create<EditorState>()(
           pdfBytes: null,
           renderPdfBytes: null,
           pages: [],
-          elements: [],
-          selectedIds: new Set<string>(),
-          clipboard: [],
-          guides: [],
-          selectedGuideId: null,
-          previewGuide: null,
-          dragLivePositions: new Map(),
-          activeTool: "select",
+          ...docResetFields,
         });
-        useEditorStore.temporal.getState().clear();
-        _lastSavedElementsJson = "[]";
-        _lastSavedGuidesJson = "[]";
+        resetTemporalAndMarkClean();
       },
 
       setRenderPdfBytes: (bytes) => set({ renderPdfBytes: bytes }),
@@ -260,7 +296,7 @@ export const useEditorStore = create<EditorState>()(
       copySelection: () =>
         set((s) => {
           const selected = s.elements.filter((el) => s.selectedIds.has(el.id));
-          return { clipboard: JSON.parse(JSON.stringify(selected)) };
+          return { clipboard: structuredClone(selected) };
         }),
 
       pasteClipboard: (
@@ -270,39 +306,24 @@ export const useEditorStore = create<EditorState>()(
       ) =>
         set((s) => {
           if (s.clipboard.length === 0) return s;
-          const pasted: FormElement[] = [];
-          const newIds = new Set<string>();
           const baseEl = s.clipboard[0];
           const offX = targetX !== undefined ? targetX - baseEl.x : 0;
           const offY = targetY !== undefined ? targetY - baseEl.y : 0;
-          for (const el of s.clipboard) {
-            const samePage =
-              targetPage === undefined || targetPage === el.pageNumber;
-            const newX = samePage
-              ? el.x + (offX || PASTE_OFFSET)
-              : el.x + (offX || 0);
-            const newY = samePage
-              ? el.y + (offY || PASTE_OFFSET)
-              : el.y + (offY || 0);
-            const newEl = {
-              ...JSON.parse(JSON.stringify(el)),
-              id: generatePastedId(),
-              pageNumber: targetPage ?? el.pageNumber,
-              x: newX,
-              y: newY,
-            } as FormElement;
-            if ("name" in newEl) {
-              const typed = newEl as FormElement & { name: string };
-              typed.name = getUniqueName(typed.name, [
-                ...s.elements,
-                ...pasted,
-              ]);
-            }
-            pasted.push(newEl);
-            newIds.add(newEl.id);
-          }
+          const { cloned, newIds } = cloneElementsWithNewIds(
+            s.clipboard,
+            s.elements,
+            (el) => {
+              const samePage =
+                targetPage === undefined || targetPage === el.pageNumber;
+              return {
+                x: samePage ? el.x + (offX || PASTE_OFFSET) : el.x + (offX || 0),
+                y: samePage ? el.y + (offY || PASTE_OFFSET) : el.y + (offY || 0),
+                pageNumber: targetPage ?? el.pageNumber,
+              };
+            },
+          );
           return {
-            elements: [...s.elements, ...pasted],
+            elements: [...s.elements, ...cloned],
             selectedIds: newIds,
           };
         }),
@@ -312,7 +333,7 @@ export const useEditorStore = create<EditorState>()(
           const selected = s.elements.filter((el) => s.selectedIds.has(el.id));
           if (selected.length === 0) return s;
           return {
-            clipboard: JSON.parse(JSON.stringify(selected)),
+            clipboard: structuredClone(selected),
             elements: s.elements.filter((el) => !s.selectedIds.has(el.id)),
             selectedIds: new Set<string>(),
           };
@@ -322,30 +343,21 @@ export const useEditorStore = create<EditorState>()(
         set((s) => {
           const selected = s.elements.filter((el) => s.selectedIds.has(el.id));
           if (selected.length === 0) return s;
-          const pasted: FormElement[] = [];
-          const newIds = new Set<string>();
-          for (const el of selected) {
-            const samePage =
-              targetPage === undefined || targetPage === el.pageNumber;
-            const newEl = {
-              ...JSON.parse(JSON.stringify(el)),
-              id: generatePastedId(),
-              pageNumber: samePage ? el.pageNumber : targetPage,
-              x: samePage ? el.x + PASTE_OFFSET : el.x,
-              y: samePage ? el.y + PASTE_OFFSET : el.y,
-            } as FormElement;
-            if ("name" in newEl) {
-              const typed = newEl as FormElement & { name: string };
-              typed.name = getUniqueName(typed.name, [
-                ...s.elements,
-                ...pasted,
-              ]);
-            }
-            pasted.push(newEl);
-            newIds.add(newEl.id);
-          }
+          const { cloned, newIds } = cloneElementsWithNewIds(
+            selected,
+            s.elements,
+            (el) => {
+              const samePage =
+                targetPage === undefined || targetPage === el.pageNumber;
+              return {
+                x: samePage ? el.x + PASTE_OFFSET : el.x,
+                y: samePage ? el.y + PASTE_OFFSET : el.y,
+                pageNumber: samePage ? el.pageNumber : targetPage,
+              };
+            },
+          );
           return {
-            elements: [...s.elements, ...pasted],
+            elements: [...s.elements, ...cloned],
             selectedIds: newIds,
           };
         }),
@@ -599,3 +611,6 @@ export function markClean(): void {
   _lastSavedElementsJson = JSON.stringify(state.elements);
   _lastSavedGuidesJson = JSON.stringify(state.guides);
 }
+
+export const selectEffectivePdfBytes = (s: EditorState) =>
+  s.renderPdfBytes ?? s.pdfBytes;

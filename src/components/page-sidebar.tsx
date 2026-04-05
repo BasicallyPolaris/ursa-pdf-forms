@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useEditorStore } from "@/stores/editor-store";
+import { useEditorStore, selectEffectivePdfBytes } from "@/stores/editor-store";
 import { loadPdfDocument, type PdfDocument } from "@/lib/pdf-loader";
+import { getScrollContainer } from "@/lib/dom-utils";
 import { computePageLayouts } from "@/lib/page-layout";
 
 const THUMB_ITEM_HEIGHT = 130;
@@ -24,7 +25,7 @@ function getThumbDimensions(pageWidth: number, pageHeight: number) {
 
 export function PageSidebar() {
   const { t } = useTranslation();
-  const pdfBytes = useEditorStore((s) => s.renderPdfBytes ?? s.pdfBytes);
+  const pdfBytes = useEditorStore(selectEffectivePdfBytes);
   const pages = useEditorStore((s) => s.pages);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
@@ -295,9 +296,7 @@ export function PageSidebar() {
 
   const scrollToPage = useCallback(
     (pageNumber: number) => {
-      const scrollContainer = document.querySelector(
-        "[data-pdf-scroll-container]",
-      );
+      const scrollContainer = getScrollContainer();
       if (!scrollContainer) return;
 
       const zoom = useEditorStore.getState().zoom;

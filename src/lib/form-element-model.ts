@@ -1,3 +1,5 @@
+export type ActiveTool = "select" | "input" | "textarea" | "checkbox" | "radio";
+
 export interface TextField {
   type: "text";
   id: string;

@@ -8,8 +8,8 @@
     "zoomOut": "Verkleinern",
     "zoomIn": "Vergrößern",
     "zoomLevel": "Zoomstufe",
-    "undo": "Rückgängig (Strg+Z)",
-    "redo": "Wiederholen (Strg+Y)",
+    "undo": "Rückgängig",
+    "redo": "Wiederholen",
     "language": "Sprache"
   },
   "toolbar": {

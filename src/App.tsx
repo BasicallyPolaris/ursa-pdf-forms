@@ -10,6 +10,7 @@ import {
   HorizontalRuler,
   RulerCorner,
   VerticalRuler,
+  RULER_SIZE,
 } from "@/components/ruler";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
@@ -135,7 +136,7 @@ function App() {
         <aside
           data-testid="properties-panel"
           className="border-l border-border bg-card"
-          style={{ width: "calc(11rem + 36px)" }}
+          style={{ width: `calc(11rem + ${RULER_SIZE}px)` }}
         >
           <PropertiesPanel />
         </aside>

@@ -1,5 +1,6 @@
 import { getZoomEngine } from "@/lib/use-zoom-animation";
 import { useEditorStore } from "@/stores/editor-store";
+import { isEditableElement, getScrollContainer } from "@/lib/dom-utils";
 import { flushSync } from "react-dom";
 import { useEffect } from "react";
 
@@ -13,7 +14,7 @@ export function clampZoom(z: number): number {
 }
 
 function getScrollEl(): HTMLElement | null {
-  return document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
+  return getScrollContainer();
 }
 
 export function useZoom() {
@@ -49,10 +50,7 @@ export function useZoom() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        e.target instanceof HTMLElement &&
-        ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)
-      )
+      if (isEditableElement(e))
         return;
 
       const mod = e.metaKey || e.ctrlKey;

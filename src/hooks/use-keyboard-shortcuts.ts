@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { useEditorStore, undo, redo } from "@/stores/editor-store";
 import { openPdfFile } from "@/lib/file-operations";
 import { exportPdf } from "@/lib/export-pdf";
-import { TOP_PADDING, PAGE_GAP } from "@/lib/coordinates";
+import { isEditableElement, getScrollContainer } from "@/lib/dom-utils";
+import type { ActiveTool } from "@/lib/form-element-model";
 import {
   computePageLayouts,
   findPageAtScreenPoint,
@@ -16,18 +17,11 @@ const TOOL_KEY_MAP: Record<string, string> = {
   r: "radio",
 };
 
-function isInputElement(e: KeyboardEvent): boolean {
-  return (
-    e.target instanceof HTMLElement &&
-    ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)
-  );
-}
-
 let lastMouseX = 0;
 let lastMouseY = 0;
 
 function getMousePage(): number | null {
-  const scrollEl = document.querySelector("[data-pdf-scroll-container]");
+  const scrollEl = getScrollContainer();
   if (!scrollEl) return null;
   const store = useEditorStore.getState();
   if (store.pages.length === 0) return null;
@@ -48,24 +42,26 @@ function getMousePage(): number | null {
 }
 
 function getVisiblePage(): number | undefined {
-  const scrollEl = document.querySelector("[data-pdf-scroll-container]");
+  const scrollEl = getScrollContainer();
   if (!scrollEl) return undefined;
   const store = useEditorStore.getState();
   if (store.pages.length === 0) return undefined;
   const scrollCenter = scrollEl.scrollTop + scrollEl.clientHeight / 2;
-  const zoom = store.zoom;
+  const layoutWidth = getLayoutContentWidth(
+    store.pages,
+    store.zoom,
+    scrollEl.clientWidth,
+  );
+  const layouts = computePageLayouts(store.pages, store.zoom, layoutWidth);
   let closestPage = 1;
   let closestDist = Infinity;
-  let yOffset = TOP_PADDING;
-  for (const page of store.pages) {
-    const pageScreenHeight = page.height * zoom;
-    const pageCenter = yOffset + pageScreenHeight / 2;
+  for (const [pageNum, layout] of layouts) {
+    const pageCenter = layout.yOffset + layout.screenHeight / 2;
     const dist = Math.abs(pageCenter - scrollCenter);
     if (dist < closestDist) {
       closestDist = dist;
-      closestPage = page.pageNumber;
+      closestPage = pageNum;
     }
-    yOffset += pageScreenHeight + PAGE_GAP;
   }
   return closestPage;
 }
@@ -82,7 +78,7 @@ export function useKeyboardShortcuts() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isInputElement(e)) return;
+      if (isEditableElement(e)) return;
 
       const mod = e.metaKey || e.ctrlKey;
 
@@ -163,7 +159,7 @@ export function useKeyboardShortcuts() {
         const tool = TOOL_KEY_MAP[e.key.toLowerCase()];
         if (tool) {
           e.preventDefault();
-          store.setActiveTool(tool as "select" | "input" | "checkbox" | "radio");
+          store.setActiveTool(tool as ActiveTool);
         }
       }
     };

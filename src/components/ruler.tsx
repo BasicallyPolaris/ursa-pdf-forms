@@ -7,6 +7,8 @@ import { H_PADDING, PAGE_GAP, TOP_PADDING } from "@/lib/coordinates";
 import type { PageInfo } from "@/lib/pdf-loader";
 import { getLayoutContentWidth, getTotalContentHeight } from "@/lib/page-layout";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
+import { snapToGrid } from "@/lib/snap-engine";
+import { getScrollContainer } from "@/lib/dom-utils";
 import { useEditorStore } from "@/stores/editor-store";
 import {
   useCallback,
@@ -22,10 +24,6 @@ const MAJOR_INTERVAL = 50;
 const MINOR_INTERVAL = 10;
 const SUB_INTERVAL = 5;
 const MIN_VERTICAL_TICK_PX = 2.5;
-
-function snapToGrid(value: number, gridSize: number): number {
-  return Math.round(value / gridSize) * gridSize;
-}
 
 function verticalRulerContentHeight(
   pages: Array<{ height: number }>,
@@ -211,9 +209,7 @@ export function HorizontalRuler({
   const drawHorizontalAt = useCallback(
     (zoom: number) => {
       if (!canvasRef.current) return;
-      const scrollEl = document.querySelector<HTMLElement>(
-        "[data-pdf-scroll-container]",
-      );
+      const scrollEl = getScrollContainer();
       const sl = scrollEl?.scrollLeft ?? 0;
       const cw = getLayoutContentWidth(pages, zoom, overlayWidth);
       drawHorizontalRuler(canvasRef.current, zoom, pages, cw, sl);
@@ -227,9 +223,7 @@ export function HorizontalRuler({
   }, [committedZoom, drawHorizontalAt]);
 
   useEffect(() => {
-    const scrollEl = document.querySelector<HTMLElement>(
-      "[data-pdf-scroll-container]",
-    );
+    const scrollEl = getScrollContainer();
     if (!scrollEl) return;
     const onScroll = () => drawHorizontalAt(committedZoomRef.current);
     scrollEl.addEventListener("scroll", onScroll, { passive: true });
@@ -245,9 +239,7 @@ export function HorizontalRuler({
       const xOff = Math.max(H_PADDING, (cw - screenWidth) / 2);
       const rulerEl = containerRef.current;
       if (!rulerEl) return null;
-      const scrollEl = document.querySelector<HTMLElement>(
-        "[data-pdf-scroll-container]",
-      );
+      const scrollEl = getScrollContainer();
       const sl = scrollEl?.scrollLeft ?? rulerEl.scrollLeft;
       const rulerLeft = rulerEl.getBoundingClientRect().left;
       const relX = clientX - rulerLeft + sl;
@@ -265,9 +257,7 @@ export function HorizontalRuler({
         if (g.orientation !== "vertical") return false;
         const rulerEl = containerRef.current;
         if (!rulerEl) return false;
-        const scrollEl = document.querySelector<HTMLElement>(
-          "[data-pdf-scroll-container]",
-        );
+        const scrollEl = getScrollContainer();
         const sl = scrollEl?.scrollLeft ?? rulerEl.scrollLeft;
         const zoom = committedZoomRef.current;
         const cw = getLayoutContentWidth(pages, zoom, overlayWidth);
@@ -374,9 +364,7 @@ export function VerticalRuler({
 
   const syncVerticalRulerScroll = useCallback(
     () => {
-      const scrollEl = document.querySelector<HTMLElement>(
-        "[data-pdf-scroll-container]",
-      );
+      const scrollEl = getScrollContainer();
       const container = containerRef.current;
       if (!container || !scrollEl) return;
 
@@ -404,9 +392,7 @@ export function VerticalRuler({
   }, [committedZoom, canvasHeight, drawVerticalAt]);
 
   useEffect(() => {
-    const scrollEl = document.querySelector<HTMLElement>(
-      "[data-pdf-scroll-container]",
-    );
+    const scrollEl = getScrollContainer();
     if (!scrollEl) return;
     const onScroll = () => syncVerticalRulerScroll();
     scrollEl.addEventListener("scroll", onScroll, { passive: true });

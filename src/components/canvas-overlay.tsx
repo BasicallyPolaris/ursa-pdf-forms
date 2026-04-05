@@ -2,46 +2,39 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Rnd } from "react-rnd";
 import { useEditorStore } from "@/stores/editor-store";
 import {
-  createTextField,
-  createCheckbox,
-  createRadioButton,
-  heightFromFontSize,
   type FormElement,
   getElementName,
 } from "@/lib/form-element-model";
 import { pdfToScreen, screenToPdf } from "@/lib/coordinates";
 import {
-  TOP_PADDING,
-  PAGE_GAP,
-  H_PADDING,
   computePageLayouts,
   findPageAtScreenPoint,
   getTotalContentHeight,
 } from "@/lib/page-layout";
-import { rectsOverlap, type Rect } from "@/lib/geometry";
 import {
   snapPosition,
   snapResizeBounds,
+  hasAnySnap,
   type SnapGuide,
   type SnapContext,
 } from "@/lib/snap-engine";
-import { computeBoundingRect } from "@/lib/selection-geometry";
 import {
   CanvasContextMenu,
   type MenuContext,
 } from "@/components/canvas-context-menu";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
-import {
-  getElementStyleConfig,
-  getElementStyleConfigByType,
-} from "@/lib/element-style-map";
+import { isEditableElement, getScrollContainer } from "@/lib/dom-utils";
+import { getElementStyleConfig } from "@/lib/element-style-map";
 import { useVisiblePages } from "@/contexts/visible-pages";
+import { useMarquee } from "@/hooks/use-marquee";
+import { useElementCreation } from "@/hooks/use-element-creation";
+import { SnapGuidesLayer } from "@/components/canvas-overlay/snap-guides-layer";
+import { GuidesLayer } from "@/components/canvas-overlay/guides-layer";
+import { DrawPreview } from "@/components/canvas-overlay/draw-preview";
+import { BoundingRectOverlay } from "@/components/canvas-overlay/bounding-rect-overlay";
+import { MarqueeOverlay } from "@/components/canvas-overlay/marquee-overlay";
 
 const MIN_SIZE = 10;
-
-const CLICK_TOOLS = new Set(["checkbox", "radio"]);
-const HORIZONTAL_DRAW_TOOLS = new Set(["input"]);
-const RECT_DRAW_TOOLS = new Set(["textarea"]);
 
 export function CanvasOverlay() {
   const elements = useEditorStore((s) => s.elements);
@@ -53,54 +46,22 @@ export function CanvasOverlay() {
   const gridSize = useEditorStore((s) => s.gridSize);
   const guides = useEditorStore((s) => s.guides);
   const previewGuide = useEditorStore((s) => s.previewGuide);
+  const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
+  const dragLivePositions = useEditorStore((s) => s.dragLivePositions);
   const visiblePages = useVisiblePages();
 
-  const addElement = useEditorStore((s) => s.addElement);
   const updateElement = useEditorStore((s) => s.updateElement);
   const selectElements = useEditorStore((s) => s.selectElements);
-  const clearSelection = useEditorStore((s) => s.clearSelection);
-  const addToSelection = useEditorStore((s) => s.addToSelection);
   const toggleInSelection = useEditorStore((s) => s.toggleInSelection);
   const moveElements = useEditorStore((s) => s.moveElements);
   const setDragLivePositions = useEditorStore((s) => s.setDragLivePositions);
-  const dragLivePositions = useEditorStore((s) => s.dragLivePositions);
-  const selectGuide = useEditorStore((s) => s.selectGuide);
-  const updateGuidePosition = useEditorStore((s) => s.updateGuidePosition);
-  const setPreviewGuide = useEditorStore((s) => s.setPreviewGuide);
-  const removeGuide = useEditorStore((s) => s.removeGuide);
-  const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
-  const draggingGuideIdRef = useRef<string | null>(null);
+
   const overlayRef = useRef<HTMLDivElement>(null);
   const [overlayWidth, setOverlayWidth] = useState(0);
 
-  const [marquee, setMarquee] = useState<{
-    startX: number;
-    startY: number;
-    currentX: number;
-    currentY: number;
-  } | null>(null);
-  const marqueeStartRef = useRef<{ x: number; y: number } | null>(null);
-  const isDraggingRef = useRef(false);
-
-  const [drawRect, setDrawRect] = useState<{
-    startX: number;
-    startY: number;
-    currentX: number;
-    currentY: number;
-  } | null>(null);
-  const drawStartRef = useRef<{
-    x: number;
-    y: number;
-    pageX: number;
-    pageY: number;
-    pageNumber: number;
-  } | null>(null);
-  const isDrawingRef = useRef(false);
-
-  const dragStartPositions = useRef<Map<
-    string,
-    { x: number; y: number }
-  > | null>(null);
+  const dragStartPositions = useRef<Map<string, { x: number; y: number }>>(
+    new Map(),
+  );
   const draggingId = useRef<string | null>(null);
   const pendingToggleId = useRef<string | null>(null);
   const resizingId = useRef<string | null>(null);
@@ -127,12 +88,32 @@ export function CanvasOverlay() {
   } | null>(null);
   const [activeGuides, setActiveGuides] = useState<SnapGuide[]>([]);
   const prevSnapRef = useRef<{ x: number; y: number } | null>(null);
+
   const [contextMenuState, setContextMenuState] = useState<{
     context: MenuContext;
     clientX: number;
     clientY: number;
   } | null>(null);
   const closeContextMenu = useCallback(() => setContextMenuState(null), []);
+
+  const {
+    marqueeRect,
+    startMarquee,
+    updateMarquee,
+    finishMarquee,
+  } = useMarquee();
+
+  const {
+    drawRect,
+    drawStartRef,
+    isDrawingRef,
+    handleClickCreate,
+    startDraw,
+    updateDraw,
+    finishDraw,
+    resetDraw,
+    HORIZONTAL_DRAW_TOOLS,
+  } = useElementCreation();
 
   useLayoutEffect(() => {
     const el = overlayRef.current;
@@ -145,17 +126,20 @@ export function CanvasOverlay() {
     return () => observer.disconnect();
   }, []);
 
-  const getPageLayouts = useCallback((): Map<
-    number,
-    {
-      xOffset: number;
-      yOffset: number;
-      screenWidth: number;
-      screenHeight: number;
-    }
-  > => {
-    return computePageLayouts(pages, zoom, overlayWidth);
-  }, [pages, zoom, overlayWidth]);
+  const getPageLayouts = useCallback(
+    (): Map<
+      number,
+      {
+        xOffset: number;
+        yOffset: number;
+        screenWidth: number;
+        screenHeight: number;
+      }
+    > => {
+      return computePageLayouts(pages, zoom, overlayWidth);
+    },
+    [pages, zoom, overlayWidth],
+  );
 
   const findPageAtPoint = useCallback(
     (
@@ -210,7 +194,13 @@ export function CanvasOverlay() {
   const elementsByPage = useMemo(() => {
     const map = new Map<
       number,
-      Array<{ id: string; x: number; y: number; width: number; height: number }>
+      Array<{
+        id: string;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }>
     >();
     for (const el of elements) {
       let arr = map.get(el.pageNumber);
@@ -231,7 +221,10 @@ export function CanvasOverlay() {
 
   const rulerGuideSnapData = useMemo(
     () =>
-      guides.map((g) => ({ orientation: g.orientation, position: g.position })),
+      guides.map((g) => ({
+        orientation: g.orientation,
+        position: g.position,
+      })),
     [guides],
   );
 
@@ -279,15 +272,7 @@ export function CanvasOverlay() {
       const pageNumber = findPageAtPoint(screenX, screenY, layouts);
 
       if (activeTool === "select") {
-        if (!e.shiftKey) {
-          clearSelection();
-        }
-        marqueeStartRef.current = {
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
-        };
-        isDraggingRef.current = false;
-        setMarquee(null);
+        startMarquee(screenX, screenY, e.shiftKey);
         return;
       }
 
@@ -295,71 +280,35 @@ export function CanvasOverlay() {
 
       const layout = layouts.get(pageNumber)!;
 
-      if (CLICK_TOOLS.has(activeTool)) {
-        const pdf = screenToPdf(
-          { x: screenX, y: screenY },
-          { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
-        );
-
-        let newEl: FormElement;
-        if (activeTool === "checkbox") {
-          newEl = createCheckbox({
-            x: pdf.x,
-            y: pdf.y,
-            pageNumber,
-            name: `checkbox_${elements.length + 1}`,
-          });
-        } else {
-          newEl = createRadioButton({
-            x: pdf.x,
-            y: pdf.y,
-            pageNumber,
-            groupName: "group_1",
-            value: `option_${elements.length + 1}`,
-          });
-        }
-        addElement(newEl);
-        selectElements(new Set([newEl.id]));
+      if (
+        handleClickCreate(
+          screenX,
+          screenY,
+          pageNumber,
+          activeTool,
+          zoom,
+          layout,
+          elements.length,
+        )
+      ) {
         return;
       }
 
+      const snapCtx = buildSnapContext(new Set(), pageNumber, {
+        shiftKey: e.shiftKey,
+        ctrlKey: e.ctrlKey || e.metaKey,
+      });
       if (
-        HORIZONTAL_DRAW_TOOLS.has(activeTool) ||
-        RECT_DRAW_TOOLS.has(activeTool)
-      ) {
-        const pdf = screenToPdf(
-          { x: screenX, y: screenY },
-          { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
-        );
-        const snapCtx = buildSnapContext(new Set(), pageNumber, {
-          shiftKey: e.shiftKey,
-          ctrlKey: e.ctrlKey || e.metaKey,
-        });
-        const hasSnap =
-          snapCtx.snapToGrid ||
-          snapCtx.snapToElements ||
-          snapCtx.snapToGuides ||
-          snapCtx.snapToPageEdges;
-        let startX = screenX;
-        let startY = screenY;
-        if (hasSnap) {
-          const snap = snapPosition(pdf.x, pdf.y, 0, 0, snapCtx);
-          const snapped = pdfToScreen(
-            { x: snap.x, y: snap.y },
-            { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
-          );
-          startX = snapped.x;
-          startY = snapped.y;
-        }
-        drawStartRef.current = {
-          x: startX,
-          y: startY,
-          pageX: layout.xOffset,
-          pageY: layout.yOffset,
+        startDraw(
+          screenX,
+          screenY,
           pageNumber,
-        };
-        isDrawingRef.current = false;
-        setDrawRect(null);
+          activeTool,
+          zoom,
+          layout,
+          snapCtx,
+        )
+      ) {
         return;
       }
     },
@@ -367,12 +316,12 @@ export function CanvasOverlay() {
       activeTool,
       zoom,
       elements.length,
-      addElement,
-      selectElements,
-      clearSelection,
       getPageLayouts,
       findPageAtPoint,
       buildSnapContext,
+      startMarquee,
+      handleClickCreate,
+      startDraw,
     ],
   );
 
@@ -382,176 +331,58 @@ export function CanvasOverlay() {
       const currentX = e.clientX - rect.left;
       const currentY = e.clientY - rect.top;
 
-      if (drawStartRef.current) {
-        isDrawingRef.current = true;
+      if (isDrawingRef.current || drawStartRef.current) {
         const start = drawStartRef.current;
-        const pdfCurrent = screenToPdf(
-          { x: currentX, y: currentY },
-          { zoom, pageX: start.pageX, pageY: start.pageY },
-        );
-        const snapCtx = buildSnapContext(new Set(), start.pageNumber, {
-          shiftKey: e.shiftKey,
-          ctrlKey: e.ctrlKey || e.metaKey,
-        });
-        const hasSnap =
-          snapCtx.snapToGrid ||
-          snapCtx.snapToElements ||
-          snapCtx.snapToGuides ||
-          snapCtx.snapToPageEdges;
-        let snappedCurrentX = currentX;
-        let snappedCurrentY = currentY;
-        if (hasSnap) {
-          const snap = snapPosition(pdfCurrent.x, pdfCurrent.y, 0, 0, snapCtx);
-          const snappedScreen = pdfToScreen(
-            { x: snap.x, y: snap.y },
-            { zoom, pageX: start.pageX, pageY: start.pageY },
-          );
-          snappedCurrentX = snappedScreen.x;
-          snappedCurrentY = snappedScreen.y;
-          setActiveGuides(snap.guides);
-        } else {
-          setActiveGuides([]);
+        if (start) {
+          const snapCtx = buildSnapContext(new Set(), start.pageNumber, {
+            shiftKey: e.shiftKey,
+            ctrlKey: e.ctrlKey || e.metaKey,
+          });
+          updateDraw(currentX, currentY, zoom, snapCtx);
         }
-        setDrawRect({
-          startX: start.x,
-          startY: start.y,
-          currentX: snappedCurrentX,
-          currentY: snappedCurrentY,
-        });
         return;
       }
 
-      if (!marqueeStartRef.current) return;
-      isDraggingRef.current = true;
-      setMarquee({
-        startX: marqueeStartRef.current.x,
-        startY: marqueeStartRef.current.y,
-        currentX,
-        currentY,
-      });
+      updateMarquee(currentX, currentY);
     },
-    [zoom, buildSnapContext],
+    [zoom, buildSnapContext, updateDraw, updateMarquee, isDrawingRef, drawStartRef],
   );
 
   const handleCanvasMouseUp = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (drawStartRef.current && isDrawingRef.current && drawRect) {
-        const start = drawStartRef.current;
-        const left = Math.min(drawRect.startX, drawRect.currentX);
-        const top = Math.min(drawRect.startY, drawRect.currentY);
-        const width = Math.abs(drawRect.currentX - drawRect.startX);
-
-        if (HORIZONTAL_DRAW_TOOLS.has(activeTool) && width > 5) {
-          const pdfTopLeft = screenToPdf(
-            { x: left, y: start.y },
-            { zoom, pageX: start.pageX, pageY: start.pageY },
-          );
-          const pdfWidth = width / zoom;
-
-          const newEl = createTextField({
-            x: pdfTopLeft.x,
-            y: pdfTopLeft.y,
-            pageNumber: start.pageNumber,
-            name: `text_${elements.length + 1}`,
-            multiline: false,
-            width: pdfWidth,
-          });
-          addElement(newEl);
-          selectElements(new Set([newEl.id]));
-        } else if (RECT_DRAW_TOOLS.has(activeTool)) {
-          const height = Math.abs(drawRect.currentY - drawRect.startY);
-          if (width > 5 && height > 5) {
-            const pdfTopLeft = screenToPdf(
-              { x: left, y: top },
-              { zoom, pageX: start.pageX, pageY: start.pageY },
-            );
-            const pdfWidth = width / zoom;
-            const pdfHeight = height / zoom;
-
-            const newEl = createTextField({
-              x: pdfTopLeft.x,
-              y: pdfTopLeft.y,
-              pageNumber: start.pageNumber,
-              name: `text_${elements.length + 1}`,
-              multiline: true,
-              width: pdfWidth,
-              height: pdfHeight,
-            });
-            addElement(newEl);
-            selectElements(new Set([newEl.id]));
-          }
-        }
-        drawStartRef.current = null;
-        isDrawingRef.current = false;
-        setDrawRect(null);
+      if (isDrawingRef.current && drawStartRef.current) {
+        finishDraw(activeTool, zoom, elements.length);
         setActiveGuides([]);
         return;
       }
 
-      drawStartRef.current = null;
-      isDrawingRef.current = false;
-      setDrawRect(null);
+      resetDraw();
       setActiveGuides([]);
 
-      if (marqueeStartRef.current && isDraggingRef.current && marquee) {
-        const layouts = getPageLayouts();
-        const left = Math.min(marquee.startX, marquee.currentX);
-        const top = Math.min(marquee.startY, marquee.currentY);
-        const width = Math.abs(marquee.currentX - marquee.startX);
-        const height = Math.abs(marquee.currentY - marquee.startY);
-
-        if (width > 3 && height > 3) {
-          const marqueeRect: Rect = { x: left, y: top, width, height };
-          const hitIds: string[] = [];
-
-          for (const el of elements) {
-            const layout = layouts.get(el.pageNumber);
-            if (!layout) continue;
-            const screen = pdfToScreen(
-              { x: el.x, y: el.y },
-              { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
-            );
-            const elRect: Rect = {
-              x: screen.x,
-              y: screen.y,
-              width: el.width * zoom,
-              height: el.height * zoom,
-            };
-            if (rectsOverlap(marqueeRect, elRect)) {
-              hitIds.push(el.id);
-            }
-          }
-
-          if (e.shiftKey) {
-            addToSelection(hitIds);
-          } else {
-            selectElements(new Set(hitIds));
-          }
-        }
-      }
-      marqueeStartRef.current = null;
-      isDraggingRef.current = false;
-      setMarquee(null);
+      const layouts = getPageLayouts();
+      finishMarquee(
+        e.shiftKey,
+        elements,
+        zoom,
+        layouts,
+      );
     },
     [
-      drawRect,
-      marquee,
       activeTool,
       zoom,
       elements,
-      addElement,
-      selectElements,
-      addToSelection,
       getPageLayouts,
+      finishDraw,
+      resetDraw,
+      finishMarquee,
+      isDrawingRef,
+      drawStartRef,
     ],
   );
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        e.target instanceof HTMLElement &&
-        ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)
-      ) {
+      if (isEditableElement(e)) {
         return;
       }
 
@@ -559,11 +390,10 @@ export function CanvasOverlay() {
         e.preventDefault();
         const layouts = getPageLayouts();
         if (layouts.size === 0) return;
-        const scrollEl = document.querySelector<HTMLElement>(
-          "[data-pdf-scroll-container]",
-        );
+        const scrollEl = getScrollContainer();
         if (!scrollEl) return;
-        const scrollCenter = scrollEl.scrollTop + scrollEl.clientHeight / 2;
+        const scrollCenter =
+          scrollEl.scrollTop + scrollEl.clientHeight / 2;
         let closestPage = 1;
         let closestDist = Infinity;
         for (const [pageNum, layout] of layouts) {
@@ -656,6 +486,7 @@ export function CanvasOverlay() {
       );
       if (guideTarget) {
         const guideId = guideTarget.getAttribute("data-guide-id")!;
+        const selectGuide = useEditorStore.getState().selectGuide;
         selectGuide(guideId);
         setContextMenuState({
           context: { type: "guide", guideId },
@@ -690,7 +521,7 @@ export function CanvasOverlay() {
         clientY: e.clientY,
       });
     },
-    [zoom, getPageLayouts, findPageAtPoint, selectElements, selectGuide],
+    [zoom, getPageLayouts, findPageAtPoint, selectElements],
   );
 
   if (!pdfBytes) return null;
@@ -724,11 +555,17 @@ export function CanvasOverlay() {
 
     const isSingleInput = isInputEl(el);
     const isSmallElement = screenWidth < 40 || screenHeight < 40;
+    const styleConfig = getElementStyleConfig(el);
 
     const smallHandleOverride = isSmallElement
       ? {
           topLeft: { width: "8px", height: "8px", left: "-4px", top: "-4px" },
-          topRight: { width: "8px", height: "8px", right: "-4px", top: "-4px" },
+          topRight: {
+            width: "8px",
+            height: "8px",
+            right: "-4px",
+            top: "-4px",
+          },
           bottomLeft: {
             width: "8px",
             height: "8px",
@@ -800,7 +637,9 @@ export function CanvasOverlay() {
         onDragStart={(e) => {
           const mouseEvent = e as React.MouseEvent;
           const shiftOrCtrl =
-            mouseEvent.shiftKey || mouseEvent.ctrlKey || mouseEvent.metaKey;
+            mouseEvent.shiftKey ||
+            mouseEvent.ctrlKey ||
+            mouseEvent.metaKey;
           if (!isSelected) {
             if (shiftOrCtrl) {
               const store = useEditorStore.getState();
@@ -852,13 +691,12 @@ export function CanvasOverlay() {
           const snapCtx = buildSnapContext(
             isMultiDrag ? currentSelectedIds : new Set([el.id]),
             el.pageNumber,
-            { shiftKey: me.shiftKey, ctrlKey: me.ctrlKey || me.metaKey },
+            {
+              shiftKey: me.shiftKey,
+              ctrlKey: me.ctrlKey || me.metaKey,
+            },
           );
-          const hasSnap =
-            snapCtx.snapToGrid ||
-            snapCtx.snapToElements ||
-            snapCtx.snapToGuides ||
-            snapCtx.snapToPageEdges;
+          const hasSnap = hasAnySnap(snapCtx);
 
           if (hasSnap) {
             const snapOpts = prevSnapRef.current
@@ -969,10 +807,8 @@ export function CanvasOverlay() {
           setDragLivePositions(livePositions);
         }}
         onDragStop={(dragStopEvent, d) => {
-          if (pendingToggleId.current === el.id) {
-            toggleInSelection(el.id);
-            pendingToggleId.current = null;
-            dragStartPositions.current = null;
+          const resetDragState = () => {
+            dragStartPositions.current = new Map();
             draggingId.current = null;
             setDragOffset(null);
             setDragSnapCorrection(null);
@@ -980,6 +816,12 @@ export function CanvasOverlay() {
             setDragLivePositions(null);
             prevSnapRef.current = null;
             unlockCursor();
+          };
+
+          if (pendingToggleId.current === el.id) {
+            toggleInSelection(el.id);
+            pendingToggleId.current = null;
+            resetDragState();
             return;
           }
 
@@ -990,13 +832,17 @@ export function CanvasOverlay() {
           const currentStore = useEditorStore.getState();
           const currentSelectedIds = currentStore.selectedIds;
 
-          if (currentSelectedIds.size > 1 && currentSelectedIds.has(el.id)) {
+          if (
+            currentSelectedIds.size > 1 &&
+            currentSelectedIds.has(el.id)
+          ) {
             const rawDx = (d.x - screen.x) / zoom;
             const rawDy = (d.y - screen.y) / zoom;
 
             const selectedOnPage = elements.filter(
               (e) =>
-                currentSelectedIds.has(e.id) && e.pageNumber === el.pageNumber,
+                currentSelectedIds.has(e.id) &&
+                e.pageNumber === el.pageNumber,
             );
 
             let correctionDx = 0;
@@ -1005,13 +851,12 @@ export function CanvasOverlay() {
             const snapCtx = buildSnapContext(
               currentSelectedIds,
               el.pageNumber,
-              { shiftKey: me.shiftKey, ctrlKey: me.ctrlKey || me.metaKey },
+              {
+                shiftKey: me.shiftKey,
+                ctrlKey: me.ctrlKey || me.metaKey,
+              },
             );
-            const hasSnap =
-              snapCtx.snapToGrid ||
-              snapCtx.snapToElements ||
-              snapCtx.snapToGuides ||
-              snapCtx.snapToPageEdges;
+            const hasSnap = hasAnySnap(snapCtx);
 
             if (hasSnap) {
               const snapOpts = prevSnapRef.current
@@ -1069,7 +914,8 @@ export function CanvasOverlay() {
             }> = [];
             for (const otherEl of elements) {
               if (!currentSelectedIds.has(otherEl.id)) continue;
-              const startPos = dragStartPositions.current?.get(otherEl.id);
+              const startPos =
+                dragStartPositions.current?.get(otherEl.id);
               if (startPos) {
                 const newX = startPos.x + rawDx + correctionDx;
                 const newY = startPos.y + rawDy + correctionDy;
@@ -1134,21 +980,20 @@ export function CanvasOverlay() {
             }
             moveElements(updates);
           } else {
-            const snapCtx = buildSnapContext(new Set([el.id]), el.pageNumber, {
-              shiftKey: me.shiftKey,
-              ctrlKey: me.ctrlKey || me.metaKey,
-            });
+            const snapCtx = buildSnapContext(
+              new Set([el.id]),
+              el.pageNumber,
+              {
+                shiftKey: me.shiftKey,
+                ctrlKey: me.ctrlKey || me.metaKey,
+              },
+            );
             const proposedX = el.x + (d.x - screen.x) / zoom;
             const proposedY = el.y + (d.y - screen.y) / zoom;
 
             let finalX = proposedX;
             let finalY = proposedY;
-            if (
-              snapCtx.snapToGrid ||
-              snapCtx.snapToElements ||
-              snapCtx.snapToGuides ||
-              snapCtx.snapToPageEdges
-            ) {
+            if (hasAnySnap(snapCtx)) {
               const snapOpts = prevSnapRef.current
                 ? {
                     previousSnappedX: prevSnapRef.current.x,
@@ -1182,8 +1027,15 @@ export function CanvasOverlay() {
                 (p) => p.pageNumber === targetPage,
               )!;
               const screenPt = pdfToScreen(
-                { x: finalX + el.width / 2, y: finalY + el.height / 2 },
-                { zoom, pageX: oldLayout.xOffset, pageY: oldLayout.yOffset },
+                {
+                  x: finalX + el.width / 2,
+                  y: finalY + el.height / 2,
+                },
+                {
+                  zoom,
+                  pageX: oldLayout.xOffset,
+                  pageY: oldLayout.yOffset,
+                },
               );
               const newPdf = screenToPdf(screenPt, {
                 zoom,
@@ -1213,14 +1065,7 @@ export function CanvasOverlay() {
               updateElement(el.id, { x: finalX, y: finalY });
             }
           }
-          dragStartPositions.current = null;
-          draggingId.current = null;
-          setDragOffset(null);
-          setDragSnapCorrection(null);
-          setActiveGuides([]);
-          setDragLivePositions(null);
-          prevSnapRef.current = null;
-          unlockCursor();
+          resetDragState();
         }}
         onResize={(resizeEvent, dir, ref, _delta, position) => {
           resizeHappenedRef.current = true;
@@ -1236,15 +1081,15 @@ export function CanvasOverlay() {
             { zoom, pageX: pl.xOffset, pageY: pl.yOffset },
           );
 
-          const snapCtx = buildSnapContext(new Set([el.id]), el.pageNumber, {
-            shiftKey: me.shiftKey,
-            ctrlKey: me.ctrlKey || me.metaKey,
-          });
-          const hasSnap =
-            snapCtx.snapToGrid ||
-            snapCtx.snapToElements ||
-            snapCtx.snapToGuides ||
-            snapCtx.snapToPageEdges;
+          const snapCtx = buildSnapContext(
+            new Set([el.id]),
+            el.pageNumber,
+            {
+              shiftKey: me.shiftKey,
+              ctrlKey: me.ctrlKey || me.metaKey,
+            },
+          );
+          const hasSnap = hasAnySnap(snapCtx);
 
           if (hasSnap) {
             const snapOpts = prevSnapRef.current
@@ -1331,7 +1176,7 @@ export function CanvasOverlay() {
           aria-label={`${getElementName(el)} (${el.type})`}
           aria-pressed={isSelected}
           tabIndex={-1}
-          className={`h-full w-full flex items-center justify-center outline-none ring-0 ${getElementStyleConfig(el).borderBgClass(isSelected)} ${
+          className={`h-full w-full flex items-center justify-center outline-none ring-0 ${styleConfig.borderBgClass(isSelected)} ${
             snapTargetIds.has(el.id) ? "border-2" : ""
           }`}
           style={{
@@ -1354,7 +1199,7 @@ export function CanvasOverlay() {
           {el.type === "checkbox" && (
             <svg
               viewBox="0 0 10 10"
-              className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`}
+              className={`h-3/5 w-3/5 ${styleConfig.colorClass}`}
             >
               <path
                 d="M2 5L4 7L8 3"
@@ -1369,7 +1214,7 @@ export function CanvasOverlay() {
           {el.type === "radio" && (
             <svg
               viewBox="0 0 10 10"
-              className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`}
+              className={`h-3/5 w-3/5 ${styleConfig.colorClass}`}
             >
               <circle
                 cx="5"
@@ -1385,7 +1230,7 @@ export function CanvasOverlay() {
           {el.type === "text" && el.multiline && (
             <svg
               viewBox="0 0 12 12"
-              className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass} opacity-50`}
+              className={`h-3/5 w-3/5 ${styleConfig.colorClass} opacity-50`}
             >
               <line
                 x1="2"
@@ -1414,7 +1259,7 @@ export function CanvasOverlay() {
             </svg>
           )}
           <span
-            className={`absolute -top-4 left-0 max-w-[80px] truncate overflow-hidden text-[10px] select-none ${getElementStyleConfig(el).textColorClass}`}
+            className={`absolute -top-4 left-0 max-w-[80px] truncate overflow-hidden text-[10px] select-none ${styleConfig.textColorClass}`}
           >
             {getElementName(el)}
           </span>
@@ -1423,323 +1268,7 @@ export function CanvasOverlay() {
     );
   });
 
-  const marqueeRect = marquee
-    ? {
-        left: Math.min(marquee.startX, marquee.currentX),
-        top: Math.min(marquee.startY, marquee.currentY),
-        width: Math.abs(marquee.currentX - marquee.startX),
-        height: Math.abs(marquee.currentY - marquee.startY),
-      }
-    : null;
-
-  const drawRectStyle = drawRect
-    ? (() => {
-        const left = Math.min(drawRect.startX, drawRect.currentX);
-        const top = Math.min(drawRect.startY, drawRect.currentY);
-        const width = Math.abs(drawRect.currentX - drawRect.startX);
-        const height = Math.abs(drawRect.currentY - drawRect.startY);
-
-        if (HORIZONTAL_DRAW_TOOLS.has(activeTool)) {
-          const fontSize = 12;
-          const autoHeight = heightFromFontSize(fontSize) * zoom;
-          const start = drawStartRef.current;
-          const startY = start ? start.y : top;
-          return { left, top: startY, width, height: autoHeight };
-        }
-        return { left, top, width, height };
-      })()
-    : null;
-
   const totalContentHeight = getTotalContentHeight(pages, zoom);
-
-  const guideColor = (type: SnapGuide["type"]) => {
-    if (type === "element" || type === "grid") return "var(--guide-snap)";
-    if (type === "page") return "var(--guide-page)";
-    return "var(--guide-ruler)";
-  };
-
-  const guideLineElements = activeGuides.flatMap((guide, i) => {
-    if (guide.orientation === "horizontal") {
-      return pages.map((page, pi) => {
-        const layout = layouts.get(page.pageNumber);
-        const screenY =
-          (layout?.yOffset ?? TOP_PADDING) + guide.position * zoom;
-        return (
-          <div
-            key={`guide-${i}-page-${pi}`}
-            className="pointer-events-none absolute z-50"
-            style={{
-              left: 0,
-              top: screenY - 0.5,
-              width: overlayWidth,
-              height: 2,
-              backgroundColor: guideColor(guide.type),
-            }}
-          />
-        );
-      });
-    } else {
-      const firstLayout = layouts.get(1);
-      const screenX = firstLayout
-        ? firstLayout.xOffset + guide.position * zoom
-        : guide.position * zoom;
-      return [
-        <div
-          key={`guide-${i}`}
-          className="pointer-events-none absolute z-50"
-          style={{
-            left: screenX - 0.5,
-            top: 0,
-            width: 2,
-            height: totalContentHeight,
-            backgroundColor: guideColor(guide.type),
-          }}
-        />,
-      ];
-    }
-  });
-
-  const persistentGuideElements = guides.flatMap((guide) => {
-    const isSelected = selectedGuideId === guide.id;
-    const isBeingDragged = draggingGuideIdRef.current === guide.id;
-
-    if (isBeingDragged) return [];
-
-    const handleGuideMouseDown = (e: React.MouseEvent) => {
-      if (e.button !== 0) return;
-      e.preventDefault();
-      e.stopPropagation();
-      selectGuide(guide.id);
-      lockCursor(guide.orientation === "horizontal" ? "ns" : "ew");
-
-      const initialPosition = guide.position;
-      let lastValidPosition = initialPosition;
-
-      const overlayEl = overlayRef.current;
-      if (!overlayEl) return;
-
-      const computeGuidePosition = (
-        moveEvent: MouseEvent,
-      ): { position: number; valid: boolean } => {
-        const overlayRect = overlayEl.getBoundingClientRect();
-
-        if (guide.orientation === "horizontal") {
-          const relY = moveEvent.clientY - overlayRect.top;
-          let foundPage = false;
-          let pageYOffset = TOP_PADDING;
-          for (const p of pages) {
-            const pH = p.height * zoom;
-            if (relY >= pageYOffset && relY < pageYOffset + pH) {
-              foundPage = true;
-              break;
-            }
-            pageYOffset += pH + PAGE_GAP;
-          }
-          if (!foundPage) return { position: lastValidPosition, valid: false };
-          let pdfY = (relY - pageYOffset) / zoom;
-          pdfY = Math.max(0, Math.min(pdfY, pages[0]?.height ?? 792));
-          if (moveEvent.shiftKey) {
-            pdfY = Math.round(pdfY / gridSize) * gridSize;
-          }
-          return { position: Math.round(pdfY * 10) / 10, valid: true };
-        } else {
-          const relX = moveEvent.clientX - overlayRect.left;
-          const page = pages[0];
-          if (!page) return { position: lastValidPosition, valid: false };
-          const xOff =
-            layouts.get(page.pageNumber)?.xOffset ??
-            Math.max(H_PADDING, (overlayWidth - page.width * zoom) / 2);
-          let pdfX = (relX - xOff) / zoom;
-          pdfX = Math.max(0, Math.min(pdfX, page.width));
-          if (moveEvent.shiftKey) {
-            pdfX = Math.round(pdfX / gridSize) * gridSize;
-          }
-          return { position: Math.round(pdfX * 10) / 10, valid: true };
-        }
-      };
-
-      const onMouseMove = (moveEvent: MouseEvent) => {
-        const { position, valid } = computeGuidePosition(moveEvent);
-        if (valid) {
-          lastValidPosition = position;
-        }
-        setPreviewGuide({
-          orientation: guide.orientation,
-          position: lastValidPosition,
-        });
-      };
-
-      const onMouseUp = (moveEvent: MouseEvent) => {
-        setPreviewGuide(null);
-        const { position, valid } = computeGuidePosition(moveEvent);
-        const finalPos = valid ? position : lastValidPosition;
-
-        if (moveEvent.metaKey || moveEvent.ctrlKey) {
-          removeGuide(guide.id);
-        } else {
-          updateGuidePosition(guide.id, finalPos);
-        }
-
-        unlockCursor();
-        draggingGuideIdRef.current = null;
-        document.removeEventListener("mousemove", onMouseMove);
-        document.removeEventListener("mouseup", onMouseUp);
-      };
-
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", onMouseUp);
-      draggingGuideIdRef.current = guide.id;
-    };
-
-    const lineStyle: React.CSSProperties = {
-      position: "absolute",
-      backgroundColor: "var(--guide-ruler)",
-      opacity: isSelected ? 1 : 0.6,
-    };
-
-    if (guide.orientation === "horizontal") {
-      return pages.map((page, pi) => {
-        const layout = layouts.get(page.pageNumber);
-        const screenY =
-          (layout?.yOffset ?? TOP_PADDING) + guide.position * zoom;
-        return (
-          <div
-            key={`${guide.id}-page-${pi}`}
-            data-guide-line
-            data-guide-id={guide.id}
-            className="absolute z-40 cursor-ns-resize group"
-            style={{
-              left: 0,
-              top: screenY - 4,
-              width: overlayWidth,
-              height: 9,
-            }}
-            onMouseDown={handleGuideMouseDown}
-          >
-            <div
-              className="w-full group-hover:opacity-100"
-              style={{ ...lineStyle, top: 4, height: 1 }}
-            />
-          </div>
-        );
-      });
-    } else {
-      const firstLayout = layouts.get(1);
-      const screenX = firstLayout
-        ? firstLayout.xOffset + guide.position * zoom
-        : guide.position * zoom;
-      return [
-        <div
-          key={guide.id}
-          data-guide-line
-          data-guide-id={guide.id}
-          className="absolute z-40 cursor-ew-resize group"
-          style={{
-            left: screenX - 4,
-            top: 0,
-            width: 9,
-            height: totalContentHeight,
-          }}
-          onMouseDown={handleGuideMouseDown}
-        >
-          <div
-            className="h-full group-hover:opacity-100"
-            style={{ ...lineStyle, left: 4, width: 1 }}
-          />
-        </div>,
-      ];
-    }
-  });
-
-  const previewGuideElements = previewGuide
-    ? (() => {
-        if (previewGuide.orientation === "horizontal") {
-          return pages.map((page, pi) => {
-            const layout = layouts.get(page.pageNumber);
-            const screenY =
-              (layout?.yOffset ?? TOP_PADDING) + previewGuide.position * zoom;
-            return (
-              <div
-                key={`preview-guide-page-${pi}`}
-                className="pointer-events-none absolute z-50"
-                style={{
-                  left: 0,
-                  top: screenY,
-                  width: overlayWidth,
-                  height: 1,
-                  backgroundColor: "var(--guide-ruler)",
-                }}
-              />
-            );
-          });
-        } else {
-          const firstLayout = layouts.get(1);
-          const screenX = firstLayout
-            ? firstLayout.xOffset + previewGuide.position * zoom
-            : previewGuide.position * zoom;
-          return [
-            <div
-              key="preview-guide"
-              className="pointer-events-none absolute z-50"
-              style={{
-                left: screenX,
-                top: 0,
-                width: 1,
-                height: totalContentHeight,
-                backgroundColor: "var(--guide-ruler)",
-              }}
-            />,
-          ];
-        }
-      })()
-    : [];
-
-  const boundingRectOverlays = (() => {
-    if (selectedIds.size < 2) return null;
-    const byPage = new Map<
-      number,
-      Array<{ x: number; y: number; width: number; height: number }>
-    >();
-    for (const el of elements) {
-      if (!selectedIds.has(el.id)) continue;
-      if (!byPage.has(el.pageNumber)) byPage.set(el.pageNumber, []);
-      const live = dragLivePositions?.get(el.id);
-      byPage.get(el.pageNumber)!.push({
-        x: live?.x ?? el.x,
-        y: live?.y ?? el.y,
-        width: live?.width ?? el.width,
-        height: live?.height ?? el.height,
-      });
-    }
-    const rects: Array<{
-      screenX: number;
-      screenY: number;
-      screenWidth: number;
-      screenHeight: number;
-    }> = [];
-    for (const [page, items] of byPage) {
-      if (items.length < 2) continue;
-      const rect = computeBoundingRect(items);
-      if (!rect) continue;
-      const layout = layouts.get(page);
-      if (!layout) continue;
-      const topLeft = pdfToScreen(
-        { x: rect.x, y: rect.y },
-        { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
-      );
-      const bottomRight = pdfToScreen(
-        { x: rect.x + rect.width, y: rect.y + rect.height },
-        { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
-      );
-      rects.push({
-        screenX: topLeft.x,
-        screenY: topLeft.y,
-        screenWidth: bottomRight.x - topLeft.x,
-        screenHeight: bottomRight.y - topLeft.y,
-      });
-    }
-    return rects;
-  })();
 
   return (
     <div
@@ -1752,52 +1281,42 @@ export function CanvasOverlay() {
       style={{ cursor: activeTool !== "select" ? "crosshair" : "default" }}
     >
       {elementOverlays}
-      {boundingRectOverlays?.map((rect, i) => (
-        <div
-          key={`bounding-rect-${i}`}
-          className="pointer-events-none absolute"
-          style={{
-            left: rect.screenX,
-            top: rect.screenY,
-            width: rect.screenWidth,
-            height: rect.screenHeight,
-            border:
-              dragOffset !== null
-                ? "1px dashed var(--bounding-rect)"
-                : "1px dotted var(--bounding-rect)",
-            opacity: dragOffset !== null ? 0.6 : 0.4,
-          }}
-        />
-      ))}
-      {persistentGuideElements}
-      {previewGuideElements}
-      {guideLineElements}
-      {marqueeRect && marqueeRect.width > 0 && marqueeRect.height > 0 && (
-        <div
-          className="pointer-events-none absolute border border-field-text/50 bg-field-text-bg"
-          style={{
-            left: marqueeRect.left,
-            top: marqueeRect.top,
-            width: marqueeRect.width,
-            height: marqueeRect.height,
-          }}
-        />
-      )}
-      {drawRectStyle && drawRectStyle.width > 0 && (
-        <div
-          className={`pointer-events-none absolute ${
-            HORIZONTAL_DRAW_TOOLS.has(activeTool)
-              ? getElementStyleConfigByType("text")!.drawPreviewClass
-              : getElementStyleConfigByType("multiline")!.drawPreviewClass
-          }`}
-          style={{
-            left: drawRectStyle.left,
-            top: drawRectStyle.top,
-            width: drawRectStyle.width,
-            height: drawRectStyle.height,
-          }}
-        />
-      )}
+      <BoundingRectOverlay
+        selectedIds={selectedIds}
+        elements={elements}
+        layouts={layouts}
+        zoom={zoom}
+        dragOffset={dragOffset}
+        dragLivePositions={dragLivePositions}
+      />
+      <GuidesLayer
+        guides={guides}
+        selectedGuideId={selectedGuideId}
+        previewGuide={previewGuide}
+        pages={pages}
+        layouts={layouts}
+        zoom={zoom}
+        gridSize={gridSize}
+        overlayWidth={overlayWidth}
+        overlayRef={overlayRef}
+        totalContentHeight={totalContentHeight}
+      />
+      <SnapGuidesLayer
+        activeGuides={activeGuides}
+        pages={pages}
+        layouts={layouts}
+        zoom={zoom}
+        overlayWidth={overlayWidth}
+        totalContentHeight={totalContentHeight}
+      />
+      <MarqueeOverlay marqueeRect={marqueeRect} />
+      <DrawPreview
+        drawRect={drawRect}
+        drawStartRef={drawStartRef}
+        activeTool={activeTool}
+        zoom={zoom}
+        HORIZONTAL_DRAW_TOOLS={HORIZONTAL_DRAW_TOOLS}
+      />
       {contextMenuState && (
         <CanvasContextMenu
           context={contextMenuState.context}
