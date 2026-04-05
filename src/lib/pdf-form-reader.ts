@@ -34,12 +34,22 @@ function buildPageRefMap(pdf: PDFDocument): Map<string, number> {
   if (!(pagesTree instanceof PDFDict)) return map;
   const kids = pagesTree.lookup(PDFName.of("Kids"));
   if (!(kids instanceof PDFArray)) return map;
-  for (let i = 0; i < kids.size(); i++) {
-    const ref = kids.get(i);
-    if (ref instanceof PDFRef) {
-      map.set(ref.toString(), i + 1);
+  const ctx = pdf.context;
+  let pageIndex = 1;
+  function collectRefs(kidsArray: PDFArray): void {
+    for (let i = 0; i < kidsArray.size(); i++) {
+      const kidRef = kidsArray.get(i);
+      const kidDict = resolveDict(ctx, kidRef);
+      if (!kidDict) continue;
+      const subKids = kidDict.lookup(PDFName.of("Kids"));
+      if (subKids instanceof PDFArray) {
+        collectRefs(subKids);
+      } else if (kidRef instanceof PDFRef) {
+        map.set(kidRef.toString(), pageIndex++);
+      }
     }
   }
+  collectRefs(kids);
   return map;
 }
 
@@ -85,7 +95,7 @@ function collectFields(
   const ft = getInheritableAttr(fieldDict, PDFName.of("FT"), ctx);
   if (!ft) return;
 
-  const pageNumber = findWidgetPage(fieldDict, pageRefToIndex);
+  const pageNumber = findWidgetPage(fieldDict, pageRefToIndex, ctx);
   if (pageNumber === null) return;
 
   const rect = getRect(fieldDict);
@@ -141,7 +151,7 @@ function collectRadioKids(
     const kidDict = resolveDict(ctx, kidRef);
     if (!kidDict) continue;
 
-    const pageNumber = findWidgetPage(kidDict, pageRefToIndex);
+    const pageNumber = findWidgetPage(kidDict, pageRefToIndex, ctx);
     if (pageNumber === null) continue;
 
     const rect = getRect(kidDict);
@@ -355,11 +365,24 @@ function getRect(dict: PDFDict): Rect | null {
 function findWidgetPage(
   widgetDict: PDFDict,
   pageRefToIndex: Map<string, number>,
+  ctx: LookupCtx,
 ): number | null {
-  const p = widgetDict.get(PDFName.of("P"));
-  if (p instanceof PDFRef) {
-    const idx = pageRefToIndex.get(p.toString());
-    if (idx !== undefined) return idx;
+  let current: PDFDict | null = widgetDict;
+  while (current) {
+    const p = current.get(PDFName.of("P"));
+    if (p instanceof PDFRef) {
+      const idx = pageRefToIndex.get(p.toString());
+      if (idx !== undefined) return idx;
+    }
+    const parent = current.get(PDFName.of("Parent"));
+    if (parent instanceof PDFRef) {
+      const obj = ctx.lookup(parent);
+      current = obj instanceof PDFDict ? obj : null;
+    } else if (parent instanceof PDFDict) {
+      current = parent;
+    } else {
+      break;
+    }
   }
   return null;
 }

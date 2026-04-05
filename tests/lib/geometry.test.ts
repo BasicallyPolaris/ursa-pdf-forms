@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rectsOverlap, type Rect } from "@/lib/geometry";
+import { rectsOverlap, computeBoundingRect, type Rect } from "@/lib/geometry";
 
 describe("rectsOverlap", () => {
   it("returns true for overlapping rectangles", () => {
@@ -53,5 +53,33 @@ describe("rectsOverlap", () => {
     const a: Rect = { x: -10, y: -10, width: 15, height: 15 };
     const b: Rect = { x: -5, y: -5, width: 10, height: 10 };
     expect(rectsOverlap(a, b)).toBe(true);
+  });
+});
+
+describe("computeBoundingRect", () => {
+  it("returns null for empty array", () => {
+    expect(computeBoundingRect([])).toBeNull();
+  });
+
+  it("returns the single item as rect", () => {
+    expect(computeBoundingRect([{ x: 10, y: 20, width: 30, height: 40 }])).toEqual({
+      x: 10, y: 20, width: 30, height: 40,
+    });
+  });
+
+  it("computes bounding rect of multiple items", () => {
+    const result = computeBoundingRect([
+      { x: 10, y: 20, width: 30, height: 40 },
+      { x: 50, y: 10, width: 20, height: 50 },
+    ]);
+    expect(result).toEqual({ x: 10, y: 10, width: 60, height: 50 });
+  });
+
+  it("computes bounding rect of items that don't overlap", () => {
+    const result = computeBoundingRect([
+      { x: 0, y: 0, width: 10, height: 10 },
+      { x: 100, y: 100, width: 10, height: 10 },
+    ]);
+    expect(result).toEqual({ x: 0, y: 0, width: 110, height: 110 });
   });
 });

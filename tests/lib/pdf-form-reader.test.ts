@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { PDFDocument } from "pdf-lib";
+import {
+  PDFDocument,
+  PDFName,
+  PDFArray,
+  PDFDict,
+  PDFRef,
+  PDFNumber,
+  PDFHexString,
+} from "pdf-lib";
 import { extractAcroFormFields } from "@/lib/pdf-form-reader";
 import { exportFormElements } from "@/lib/pdf-export-engine";
 import {
@@ -286,6 +294,118 @@ describe("extractAcroFormFields", () => {
     expect(extracted.length).toBe(1);
     if (extracted[0].type === "text") {
       expect(extracted[0].fontSize).toBe(18);
+    }
+  });
+
+  it("extracts fields from PDF with hierarchical page tree", async () => {
+    const pdf = await PDFDocument.create();
+    pdf.addPage([612, 792]);
+    pdf.addPage([612, 792]);
+    pdf.addPage([612, 792]);
+    pdf.addPage([612, 792]);
+    const basePdf = await pdf.save();
+
+    const elements: FormElement[] = [
+      createTextField({
+        x: 72,
+        y: 700,
+        pageNumber: 1,
+        name: "page1",
+        width: 150,
+        height: 20,
+      }),
+      createTextField({
+        x: 72,
+        y: 700,
+        pageNumber: 4,
+        name: "page4",
+        width: 150,
+        height: 20,
+      }),
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+
+    const reloaded = await PDFDocument.load(exportedPdf, {
+      ignoreEncryption: true,
+    });
+    const ctx = reloaded.context;
+    const pagesTree = reloaded.catalog.lookup(PDFName.of("Pages"));
+    const kids = pagesTree.lookup(PDFName.of("Kids"));
+
+    const intermediateKids = PDFArray.withContext(ctx);
+    intermediateKids.push(kids.get(0));
+    intermediateKids.push(kids.get(1));
+    const intermediateNode = ctx.obj({
+      Type: "Pages",
+      Kids: intermediateKids,
+      Count: 2,
+    });
+    const intermediateRef = ctx.register(intermediateNode);
+
+    intermediateKids.get(0) instanceof PDFRef;
+    const p0 = kids.get(0) as PDFRef;
+    const p1 = kids.get(1) as PDFRef;
+    const p0Dict = ctx.lookup(p0) as PDFDict;
+    const p1Dict = ctx.lookup(p1) as PDFDict;
+    p0Dict.set(PDFName.of("Parent"), intermediateRef);
+    p1Dict.set(PDFName.of("Parent"), intermediateRef);
+
+    const newTopKids = PDFArray.withContext(ctx);
+    newTopKids.push(intermediateRef);
+    newTopKids.push(kids.get(2));
+    newTopKids.push(kids.get(3));
+    pagesTree.set(PDFName.of("Kids"), newTopKids);
+
+    const modifiedPdf = await reloaded.save();
+
+    const extracted = await extractAcroFormFields(modifiedPdf);
+    expect(extracted.length).toBe(2);
+    const pageNumbers = extracted.map((el) => el.pageNumber).sort();
+    expect(pageNumbers).toEqual([1, 4]);
+  });
+
+  it("extracts fields when /P is only on parent dict", async () => {
+    const basePdf = await createPdfWithPages(1);
+    const elements: FormElement[] = [
+      createTextField({
+        x: 72,
+        y: 700,
+        pageNumber: 1,
+        name: "inheritedPage",
+        width: 150,
+        height: 20,
+      }),
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const reloaded = await PDFDocument.load(exportedPdf, {
+      ignoreEncryption: true,
+    });
+    const ctx = reloaded.context;
+    const pagesTree = reloaded.catalog.lookup(PDFName.of("Pages"));
+    const pageRef = (pagesTree.lookup(PDFName.of("Kids")) as PDFArray).get(0) as PDFRef;
+
+    const acroForm = reloaded.catalog.lookup(PDFName.of("AcroForm")) as PDFDict;
+    const fields = acroForm.lookup(PDFName.of("Fields")) as PDFArray;
+    const fieldRef = fields.get(0) as PDFRef;
+    const fieldDict = ctx.lookup(fieldRef) as PDFDict;
+
+    const kids = fieldDict.lookup(PDFName.of("Kids"));
+    if (kids instanceof PDFArray && kids.size() > 0) {
+      const kidRef = kids.get(0) as PDFRef;
+      const kidDict = ctx.lookup(kidRef) as PDFDict;
+      kidDict.delete(PDFName.of("P"));
+      fieldDict.set(PDFName.of("P"), pageRef);
+    }
+
+    const modifiedPdf = await reloaded.save();
+
+    const extracted = await extractAcroFormFields(modifiedPdf);
+    expect(extracted.length).toBe(1);
+    expect(extracted[0].pageNumber).toBe(1);
+    if (extracted[0].type === "text") {
+      expect(extracted[0].name).toBe("inheritedPage");
     }
   });
 });

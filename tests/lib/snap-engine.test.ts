@@ -53,7 +53,7 @@ describe("snapToPageEdge", () => {
 });
 
 function makeContext(overrides: Partial<SnapContext> = {}): SnapContext {
-  return {
+  const base: SnapContext = {
     gridSize: 10,
     snapThreshold: 5,
     pageWidth: 612,
@@ -64,8 +64,11 @@ function makeContext(overrides: Partial<SnapContext> = {}): SnapContext {
     snapToPageEdges: true,
     snapToElements: true,
     snapToGuides: true,
-    ...overrides,
+    hasAnySnap: true,
   };
+  const merged = { ...base, ...overrides };
+  merged.hasAnySnap = merged.snapToGrid || merged.snapToPageEdges || merged.snapToElements || merged.snapToGuides;
+  return merged;
 }
 
 describe("snapPosition", () => {

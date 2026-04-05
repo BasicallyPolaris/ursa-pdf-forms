@@ -20,6 +20,70 @@ import {
   matchHeightToShortest,
 } from "@/lib/alignment";
 
+function applyPositionUpdates(
+  elements: FormElement[],
+  updates: Array<{ id: string; x: number; y: number }>,
+): FormElement[] {
+  const map = new Map(updates.map((u) => [u.id, u]));
+  return elements.map((el) => {
+    const u = map.get(el.id);
+    return u ? { ...el, x: u.x, y: u.y } : el;
+  });
+}
+
+function mergeElement(el: FormElement, updates: Partial<FormElement>): FormElement {
+  return { ...el, ...updates } as FormElement;
+}
+
+function cloneElementsWithNewIds(
+  sources: FormElement[],
+  existing: FormElement[],
+  opts: { targetPage?: number; targetX?: number; targetY?: number; offsetIfSamePage: number },
+): { cloned: FormElement[]; newIds: Set<string> } {
+  const cloned: FormElement[] = [];
+  const newIds = new Set<string>();
+  const baseEl = sources[0];
+  const offX = opts.targetX !== undefined ? opts.targetX - baseEl.x : 0;
+  const offY = opts.targetY !== undefined ? opts.targetY - baseEl.y : 0;
+
+  for (const el of sources) {
+    const samePage = opts.targetPage === undefined || opts.targetPage === el.pageNumber;
+    const newX = samePage ? el.x + (offX || opts.offsetIfSamePage) : el.x + (offX || 0);
+    const newY = samePage ? el.y + (offY || opts.offsetIfSamePage) : el.y + (offY || 0);
+    const clone = structuredClone(el);
+    const newEl = mergeElement(clone, {
+      id: generatePastedId(),
+      pageNumber: opts.targetPage ?? el.pageNumber,
+      x: newX,
+      y: newY,
+    });
+    if ("name" in newEl) {
+      (newEl as FormElement & { name: string }).name = getUniqueName(
+        (newEl as FormElement & { name: string }).name,
+        [...existing, ...cloned],
+      );
+    }
+    cloned.push(newEl);
+    newIds.add(newEl.id);
+  }
+  return { cloned, newIds };
+}
+
+const PDF_RESET_STATE = {
+  pdfFileName: null as string | null,
+  pdfBytes: null as Uint8Array | null,
+  renderPdfBytes: null as Uint8Array | null,
+  pages: [] as PageInfo[],
+  elements: [] as FormElement[],
+  selectedIds: new Set<string>(),
+  clipboard: [] as FormElement[],
+  guides: [] as GuideLine[],
+  selectedGuideId: null as string | null,
+  previewGuide: null as { orientation: "horizontal" | "vertical"; position: number } | null,
+  dragLivePositions: new Map<string, { x: number; y: number; width: number; height: number }>(),
+  activeTool: "select" as EditorState["activeTool"],
+};
+
 export type { PageInfo };
 
 let nextPasteId = 1;
@@ -141,22 +205,14 @@ export const useEditorStore = create<EditorState>()(
 
       setPdf: (fileName, bytes, pages) => {
         set({
+          ...PDF_RESET_STATE,
           pdfFileName: fileName,
           pdfBytes: bytes,
-          renderPdfBytes: null,
           pages,
-          elements: [],
-          selectedIds: new Set<string>(),
-          clipboard: [],
-          guides: [],
-          selectedGuideId: null,
-          previewGuide: null,
-          dragLivePositions: new Map(),
-          activeTool: "select",
         });
         useEditorStore.temporal.getState().clear();
-        _lastSavedElementsJson = "[]";
-        _lastSavedGuidesJson = "[]";
+        _mutationVersion++;
+        _savedVersion = _mutationVersion;
       },
 
       setPdfPages: (pages) => set({ pages }),
@@ -166,23 +222,10 @@ export const useEditorStore = create<EditorState>()(
       setActiveTool: (activeTool) => set({ activeTool }),
 
       clearPdf: () => {
-        set({
-          pdfFileName: null,
-          pdfBytes: null,
-          renderPdfBytes: null,
-          pages: [],
-          elements: [],
-          selectedIds: new Set<string>(),
-          clipboard: [],
-          guides: [],
-          selectedGuideId: null,
-          previewGuide: null,
-          dragLivePositions: new Map(),
-          activeTool: "select",
-        });
+        set(PDF_RESET_STATE);
         useEditorStore.temporal.getState().clear();
-        _lastSavedElementsJson = "[]";
-        _lastSavedGuidesJson = "[]";
+        _mutationVersion++;
+        _savedVersion = _mutationVersion;
       },
 
       setRenderPdfBytes: (bytes) => set({ renderPdfBytes: bytes }),
@@ -190,43 +233,49 @@ export const useEditorStore = create<EditorState>()(
       setInitialElements: (elements: FormElement[]) => {
         set({ elements });
         useEditorStore.temporal.getState().clear();
-        _lastSavedElementsJson = JSON.stringify(elements);
-        _lastSavedGuidesJson = "[]";
+        _mutationVersion++;
+        _savedVersion = _mutationVersion;
       },
 
-      addElement: (element) =>
-        set((s) => ({ elements: [...s.elements, element] })),
+      addElement: (element) => {
+        _mutationVersion++;
+        set((s) => ({ elements: [...s.elements, element] }));
+      },
 
-      updateElement: (id, updates) =>
+      updateElement: (id, updates) => {
+        _mutationVersion++;
         set((s) => ({
           elements: s.elements.map((el) =>
-            el.id === id ? ({ ...el, ...updates } as FormElement) : el,
+            el.id === id ? mergeElement(el, updates) : el,
           ),
-        })),
+        }));
+      },
 
-      moveElements: (updates) =>
-        set((s) => ({
-          elements: s.elements.map((el) => {
-            const u = updates.find((u) => u.id === el.id);
-            if (!u) return el;
-            return u.pageNumber !== undefined && u.pageNumber !== el.pageNumber
-              ? ({
-                  ...el,
-                  x: u.x,
-                  y: u.y,
-                  pageNumber: u.pageNumber,
-                } as FormElement)
-              : { ...el, x: u.x, y: u.y };
-          }),
-        })),
+      moveElements: (updates) => {
+        _mutationVersion++;
+        set((s) => {
+          const map = new Map(updates.map((u) => [u.id, u]));
+          return {
+            elements: s.elements.map((el) => {
+              const u = map.get(el.id);
+              if (!u) return el;
+              return u.pageNumber !== undefined && u.pageNumber !== el.pageNumber
+                ? mergeElement(el, { x: u.x, y: u.y, pageNumber: u.pageNumber })
+                : { ...el, x: u.x, y: u.y };
+            }),
+          };
+        });
+      },
 
-      removeElements: (ids) =>
+      removeElements: (ids) => {
+        _mutationVersion++;
         set((s) => ({
           elements: s.elements.filter((el) => !ids.includes(el.id)),
           selectedIds: new Set(
             [...s.selectedIds].filter((id) => !ids.includes(id)),
           ),
-        })),
+        }));
+      },
 
       selectElements: (ids) => set({ selectedIds: ids, selectedGuideId: null }),
 
@@ -260,126 +309,98 @@ export const useEditorStore = create<EditorState>()(
       copySelection: () =>
         set((s) => {
           const selected = s.elements.filter((el) => s.selectedIds.has(el.id));
-          return { clipboard: JSON.parse(JSON.stringify(selected)) };
+          return { clipboard: structuredClone(selected) };
         }),
 
       pasteClipboard: (
         targetPage?: number,
         targetX?: number,
         targetY?: number,
-      ) =>
+      ) => {
+        _mutationVersion++;
         set((s) => {
           if (s.clipboard.length === 0) return s;
-          const pasted: FormElement[] = [];
-          const newIds = new Set<string>();
-          const baseEl = s.clipboard[0];
-          const offX = targetX !== undefined ? targetX - baseEl.x : 0;
-          const offY = targetY !== undefined ? targetY - baseEl.y : 0;
-          for (const el of s.clipboard) {
-            const samePage =
-              targetPage === undefined || targetPage === el.pageNumber;
-            const newX = samePage
-              ? el.x + (offX || PASTE_OFFSET)
-              : el.x + (offX || 0);
-            const newY = samePage
-              ? el.y + (offY || PASTE_OFFSET)
-              : el.y + (offY || 0);
-            const newEl = {
-              ...JSON.parse(JSON.stringify(el)),
-              id: generatePastedId(),
-              pageNumber: targetPage ?? el.pageNumber,
-              x: newX,
-              y: newY,
-            } as FormElement;
-            if ("name" in newEl) {
-              const typed = newEl as FormElement & { name: string };
-              typed.name = getUniqueName(typed.name, [
-                ...s.elements,
-                ...pasted,
-              ]);
-            }
-            pasted.push(newEl);
-            newIds.add(newEl.id);
-          }
+          const { cloned, newIds } = cloneElementsWithNewIds(s.clipboard, s.elements, {
+            targetPage,
+            targetX,
+            targetY,
+            offsetIfSamePage: PASTE_OFFSET,
+          });
           return {
-            elements: [...s.elements, ...pasted],
+            elements: [...s.elements, ...cloned],
             selectedIds: newIds,
           };
-        }),
+        });
+      },
 
-      cutSelection: () =>
+      cutSelection: () => {
+        _mutationVersion++;
         set((s) => {
           const selected = s.elements.filter((el) => s.selectedIds.has(el.id));
           if (selected.length === 0) return s;
           return {
-            clipboard: JSON.parse(JSON.stringify(selected)),
+            clipboard: structuredClone(selected),
             elements: s.elements.filter((el) => !s.selectedIds.has(el.id)),
             selectedIds: new Set<string>(),
           };
-        }),
+        });
+      },
 
-      duplicateSelection: (targetPage?: number) =>
+      duplicateSelection: (targetPage?: number) => {
+        _mutationVersion++;
         set((s) => {
           const selected = s.elements.filter((el) => s.selectedIds.has(el.id));
           if (selected.length === 0) return s;
-          const pasted: FormElement[] = [];
-          const newIds = new Set<string>();
-          for (const el of selected) {
-            const samePage =
-              targetPage === undefined || targetPage === el.pageNumber;
-            const newEl = {
-              ...JSON.parse(JSON.stringify(el)),
-              id: generatePastedId(),
-              pageNumber: samePage ? el.pageNumber : targetPage,
-              x: samePage ? el.x + PASTE_OFFSET : el.x,
-              y: samePage ? el.y + PASTE_OFFSET : el.y,
-            } as FormElement;
-            if ("name" in newEl) {
-              const typed = newEl as FormElement & { name: string };
-              typed.name = getUniqueName(typed.name, [
-                ...s.elements,
-                ...pasted,
-              ]);
-            }
-            pasted.push(newEl);
-            newIds.add(newEl.id);
-          }
+          const { cloned, newIds } = cloneElementsWithNewIds(selected, s.elements, {
+            targetPage,
+            offsetIfSamePage: PASTE_OFFSET,
+          });
           return {
-            elements: [...s.elements, ...pasted],
+            elements: [...s.elements, ...cloned],
             selectedIds: newIds,
           };
-        }),
+        });
+      },
 
-      addGuide: (orientation, position) =>
+      addGuide: (orientation, position) => {
+        _mutationVersion++;
         set((s) => ({
           guides: [
             ...s.guides,
             { id: generateGuideId(), orientation, position },
           ],
-        })),
+        }));
+      },
 
-      removeGuide: (id) =>
+      removeGuide: (id) => {
+        _mutationVersion++;
         set((s) => ({
           guides: s.guides.filter((g) => g.id !== id),
           selectedGuideId: s.selectedGuideId === id ? null : s.selectedGuideId,
-        })),
+        }));
+      },
 
-      updateGuidePosition: (id, position) =>
+      updateGuidePosition: (id, position) => {
+        _mutationVersion++;
         set((s) => ({
           guides: s.guides.map((g) => (g.id === id ? { ...g, position } : g)),
-        })),
+        }));
+      },
 
       batchUpdateElements: (
         updates: Array<{ id: string; changes: Partial<FormElement> }>,
-      ) =>
-        set((s) => ({
-          elements: s.elements.map((el) => {
-            const u = updates.find((u) => u.id === el.id);
-            return u
-              ? ({ ...el, ...u.changes } as FormElement)
-              : el;
-          }),
-        })),
+      ) => {
+        _mutationVersion++;
+        set((s) => {
+          const map = new Map(updates.map((u) => [u.id, u.changes]));
+          return {
+            elements: s.elements.map((el) => {
+              const changes = map.get(el.id);
+              return changes ? mergeElement(el, changes) : el;
+            }),
+          };
+        });
+      },
 
       setPreviewGuide: (guide) => set({ previewGuide: guide }),
 
@@ -394,32 +415,16 @@ export const useEditorStore = create<EditorState>()(
         if (state.selectedIds.size < 2) return;
         let updates: Array<{ id: string; x: number; y: number }> = [];
         switch (type) {
-          case "left":
-            updates = alignLeft(state.elements, state.selectedIds);
-            break;
-          case "right":
-            updates = alignRight(state.elements, state.selectedIds);
-            break;
-          case "top":
-            updates = alignTop(state.elements, state.selectedIds);
-            break;
-          case "bottom":
-            updates = alignBottom(state.elements, state.selectedIds);
-            break;
-          case "centerH":
-            updates = alignCenterH(state.elements, state.selectedIds);
-            break;
-          case "centerV":
-            updates = alignCenterV(state.elements, state.selectedIds);
-            break;
+          case "left": updates = alignLeft(state.elements, state.selectedIds); break;
+          case "right": updates = alignRight(state.elements, state.selectedIds); break;
+          case "top": updates = alignTop(state.elements, state.selectedIds); break;
+          case "bottom": updates = alignBottom(state.elements, state.selectedIds); break;
+          case "centerH": updates = alignCenterH(state.elements, state.selectedIds); break;
+          case "centerV": updates = alignCenterV(state.elements, state.selectedIds); break;
         }
         if (updates.length > 0) {
-          set((s) => ({
-            elements: s.elements.map((el) => {
-              const u = updates.find((u) => u.id === el.id);
-              return u ? { ...el, x: u.x, y: u.y } : el;
-            }),
-          }));
+          _mutationVersion++;
+          set((s) => ({ elements: applyPositionUpdates(s.elements, updates) }));
         }
       },
 
@@ -431,12 +436,8 @@ export const useEditorStore = create<EditorState>()(
             ? distributeH(state.elements, state.selectedIds)
             : distributeV(state.elements, state.selectedIds);
         if (updates.length > 0) {
-          set((s) => ({
-            elements: s.elements.map((el) => {
-              const u = updates.find((u) => u.id === el.id);
-              return u ? { ...el, x: u.x, y: u.y } : el;
-            }),
-          }));
+          _mutationVersion++;
+          set((s) => ({ elements: applyPositionUpdates(s.elements, updates) }));
         }
       },
 
@@ -444,19 +445,10 @@ export const useEditorStore = create<EditorState>()(
         const state = get();
         if (state.selectedIds.size === 0 || state.pages.length === 0) return;
         const page = state.pages[0];
-        const updates = centerOnPage(
-          state.elements,
-          state.selectedIds,
-          page.width,
-          page.height,
-        );
+        const updates = centerOnPage(state.elements, state.selectedIds, page.width, page.height);
         if (updates.length > 0) {
-          set((s) => ({
-            elements: s.elements.map((el) => {
-              const u = updates.find((u) => u.id === el.id);
-              return u ? { ...el, x: u.x, y: u.y } : el;
-            }),
-          }));
+          _mutationVersion++;
+          set((s) => ({ elements: applyPositionUpdates(s.elements, updates) }));
         }
       },
 
@@ -464,18 +456,10 @@ export const useEditorStore = create<EditorState>()(
         const state = get();
         if (state.selectedIds.size === 0 || state.pages.length === 0) return;
         const page = state.pages[0];
-        const updates = centerOnPageH(
-          state.elements,
-          state.selectedIds,
-          page.width,
-        );
+        const updates = centerOnPageH(state.elements, state.selectedIds, page.width);
         if (updates.length > 0) {
-          set((s) => ({
-            elements: s.elements.map((el) => {
-              const u = updates.find((u) => u.id === el.id);
-              return u ? { ...el, x: u.x, y: u.y } : el;
-            }),
-          }));
+          _mutationVersion++;
+          set((s) => ({ elements: applyPositionUpdates(s.elements, updates) }));
         }
       },
 
@@ -483,18 +467,10 @@ export const useEditorStore = create<EditorState>()(
         const state = get();
         if (state.selectedIds.size === 0 || state.pages.length === 0) return;
         const page = state.pages[0];
-        const updates = centerOnPageV(
-          state.elements,
-          state.selectedIds,
-          page.height,
-        );
+        const updates = centerOnPageV(state.elements, state.selectedIds, page.height);
         if (updates.length > 0) {
-          set((s) => ({
-            elements: s.elements.map((el) => {
-              const u = updates.find((u) => u.id === el.id);
-              return u ? { ...el, x: u.x, y: u.y } : el;
-            }),
-          }));
+          _mutationVersion++;
+          set((s) => ({ elements: applyPositionUpdates(s.elements, updates) }));
         }
       },
 
@@ -503,34 +479,27 @@ export const useEditorStore = create<EditorState>()(
       matchElementSize: (type) => {
         const state = get();
         if (state.selectedIds.size < 2) return;
-        let updates: Array<{ id: string; width?: number; height?: number }> =
-          [];
+        let updates: Array<{ id: string; width?: number; height?: number }> = [];
         switch (type) {
-          case "widthWidest":
-            updates = matchWidthToWidest(state.elements, state.selectedIds);
-            break;
-          case "widthNarrowest":
-            updates = matchWidthToNarrowest(state.elements, state.selectedIds);
-            break;
-          case "heightTallest":
-            updates = matchHeightToTallest(state.elements, state.selectedIds);
-            break;
-          case "heightShortest":
-            updates = matchHeightToShortest(state.elements, state.selectedIds);
-            break;
+          case "widthWidest": updates = matchWidthToWidest(state.elements, state.selectedIds); break;
+          case "widthNarrowest": updates = matchWidthToNarrowest(state.elements, state.selectedIds); break;
+          case "heightTallest": updates = matchHeightToTallest(state.elements, state.selectedIds); break;
+          case "heightShortest": updates = matchHeightToShortest(state.elements, state.selectedIds); break;
         }
         if (updates.length > 0) {
+          _mutationVersion++;
+          const map = new Map(updates.map((u) => [u.id, u]));
           set((s) => ({
             elements: s.elements.map((el) => {
-              const u = updates.find((u) => u.id === el.id);
+              const u = map.get(el.id);
               if (!u) return el;
               const heightLocked =
                 el.type === "text" &&
                 !(el as import("@/lib/form-element-model").TextField).multiline;
               return {
                 ...el,
-                ...("width" in u ? { width: u.width } : {}),
-                ...("height" in u && !heightLocked ? { height: u.height } : {}),
+                ...(u.width !== undefined ? { width: u.width } : {}),
+                ...(u.height !== undefined && !heightLocked ? { height: u.height } : {}),
               };
             }),
           }));
@@ -563,12 +532,14 @@ function pruneSelectionAfterUndoRedo() {
 export function undo() {
   if (!useEditorStore.getState().pdfBytes) return;
   useEditorStore.temporal.getState().undo();
+  _mutationVersion++;
   pruneSelectionAfterUndoRedo();
 }
 
 export function redo() {
   if (!useEditorStore.getState().pdfBytes) return;
   useEditorStore.temporal.getState().redo();
+  _mutationVersion++;
   pruneSelectionAfterUndoRedo();
 }
 
@@ -582,20 +553,15 @@ export function canRedo(): boolean {
   return useEditorStore.temporal.getState().futureStates.length > 0;
 }
 
-let _lastSavedElementsJson: string = "[]";
-let _lastSavedGuidesJson: string = "[]";
+let _mutationVersion = 0;
+let _savedVersion = 0;
 
 export function isDirty(): boolean {
   const state = useEditorStore.getState();
   if (!state.pdfBytes) return false;
-  return (
-    JSON.stringify(state.elements) !== _lastSavedElementsJson ||
-    JSON.stringify(state.guides) !== _lastSavedGuidesJson
-  );
+  return _mutationVersion !== _savedVersion;
 }
 
 export function markClean(): void {
-  const state = useEditorStore.getState();
-  _lastSavedElementsJson = JSON.stringify(state.elements);
-  _lastSavedGuidesJson = JSON.stringify(state.guides);
+  _savedVersion = _mutationVersion;
 }
