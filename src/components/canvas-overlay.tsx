@@ -1513,10 +1513,32 @@ export function CanvasOverlay() {
       lockCursor(guide.orientation === "horizontal" ? "ns" : "ew");
 
       const initialPosition = guide.position;
-      let lastValidPosition = initialPosition;
 
       const overlayEl = overlayRef.current;
       if (!overlayEl) return;
+
+      let dragPageOffset = TOP_PADDING;
+      let dragPageHeight = pages[0]?.height ?? 792;
+      let dragPageWidth = pages[0]?.width ?? 612;
+      let dragPageXOffset =
+        layouts.get(1)?.xOffset ??
+        Math.max(H_PADDING, (overlayWidth - (pages[0]?.width ?? 612) * zoom) / 2);
+      if (guide.orientation === "horizontal") {
+        let yOff = TOP_PADDING;
+        for (const p of pages) {
+          const pH = p.height * zoom;
+          if (
+            initialPosition * zoom >= 0 &&
+            initialPosition * zoom <= pH
+          ) {
+            dragPageOffset = yOff;
+            dragPageHeight = p.height;
+            dragPageWidth = p.width;
+            break;
+          }
+          yOff += pH + PAGE_GAP;
+        }
+      }
 
       const computeGuidePosition = (
         moveEvent: MouseEvent,
@@ -1525,32 +1547,16 @@ export function CanvasOverlay() {
 
         if (guide.orientation === "horizontal") {
           const relY = moveEvent.clientY - overlayRect.top;
-          let foundPage = false;
-          let pageYOffset = TOP_PADDING;
-          for (const p of pages) {
-            const pH = p.height * zoom;
-            if (relY >= pageYOffset && relY < pageYOffset + pH) {
-              foundPage = true;
-              break;
-            }
-            pageYOffset += pH + PAGE_GAP;
-          }
-          if (!foundPage) return { position: lastValidPosition, valid: false };
-          let pdfY = (relY - pageYOffset) / zoom;
-          pdfY = Math.max(0, Math.min(pdfY, pages[0]?.height ?? 792));
+          let pdfY = (relY - dragPageOffset) / zoom;
+          pdfY = Math.max(0, Math.min(pdfY, dragPageHeight));
           if (moveEvent.shiftKey) {
             pdfY = Math.round(pdfY / gridSize) * gridSize;
           }
           return { position: Math.round(pdfY * 10) / 10, valid: true };
         } else {
           const relX = moveEvent.clientX - overlayRect.left;
-          const page = pages[0];
-          if (!page) return { position: lastValidPosition, valid: false };
-          const xOff =
-            layouts.get(page.pageNumber)?.xOffset ??
-            Math.max(H_PADDING, (overlayWidth - page.width * zoom) / 2);
-          let pdfX = (relX - xOff) / zoom;
-          pdfX = Math.max(0, Math.min(pdfX, page.width));
+          let pdfX = (relX - dragPageXOffset) / zoom;
+          pdfX = Math.max(0, Math.min(pdfX, dragPageWidth));
           if (moveEvent.shiftKey) {
             pdfX = Math.round(pdfX / gridSize) * gridSize;
           }
@@ -1559,25 +1565,21 @@ export function CanvasOverlay() {
       };
 
       const onMouseMove = (moveEvent: MouseEvent) => {
-        const { position, valid } = computeGuidePosition(moveEvent);
-        if (valid) {
-          lastValidPosition = position;
-        }
+        const { position } = computeGuidePosition(moveEvent);
         setPreviewGuide({
           orientation: guide.orientation,
-          position: lastValidPosition,
+          position,
         });
       };
 
       const onMouseUp = (moveEvent: MouseEvent) => {
         setPreviewGuide(null);
-        const { position, valid } = computeGuidePosition(moveEvent);
-        const finalPos = valid ? position : lastValidPosition;
+        const { position } = computeGuidePosition(moveEvent);
 
         if (moveEvent.metaKey || moveEvent.ctrlKey) {
           removeGuide(guide.id);
         } else {
-          updateGuidePosition(guide.id, finalPos);
+          updateGuidePosition(guide.id, position);
         }
 
         unlockCursor();
