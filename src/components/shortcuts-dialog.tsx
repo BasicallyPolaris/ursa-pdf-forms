@@ -34,7 +34,7 @@ export function ShortcutsDialog() {
       >
         <Keyboard className="h-3 w-3" />
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <div className="px-5 pt-5 pb-2 select-none">
           <DialogHeader>
             <DialogTitle>{t("shortcuts.title")}</DialogTitle>
