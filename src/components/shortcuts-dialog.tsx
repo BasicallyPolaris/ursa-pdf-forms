@@ -47,7 +47,7 @@ export function ShortcutsDialog() {
           </DialogDescription>
         </div>
         <div className="px-5 pb-5 select-none">
-          <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
             {GROUPS.map(({ id, labelKey }) => (
               <div key={id}>
                 <h3 className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
