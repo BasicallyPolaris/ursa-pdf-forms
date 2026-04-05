@@ -65,7 +65,7 @@ describe("pdf loading", () => {
     expect(getPage).toHaveBeenCalledTimes(1);
   });
 
-  it("loads PDF bytes and page metadata into the store", async () => {
+  it("loads PDF bytes and page metadata into the store via fileIO", async () => {
     const getPage = vi.fn().mockResolvedValue(createMockPage(612, 792));
     const proxy = {
       numPages: 2,
@@ -79,11 +79,51 @@ describe("pdf loading", () => {
       destroy: vi.fn(),
     });
 
-    const { loadPdfIntoStore } = await import("@/lib/file-operations");
+    const { createFileIO } = await import("@/lib/file-io/orchestrator");
+    const {
+      createTestFileSystem,
+      createTestDialogs,
+      createTestStore,
+      createTestWindow,
+    } = await import("@/lib/file-io/adapters/test");
     const { useEditorStore } = await import("@/stores/editor-store");
-    const bytes = new Uint8Array([9, 8, 7]);
 
-    await loadPdfIntoStore(bytes, "test.pdf");
+    createTestStore();
+    const fileIO = createFileIO(
+      {
+        fs: createTestFileSystem(),
+        dialogs: createTestDialogs(),
+        store: {
+          getPdfBytes: () => useEditorStore.getState().pdfBytes,
+          getElements: () => useEditorStore.getState().elements,
+          setPdf: (n, b, p) => useEditorStore.getState().setPdf(n, b, p),
+          setPdfPages: (p) => useEditorStore.getState().setPdfPages(p),
+          setInitialElements: (e) =>
+            useEditorStore.getState().setInitialElements(e),
+          setRenderPdfBytes: (b) =>
+            useEditorStore.getState().setRenderPdfBytes(b),
+          isDirty: () => false,
+          markClean: () => {},
+        },
+        window: createTestWindow(),
+      },
+      () => ({
+        pdfFilterName: "PDF",
+        defaultPdfName: "document.pdf",
+        defaultExportName: "export.pdf",
+        openFailed: "Open failed",
+        loadFailed: "Load failed",
+        exportFailed: "Export failed",
+        unsavedTitle: "Unsaved",
+        unsavedMessage: "Save?",
+        save: "Save",
+        discard: "Discard",
+        cancel: "Cancel",
+      }),
+    );
+
+    const bytes = new Uint8Array([9, 8, 7]);
+    await fileIO.loadPdfFromBytes(bytes, "test.pdf");
 
     expect(useEditorStore.getState().pdfBytes).toBe(bytes);
     expect(useEditorStore.getState().pages).toEqual([
