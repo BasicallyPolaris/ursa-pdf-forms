@@ -8,11 +8,11 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
-import { Kbd } from "@/components/ui/kbd";
+import { ShortcutKbd } from "@/components/ui/kbd";
 import {
   getShortcutsByGroup,
-  formatShortcut,
   type ShortcutGroup,
+  type ShortcutDef,
 } from "@/lib/shortcuts";
 import { Keyboard, X } from "lucide-react";
 
@@ -54,17 +54,35 @@ export function ShortcutsDialog() {
                   {t(labelKey)}
                 </h3>
                 <div className="grid gap-1">
-                  {getShortcutsByGroup(id).map((shortcut) => (
-                    <div
-                      key={shortcut.id}
-                      className="flex items-center justify-between gap-3 text-xs"
-                    >
-                      <span className="text-foreground/80">
-                        {t(shortcut.i18nKey)}
-                      </span>
-                      <Kbd>{formatShortcut(shortcut.id)}</Kbd>
-                    </div>
-                  ))}
+                  {getShortcutsByGroup(id)
+                    .filter((s, i, arr) =>
+                      s.id !== "redoAlt" || arr.findIndex((x) => x.i18nKey === s.i18nKey) === i
+                    )
+                    .map((shortcut) => {
+                      const isRedo = shortcut.id === "redo";
+                      const altShortcut: ShortcutDef | undefined = isRedo
+                        ? getShortcutsByGroup(id).find((s) => s.id === "redoAlt")
+                        : undefined;
+                      return (
+                        <div
+                          key={shortcut.id}
+                          className="flex items-center justify-between gap-3 text-xs"
+                        >
+                          <span className="text-foreground/80">
+                            {t(shortcut.i18nKey)}
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <ShortcutKbd shortcutId={shortcut.id} />
+                            {altShortcut && (
+                              <>
+                                <span className="text-muted-foreground/50 text-[10px]">/</span>
+                                <ShortcutKbd shortcutId={altShortcut.id} />
+                              </>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })}
                 </div>
               </div>
             ))}

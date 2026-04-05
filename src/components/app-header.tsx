@@ -31,8 +31,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ToolButton, ToolbarSeparator } from "@/components/ui/tool-button";
-import { Kbd } from "@/components/ui/kbd";
-import { formatShortcut } from "@/lib/shortcuts";
+import { ShortcutKbd } from "@/components/ui/kbd";
 
 function ZoomControls() {
   const { t } = useTranslation();
@@ -59,7 +58,7 @@ function ZoomControls() {
         <TooltipContent>
           <span className="flex items-center gap-2">
             {t("header.zoomOut")}
-            <Kbd>{formatShortcut("zoomOut")}</Kbd>
+            <ShortcutKbd shortcutId="zoomOut" />
           </span>
         </TooltipContent>
       </Tooltip>
@@ -90,7 +89,7 @@ function ZoomControls() {
         <TooltipContent>
           <span className="flex items-center gap-2">
             {t("header.zoomIn")}
-            <Kbd>{formatShortcut("zoomIn")}</Kbd>
+            <ShortcutKbd shortcutId="zoomIn" />
           </span>
         </TooltipContent>
       </Tooltip>
@@ -116,7 +115,7 @@ export function AppHeader() {
             <TooltipContent>
               <span className="flex items-center gap-2">
                 {t("header.open")}
-                <Kbd>{formatShortcut("open")}</Kbd>
+                <ShortcutKbd shortcutId="open" />
               </span>
             </TooltipContent>
           </Tooltip>
@@ -132,7 +131,7 @@ export function AppHeader() {
             <TooltipContent>
               <span className="flex items-center gap-2">
                 {t("header.undo")}
-                <Kbd>{formatShortcut("undo")}</Kbd>
+                <ShortcutKbd shortcutId="undo" />
               </span>
             </TooltipContent>
           </Tooltip>
@@ -143,7 +142,7 @@ export function AppHeader() {
             <TooltipContent>
               <span className="flex items-center gap-2">
                 {t("header.redo")}
-                <Kbd>{formatShortcut("redo")}</Kbd>
+                <ShortcutKbd shortcutId="redo" />
               </span>
             </TooltipContent>
           </Tooltip>
@@ -158,7 +157,7 @@ export function AppHeader() {
             <TooltipContent>
               <span className="flex items-center gap-2">
                 {t("header.export")}
-                <Kbd>{formatShortcut("export")}</Kbd>
+                <ShortcutKbd shortcutId="export" />
               </span>
             </TooltipContent>
           </Tooltip>
