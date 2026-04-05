@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { extractFileName, loadPdfIntoStore } from "@/lib/file-operations";
+import { confirmUnsavedChanges } from "@/lib/unsaved-guard";
 import { useEditorStore } from "@/stores/editor-store";
 
 function hasPdf(paths: string[] | undefined): boolean {
@@ -40,6 +41,9 @@ export function useFileDrop() {
         if (!pdfPath) return;
 
         const load = async () => {
+          const action = await confirmUnsavedChanges();
+          if (action === "cancel") return;
+
           const bytes = await readFile(pdfPath);
           const fileName = extractFileName(pdfPath, "document.pdf");
           const pdfBytes = new Uint8Array(bytes);

@@ -160,6 +160,13 @@
     "exportFailed": "Failed to export PDF. Please try again.",
     "invalidPdf": "The selected file is not a valid PDF."
   },
+  "dialog": {
+    "unsavedTitle": "Unsaved Changes",
+    "unsavedChanges": "You have unsaved changes. Save before continuing?",
+    "save": "Save",
+    "discard": "Don't Save",
+    "cancel": "Cancel"
+  },
   "errors": {
     "boundaryTitle": "Something went wrong",
     "boundaryRetry": "Try again",

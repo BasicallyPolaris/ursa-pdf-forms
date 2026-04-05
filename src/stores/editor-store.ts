@@ -155,6 +155,8 @@ export const useEditorStore = create<EditorState>()(
           activeTool: "select",
         });
         useEditorStore.temporal.getState().clear();
+        _lastSavedElementsJson = "[]";
+        _lastSavedGuidesJson = "[]";
       },
 
       setPdfPages: (pages) => set({ pages }),
@@ -179,6 +181,8 @@ export const useEditorStore = create<EditorState>()(
           activeTool: "select",
         });
         useEditorStore.temporal.getState().clear();
+        _lastSavedElementsJson = "[]";
+        _lastSavedGuidesJson = "[]";
       },
 
       setRenderPdfBytes: (bytes) => set({ renderPdfBytes: bytes }),
@@ -186,6 +190,8 @@ export const useEditorStore = create<EditorState>()(
       setInitialElements: (elements: FormElement[]) => {
         set({ elements });
         useEditorStore.temporal.getState().clear();
+        _lastSavedElementsJson = JSON.stringify(elements);
+        _lastSavedGuidesJson = "[]";
       },
 
       addElement: (element) =>
@@ -574,4 +580,22 @@ export function canUndo(): boolean {
 export function canRedo(): boolean {
   if (!useEditorStore.getState().pdfBytes) return false;
   return useEditorStore.temporal.getState().futureStates.length > 0;
+}
+
+let _lastSavedElementsJson: string = "[]";
+let _lastSavedGuidesJson: string = "[]";
+
+export function isDirty(): boolean {
+  const state = useEditorStore.getState();
+  if (!state.pdfBytes) return false;
+  return (
+    JSON.stringify(state.elements) !== _lastSavedElementsJson ||
+    JSON.stringify(state.guides) !== _lastSavedGuidesJson
+  );
+}
+
+export function markClean(): void {
+  const state = useEditorStore.getState();
+  _lastSavedElementsJson = JSON.stringify(state.elements);
+  _lastSavedGuidesJson = JSON.stringify(state.guides);
 }
