@@ -1,9 +1,6 @@
 import { useStore } from "zustand";
 import { useTranslation } from "react-i18next";
-import { exportPdf } from "@/lib/export-pdf";
-import {
-  openPdfFile,
-} from "@/lib/file-operations";
+import { fileIO } from "@/lib/file-io";
 import {
   redo,
   undo,
@@ -108,7 +105,7 @@ export function AppHeader() {
       <header className="grid h-11 grid-cols-[1fr_auto_1fr] items-center gap-1 border-b border-border bg-card px-2 select-none">
         <div className="flex items-center gap-1">
           <Tooltip>
-            <TooltipTrigger render={<ToolButton onClick={() => openPdfFile()} variant="primary" />}>
+            <TooltipTrigger render={<ToolButton onClick={() => fileIO.openPdf()} variant="primary" />}>
               <FolderOpen className="h-3.5 w-3.5" />
               <span>{t("header.open")}</span>
             </TooltipTrigger>
@@ -150,7 +147,7 @@ export function AppHeader() {
           <ToolbarSeparator />
 
           <Tooltip>
-            <TooltipTrigger render={<ToolButton onClick={() => exportPdf()} variant="primary" />}>
+            <TooltipTrigger render={<ToolButton onClick={() => fileIO.exportPdf()} variant="primary" />}>
               <FileDown className="h-3.5 w-3.5" />
               <span>{t("header.export")}</span>
             </TooltipTrigger>

@@ -25,6 +25,7 @@ import {
   type RadioButton,
   type TextField,
 } from "@/lib/form-element-model";
+import { resolveElementPosition } from "@/lib/page-coordinates";
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -399,6 +400,7 @@ function SinglePositionProperties({ elementId }: { elementId: string }) {
   );
   const livePos = useEditorStore((s) => s.dragLivePositions.get(elementId));
   const updateElement = useEditorStore((s) => s.updateElement);
+  const pages = useEditorStore((s) => s.pages);
 
   if (!element) return null;
 
@@ -412,12 +414,14 @@ function SinglePositionProperties({ elementId }: { elementId: string }) {
     : Math.round(element.height);
   const isAutoHeight = isTextField(element) && !element.multiline;
 
-  const xField = useDeferredValue(displayX, (v) =>
-    updateElement(element.id, { x: Number(v) }),
-  );
-  const yField = useDeferredValue(displayY, (v) =>
-    updateElement(element.id, { y: Number(v) }),
-  );
+  const xField = useDeferredValue(displayX, (v) => {
+    const resolved = resolveElementPosition(pages, element.pageNumber, Number(v), element.y);
+    updateElement(element.id, { x: resolved.x, pageNumber: resolved.pageNumber });
+  });
+  const yField = useDeferredValue(displayY, (v) => {
+    const resolved = resolveElementPosition(pages, element.pageNumber, element.x, Number(v));
+    updateElement(element.id, { y: resolved.y, pageNumber: resolved.pageNumber });
+  });
   const wField = useDeferredValue(displayW, (v) =>
     updateElement(element.id, { width: Number(v) }),
   );
@@ -546,6 +550,7 @@ function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
 function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
   const { t } = useTranslation();
   const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
+  const pages = useEditorStore((s) => s.pages);
 
   if (elements.length === 0) return null;
 
@@ -566,17 +571,27 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
 
   const xField = useDeferredValue(
     allSameX ? Math.round(elements[0].x) : "",
-    (v) =>
+    (v) => {
+      const newX = Number(v);
       batchUpdateElements(
-        elements.map((el) => ({ id: el.id, changes: { x: Number(v) } })),
-      ),
+        elements.map((el) => {
+          const resolved = resolveElementPosition(pages, el.pageNumber, newX, el.y);
+          return { id: el.id, changes: { x: resolved.x, pageNumber: resolved.pageNumber } };
+        }),
+      );
+    },
   );
   const yField = useDeferredValue(
     allSameY ? Math.round(elements[0].y) : "",
-    (v) =>
+    (v) => {
+      const newY = Number(v);
       batchUpdateElements(
-        elements.map((el) => ({ id: el.id, changes: { y: Number(v) } })),
-      ),
+        elements.map((el) => {
+          const resolved = resolveElementPosition(pages, el.pageNumber, el.x, newY);
+          return { id: el.id, changes: { y: resolved.y, pageNumber: resolved.pageNumber } };
+        }),
+      );
+    },
   );
   const wField = useDeferredValue(
     allSameW ? Math.round(elements[0].width) : "",
@@ -838,10 +853,18 @@ export function PropertiesPanel() {
 function GuideProperties({ guideId }: { guideId: string }) {
   const { t } = useTranslation();
   const guide = useEditorStore((s) => s.guides.find((g) => g.id === guideId));
+  const previewGuide = useEditorStore((s) => s.previewGuide);
+  const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
   const updateGuidePosition = useEditorStore((s) => s.updateGuidePosition);
   const removeGuide = useEditorStore((s) => s.removeGuide);
 
   if (!guide) return null;
+
+  const isLiveDragging =
+    selectedGuideId === guideId &&
+    previewGuide !== null &&
+    previewGuide.orientation === guide.orientation;
+  const livePosition = isLiveDragging ? previewGuide.position : guide.position;
 
   const isHorizontal = guide.orientation === "horizontal";
   const Icon = isHorizontal ? MoveHorizontal : MoveVertical;
@@ -850,8 +873,16 @@ function GuideProperties({ guideId }: { guideId: string }) {
     : t("properties.vertical");
   const posLabel = isHorizontal ? "Y" : "X";
 
-  const posField = useDeferredValue(Math.round(guide.position), (v) =>
-    updateGuidePosition(guide.id, Number(v)),
+  const pages = useEditorStore((s) => s.pages);
+  const maxPos = isHorizontal
+    ? (pages[0]?.height ?? Infinity)
+    : (pages[0]?.width ?? Infinity);
+
+  const posField = useDeferredValue(Math.round(livePosition), (v) =>
+    updateGuidePosition(
+      guide.id,
+      Math.max(0, Math.min(Number(v), maxPos)),
+    ),
   );
 
   return (

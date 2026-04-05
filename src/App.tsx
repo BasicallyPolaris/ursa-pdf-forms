@@ -14,35 +14,18 @@ import {
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useZoom } from "@/hooks/use-zoom";
-import { useEditorStore, isDirty } from "@/stores/editor-store";
+import { useEditorStore } from "@/stores/editor-store";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FileDown } from "lucide-react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { confirmUnsavedChanges } from "@/lib/unsaved-guard";
+import { fileIO } from "@/lib/file-io";
 
 function App() {
   useFileDrop();
   useKeyboardShortcuts();
   useZoom();
 
-  useEffect(() => {
-    const unlisten = getCurrentWindow().onCloseRequested(async (event) => {
-      try {
-        if (isDirty()) {
-          const action = await confirmUnsavedChanges();
-          if (action === "cancel") {
-            event.preventDefault();
-          }
-        }
-      } catch {
-        // Dialog may fail on Wayland compositors; allow close
-      }
-    });
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, []);
+  useEffect(() => fileIO.registerCloseGuard(), []);
 
   const { t } = useTranslation();
   const isFileDragOver = useEditorStore((s) => s.isFileDragOver);

@@ -1,7 +1,6 @@
 import { useEffect } from "react";
-import { useEditorStore, undo, redo } from "@/stores/editor-store";
-import { openPdfFile } from "@/lib/file-operations";
-import { exportPdf } from "@/lib/export-pdf";
+import { redo, undo, useEditorStore } from "@/stores/editor-store";
+import { fileIO } from "@/lib/file-io";
 import { TOP_PADDING, PAGE_GAP } from "@/lib/coordinates";
 import {
   computePageLayouts,
@@ -88,13 +87,13 @@ export function useKeyboardShortcuts() {
 
       if (mod && e.key === "o") {
         e.preventDefault();
-        openPdfFile();
+        fileIO.openPdf();
         return;
       }
 
       if (mod && e.key === "e") {
         e.preventDefault();
-        exportPdf();
+        fileIO.exportPdf();
         return;
       }
 
