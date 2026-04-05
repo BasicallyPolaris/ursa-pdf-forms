@@ -58,7 +58,7 @@ function App() {
   }, [handleScroll]);
 
   return (
-    <div className="dark relative flex h-screen flex-col" onContextMenu={(e) => e.preventDefault()}>
+    <div className="dark flex h-screen flex-col" onContextMenu={(e) => e.preventDefault()}>
       <ErrorBoundary><AppHeader /></ErrorBoundary>
 
       <div className="flex flex-1 overflow-hidden">
@@ -96,6 +96,20 @@ function App() {
               </div>
             </div>
           </div>
+          {isFileDragOver && (
+            <div className="absolute inset-0 z-[60] pointer-events-none animate-in fade-in-0 duration-150">
+              <div className="absolute inset-0 bg-background/40" />
+              <div className="absolute inset-3 rounded-lg border-2 border-dashed border-muted-foreground/25" />
+              <div className="flex h-full items-center justify-center">
+                <div className="flex items-center gap-2.5 rounded-md border border-border bg-card px-4 py-2.5">
+                  <FileDown className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-sm font-medium text-foreground">
+                    {pdfBytes ? t("canvas.dropToReplace") : t("canvas.dropToOpen")}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
 
         <aside
@@ -107,20 +121,6 @@ function App() {
         </aside>
       </div>
 
-      {isFileDragOver && (
-        <div className="absolute inset-0 z-[60] pointer-events-none animate-in fade-in-0 duration-150">
-          <div className="absolute inset-0 bg-background/40" />
-          <div className="absolute inset-3 rounded-lg border-2 border-dashed border-muted-foreground/25" />
-          <div className="flex h-full items-center justify-center">
-            <div className="flex items-center gap-2.5 rounded-md border border-border bg-card px-4 py-2.5">
-              <FileDown className="h-4 w-4 text-muted-foreground" />
-              <p className="text-sm font-medium text-foreground">
-                {pdfBytes ? t("canvas.dropToReplace") : t("canvas.dropToOpen")}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
       <StatusBar />
     </div>
   );
