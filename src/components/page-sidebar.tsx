@@ -33,6 +33,7 @@ export function PageSidebar() {
   const renderGeneration = useRef(0);
   const idleGeneration = useRef(0);
   const [visibleRange, setVisibleRange] = useState<[number, number]>([0, 20]);
+  const [docReady, setDocReady] = useState(0);
   const [preRenderProgress, setPreRenderProgress] = useState<{
     done: number;
     total: number;
@@ -51,7 +52,10 @@ export function PageSidebar() {
     let cancelled = false;
     loadPdfDocument(pdfBytes)
       .then((doc) => {
-        if (!cancelled) docRef.current = doc;
+        if (!cancelled) {
+          docRef.current = doc;
+          setDocReady((n) => n + 1);
+        }
       })
       .catch(() => {});
     return () => {
@@ -189,7 +193,7 @@ export function PageSidebar() {
       renderGeneration.current++;
       for (const [, r] of pending) r.cancel();
     };
-  }, [pdfBytes, pages, visibleRange]);
+  }, [pdfBytes, pages, visibleRange, docReady]);
 
   useEffect(() => {
     if (!pdfBytes || pages.length === 0) return;
@@ -287,7 +291,7 @@ export function PageSidebar() {
       for (const [, r] of pending) r.cancel();
       setPreRenderProgress(null);
     };
-  }, [pdfBytes, pages, visibleRange]);
+  }, [pdfBytes, pages, visibleRange, docReady]);
 
   const scrollToPage = useCallback(
     (pageNumber: number) => {
