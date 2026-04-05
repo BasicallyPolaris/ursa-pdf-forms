@@ -5,6 +5,7 @@ import { useEditorStore } from "@/stores/editor-store";
 import { loadPdfDocument } from "./pdf-loader";
 import { extractAcroFormFields } from "./pdf-form-reader";
 import { stripAcroFormFromPdf } from "./pdf-export-engine";
+import { confirmUnsavedChanges } from "./unsaved-guard";
 
 function extractFileName(filePath: string, fallback: string): string {
   return filePath.split(/[/\\]/).pop() ?? fallback;
@@ -57,6 +58,9 @@ async function loadPdfIntoStore(pdfBytes: Uint8Array, fileName: string) {
 
 export async function openPdfFile(): Promise<string | null> {
   try {
+    const action = await confirmUnsavedChanges();
+    if (action === "cancel") return null;
+
     const selected = await open({
       filters: [{ name: i18n.t("file.pdfFilter"), extensions: ["pdf"] }],
       multiple: false,

@@ -29,6 +29,12 @@ vi.mock("@tauri-apps/api/webview", () => ({
   }),
 }));
 
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    onCloseRequested: () => Promise.resolve(() => {}),
+  }),
+}));
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, params?: Record<string, unknown>) => {

@@ -117,6 +117,13 @@
     "exportFailed": "PDF konnte nicht exportiert werden. Bitte versuchen Sie es erneut.",
     "invalidPdf": "Die ausgewählte Datei ist kein gültiges PDF."
   },
+  "dialog": {
+    "unsavedTitle": "Ungespeicherte Änderungen",
+    "unsavedChanges": "Sie haben ungespeicherte Änderungen. Speichern bevor Sie fortfahren?",
+    "save": "Speichern",
+    "discard": "Nicht speichern",
+    "cancel": "Abbrechen"
+  },
   "errors": {
     "boundaryTitle": "Etwas ist schiefgelaufen",
     "boundaryRetry": "Erneut versuchen",
