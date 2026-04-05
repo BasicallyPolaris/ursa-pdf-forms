@@ -4,8 +4,7 @@
  */
 
 import { H_PADDING, PAGE_GAP, TOP_PADDING } from "@/lib/coordinates";
-import type { PageInfo } from "@/lib/pdf-loader";
-import { getLayoutContentWidth, getTotalContentHeight } from "@/lib/page-layout";
+import { getLayoutContentWidth } from "@/lib/page-layout";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
 import { useEditorStore } from "@/stores/editor-store";
 import {
@@ -27,15 +26,7 @@ function snapToGrid(value: number, gridSize: number): number {
   return Math.round(value / gridSize) * gridSize;
 }
 
-function verticalRulerContentHeight(
-  pages: Array<{ height: number }>,
-  zoom: number,
-  canvasHeight: number,
-): number {
-  if (pages.length === 0) return canvasHeight;
-  const docH = getTotalContentHeight(pages as PageInfo[], zoom);
-  return Math.max(docH, canvasHeight);
-}
+
 
 // ─── Draw helpers ────────────────────────────────────────────────────────────
 
@@ -118,11 +109,12 @@ function drawVerticalRuler(
   canvas: HTMLCanvasElement,
   zoom: number,
   pages: Array<{ width: number; height: number }>,
-  contentHeight: number,
+  viewportHeight: number,
+  scrollTop: number,
   devicePixelRatio = window.devicePixelRatio || 1,
 ) {
   const W = RULER_SIZE;
-  const H = contentHeight;
+  const H = viewportHeight;
   canvas.width = Math.round(W * devicePixelRatio);
   canvas.height = Math.round(H * devicePixelRatio);
   const ctx = canvas.getContext("2d");
@@ -157,10 +149,11 @@ function drawVerticalRuler(
     let lastScreenY = -Infinity;
 
     for (let py = 0; py <= page.height; py += SUB_INTERVAL) {
-      const screenY = currentY + py * zoom;
+      const docY = currentY + py * zoom;
+      const screenY = docY - scrollTop;
       const isMajor = py % MAJOR_INTERVAL === 0;
-      if (!isMajor && screenY - lastScreenY < MIN_VERTICAL_TICK_PX) continue;
-      lastScreenY = screenY;
+      if (!isMajor && docY - lastScreenY < MIN_VERTICAL_TICK_PX) continue;
+      lastScreenY = docY;
       if (screenY < 0 || screenY > H) continue;
       const isMinor = py % MINOR_INTERVAL === 0;
 
@@ -372,35 +365,21 @@ export function VerticalRuler({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const committedZoomRef = useRef(committedZoom);
 
-  const syncVerticalRulerScroll = useCallback(
-    () => {
-      const scrollEl = document.querySelector<HTMLElement>(
-        "[data-pdf-scroll-container]",
-      );
-      const container = containerRef.current;
-      if (!container || !scrollEl) return;
-
-      container.scrollTop = scrollEl.scrollTop;
-    },
-    [containerRef],
-  );
-
   const drawVerticalAt = useCallback(
     (zoom: number) => {
       if (!canvasRef.current) return;
-      const ch = verticalRulerContentHeight(pages, zoom, canvasHeight);
-      canvasRef.current.style.height = `${ch}px`;
-      drawVerticalRuler(canvasRef.current, zoom, pages, ch);
-      syncVerticalRulerScroll();
+      const scrollEl = document.querySelector<HTMLElement>(
+        "[data-pdf-scroll-container]",
+      );
+      const st = scrollEl?.scrollTop ?? 0;
+      drawVerticalRuler(canvasRef.current, zoom, pages, canvasHeight, st);
     },
-    [pages, canvasHeight, syncVerticalRulerScroll],
+    [pages, canvasHeight],
   );
 
   useLayoutEffect(() => {
     committedZoomRef.current = committedZoom;
-    queueMicrotask(() => {
-      drawVerticalAt(committedZoom);
-    });
+    drawVerticalAt(committedZoom);
   }, [committedZoom, canvasHeight, drawVerticalAt]);
 
   useEffect(() => {
@@ -408,18 +387,22 @@ export function VerticalRuler({
       "[data-pdf-scroll-container]",
     );
     if (!scrollEl) return;
-    const onScroll = () => syncVerticalRulerScroll();
+    const onScroll = () => drawVerticalAt(committedZoomRef.current);
     scrollEl.addEventListener("scroll", onScroll, { passive: true });
     return () => scrollEl.removeEventListener("scroll", onScroll);
-  }, [syncVerticalRulerScroll]);
+  }, [drawVerticalAt]);
 
   const getPdfYFromClientY = useCallback(
     (clientY: number, zoom = committedZoomRef.current): number | null => {
       if (pages.length === 0) return null;
       const rulerEl = containerRef.current;
       if (!rulerEl) return null;
+      const scrollEl = document.querySelector<HTMLElement>(
+        "[data-pdf-scroll-container]",
+      );
+      const st = scrollEl?.scrollTop ?? 0;
       const rulerTop = rulerEl.getBoundingClientRect().top;
-      const relY = clientY - rulerTop + rulerEl.scrollTop;
+      const relY = clientY - rulerTop + st;
       let yOff = TOP_PADDING;
       for (const page of pages) {
         const ph = page.height * zoom;
@@ -448,11 +431,15 @@ export function VerticalRuler({
         if (g.orientation !== "horizontal") return false;
         const rulerEl = containerRef.current;
         if (!rulerEl) return false;
+        const scrollEl = document.querySelector<HTMLElement>(
+          "[data-pdf-scroll-container]",
+        );
+        const st = scrollEl?.scrollTop ?? 0;
         const zoom = committedZoomRef.current;
         const rulerTop = rulerEl.getBoundingClientRect().top;
         let yOff = TOP_PADDING;
         for (const page of pages) {
-          const gy = yOff + g.position * zoom - rulerEl.scrollTop;
+          const gy = yOff + g.position * zoom - st;
           if (Math.abs(e.clientY - rulerTop - gy) < 6) return true;
           yOff += page.height * zoom + PAGE_GAP;
         }
@@ -523,7 +510,7 @@ export function VerticalRuler({
     >
       <canvas
         ref={canvasRef}
-        style={{ display: "block", width: RULER_SIZE }}
+        style={{ display: "block", width: RULER_SIZE, height: canvasHeight }}
       />
     </div>
   );
