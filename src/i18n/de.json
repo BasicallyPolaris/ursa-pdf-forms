@@ -98,7 +98,9 @@
     "emptyDescription": "Datei per Drag & Drop ablegen oder Öffnen-Schaltfläche verwenden",
     "openPdf": "PDF öffnen",
     "zoom": "Zoom",
-    "removeField": "Feld entfernen"
+    "removeField": "Feld entfernen",
+    "dropToOpen": "PDF zum Öffnen ablegen",
+    "dropToReplace": "PDF ablegen, um aktuelles Dokument zu ersetzen"
   },
   "sidebar": {
     "pages": "Seiten"

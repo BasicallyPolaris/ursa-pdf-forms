@@ -58,6 +58,7 @@ interface EditorState {
     position: number;
   } | null;
   selectedGuideId: string | null;
+  isFileDragOver: boolean;
   dragLivePositions: Map<
     string,
     { x: number; y: number; width: number; height: number }
@@ -115,6 +116,7 @@ interface EditorState {
   matchElementSize: (
     type: "widthWidest" | "widthNarrowest" | "heightTallest" | "heightShortest",
   ) => void;
+  setFileDragOver: (value: boolean) => void;
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -135,6 +137,7 @@ export const useEditorStore = create<EditorState>()(
       previewGuide: null,
       selectedGuideId: null,
       dragLivePositions: new Map(),
+      isFileDragOver: false,
 
       setPdf: (fileName, bytes, pages) => {
         set({
@@ -488,6 +491,8 @@ export const useEditorStore = create<EditorState>()(
           }));
         }
       },
+
+      setFileDragOver: (value) => set({ isFileDragOver: value }),
 
       matchElementSize: (type) => {
         const state = get();

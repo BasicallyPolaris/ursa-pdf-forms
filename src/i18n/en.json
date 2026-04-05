@@ -98,7 +98,9 @@
     "emptyDescription": "Drag and drop a file, or use the Open button",
     "openPdf": "Open PDF",
     "zoom": "Zoom",
-    "removeField": "Remove field"
+    "removeField": "Remove field",
+    "dropToOpen": "Drop PDF to open",
+    "dropToReplace": "Drop PDF to replace current document"
   },
   "shortcuts": {
     "title": "Keyboard Shortcuts",
