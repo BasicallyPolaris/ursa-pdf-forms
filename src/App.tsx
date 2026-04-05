@@ -14,13 +14,19 @@ import {
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useZoom } from "@/hooks/use-zoom";
+import { useEditorStore } from "@/stores/editor-store";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { FileDown } from "lucide-react";
 
 function App() {
   useFileDrop();
   useKeyboardShortcuts();
   useZoom();
 
+  const { t } = useTranslation();
+  const isFileDragOver = useEditorStore((s) => s.isFileDragOver);
+  const pdfBytes = useEditorStore((s) => s.pdfBytes);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const hRulerRef = useRef<HTMLDivElement>(null);
   const vRulerRef = useRef<HTMLDivElement>(null);
@@ -52,7 +58,7 @@ function App() {
   }, [handleScroll]);
 
   return (
-    <div className="dark flex h-screen flex-col" onContextMenu={(e) => e.preventDefault()}>
+    <div className="dark relative flex h-screen flex-col" onContextMenu={(e) => e.preventDefault()}>
       <ErrorBoundary><AppHeader /></ErrorBoundary>
 
       <div className="flex flex-1 overflow-hidden">
@@ -101,6 +107,16 @@ function App() {
         </aside>
       </div>
 
+      {isFileDragOver && (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-background/60 backdrop-blur-[2px] pointer-events-none animate-in fade-in-0 duration-150">
+          <div className="flex flex-col items-center gap-3 text-muted-foreground">
+            <FileDown className="h-12 w-12" />
+            <p className="text-sm font-medium">
+              {pdfBytes ? t("canvas.dropToReplace") : t("canvas.dropToOpen")}
+            </p>
+          </div>
+        </div>
+      )}
       <StatusBar />
     </div>
   );
