@@ -3,6 +3,7 @@ export type ShortcutId =
   | "export"
   | "undo"
   | "redo"
+  | "redoAlt"
   | "copy"
   | "paste"
   | "cut"
@@ -47,6 +48,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: "export", i18nKey: "shortcuts.export", group: "file", mod: true, key: "e" },
   { id: "undo", i18nKey: "shortcuts.undo", group: "edit", mod: true, key: "z" },
   { id: "redo", i18nKey: "shortcuts.redo", group: "edit", mod: true, shift: true, key: "z" },
+  { id: "redoAlt", i18nKey: "shortcuts.redo", group: "edit", mod: true, key: "y" },
   { id: "copy", i18nKey: "shortcuts.copy", group: "edit", mod: true, key: "c" },
   { id: "paste", i18nKey: "shortcuts.paste", group: "edit", mod: true, key: "v" },
   { id: "cut", i18nKey: "shortcuts.cut", group: "edit", mod: true, key: "x" },
@@ -81,6 +83,16 @@ export function formatShortcut(id: ShortcutId): string {
   if (s.shift) parts.push(shiftSymbol);
   parts.push(s.key.length === 1 ? s.key.toUpperCase() : s.key);
   return parts.join(isMac ? "" : "+");
+}
+
+export function formatShortcutParts(id: ShortcutId): string[] {
+  const s = shortcutMap.get(id);
+  if (!s) return [];
+  const parts: string[] = [];
+  if (s.mod) parts.push(modSymbol);
+  if (s.shift) parts.push(shiftSymbol);
+  parts.push(s.key.length === 1 ? s.key.toUpperCase() : s.key);
+  return parts;
 }
 
 export function getShortcutsByGroup(group: ShortcutGroup): ShortcutDef[] {

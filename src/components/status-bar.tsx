@@ -41,7 +41,7 @@ export function StatusBar() {
         {hasSelection && (
           <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
             <Kbd>Arrow</Kbd> {t("status.nudge1pt")}
-            <Kbd>Shift+Arrow</Kbd> {t("status.nudge5pt")}
+            <Kbd>Shift</Kbd>+<Kbd>Arrow</Kbd> {t("status.nudge5pt")}
             <Kbd>Shift</Kbd> {t("status.snapToGrid")}
             <Kbd>Ctrl</Kbd> {t("status.freeMove")}
             <Kbd>Del</Kbd> {t("status.delete")}
