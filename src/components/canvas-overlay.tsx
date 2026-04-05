@@ -255,9 +255,9 @@ export function CanvasOverlay() {
             : pageElements,
         rulerGuides: rulerGuideSnapData,
         snapToGrid: modifiers.shiftKey && !freeMovement,
-        snapToPageEdges: !modifiers.shiftKey && !freeMovement,
-        snapToElements: !modifiers.shiftKey && !freeMovement,
-        snapToGuides: !modifiers.shiftKey && !freeMovement,
+        snapToPageEdges: !freeMovement,
+        snapToElements: !freeMovement,
+        snapToGuides: !freeMovement,
       };
     },
     [elementsByPage, pages, gridSize, rulerGuideSnapData],
@@ -408,7 +408,11 @@ export function CanvasOverlay() {
           );
           snappedCurrentX = snappedScreen.x;
           snappedCurrentY = snappedScreen.y;
-          setActiveGuides(snap.guides);
+          setActiveGuides(
+            snapCtx.snapToGrid
+              ? snap.guides.filter((g) => g.type !== "grid")
+              : snap.guides,
+          );
         } else {
           setActiveGuides([]);
         }
@@ -944,7 +948,11 @@ export function CanvasOverlay() {
               ? { dx: correctionDx * zoom, dy: correctionDy * zoom }
               : null,
           );
-          setActiveGuides(guides);
+          setActiveGuides(
+            snapCtx.snapToGrid
+              ? guides.filter((g) => g.type !== "grid")
+              : guides,
+          );
 
           if (isMultiDrag) {
             for (const selEl of elements) {
@@ -1278,7 +1286,11 @@ export function CanvasOverlay() {
             const dw = (snappedW - rawWidth) * zoom;
             const dh = (snappedH - rawHeight) * zoom;
             setResizeSnapCorrection({ dx, dy, dw, dh });
-            setActiveGuides(result.guides);
+            setActiveGuides(
+              snapCtx.snapToGrid
+                ? result.guides.filter((g) => g.type !== "grid")
+                : result.guides,
+            );
 
             const livePositions = new Map<
               string,
