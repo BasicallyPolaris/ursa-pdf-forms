@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,8 +44,106 @@ import {
   SquareSquare,
   Trash2,
 } from "lucide-react";
-import { useEditorStore } from "@/stores/editor-store";
+import { useEditorStore, type GuideLine } from "@/stores/editor-store";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+
+function useDeferredValue(
+  storeValue: string | number,
+  onCommit: (raw: string) => void,
+) {
+  const [local, setLocal] = useState(String(storeValue ?? ""));
+  const activeRef = useRef(false);
+  const preEditRef = useRef<{
+    elements: FormElement[];
+    guides: GuideLine[];
+  } | null>(null);
+  const originalValueRef = useRef(String(storeValue ?? ""));
+  const onCommitRef = useRef(onCommit);
+  onCommitRef.current = onCommit;
+
+  useEffect(() => {
+    if (!activeRef.current) {
+      setLocal(String(storeValue ?? ""));
+    }
+  }, [storeValue]);
+
+  const onFocus = useCallback(() => {
+    if (activeRef.current) return;
+    activeRef.current = true;
+    originalValueRef.current = String(storeValue ?? "");
+    preEditRef.current = {
+      elements: useEditorStore.getState().elements,
+      guides: useEditorStore.getState().guides,
+    };
+    useEditorStore.temporal.getState().pause();
+  }, [storeValue]);
+
+  const onChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setLocal(e.target.value);
+      onCommitRef.current(e.target.value);
+    },
+    [],
+  );
+
+  const finishEdit = useCallback((revert: boolean) => {
+    if (!activeRef.current) return;
+    activeRef.current = false;
+    const preEdit = preEditRef.current;
+    preEditRef.current = null;
+
+    if (revert && preEdit) {
+      useEditorStore.setState({
+        elements: preEdit.elements,
+        guides: preEdit.guides,
+      });
+      setLocal(originalValueRef.current);
+    }
+
+    useEditorStore.temporal.getState().resume();
+
+    if (!revert && preEdit) {
+      const current = {
+        elements: useEditorStore.getState().elements,
+        guides: useEditorStore.getState().guides,
+      };
+      if (
+        preEdit.elements !== current.elements ||
+        preEdit.guides !== current.guides
+      ) {
+        const ts = useEditorStore.temporal.getState();
+        const past = [...ts.pastStates, preEdit];
+        if (past.length > 50) past.splice(0, past.length - 50);
+        useEditorStore.temporal.setState({
+          pastStates: past,
+          futureStates: [],
+        });
+      }
+    }
+  }, []);
+
+  const onBlur = useCallback(() => {
+    finishEdit(false);
+  }, [finishEdit]);
+
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        finishEdit(false);
+        (e.target as HTMLInputElement).select();
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        finishEdit(true);
+        (e.target as HTMLInputElement).blur();
+      }
+    },
+    [finishEdit],
+  );
+
+  return { value: local, onFocus, onChange, onBlur, onKeyDown };
+}
 
 function PropertyField({
   label,
@@ -153,24 +251,34 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
 
   if (!element || !isTextField(element)) return null;
 
+  const nameField = useDeferredValue(element.name, (v) =>
+    updateElement(element.id, { name: v }),
+  );
+  const defaultValueField = useDeferredValue(element.defaultValue, (v) =>
+    updateElement(element.id, { defaultValue: v }),
+  );
+  const fontSizeField = useDeferredValue(element.fontSize, (v) => {
+    const fs = Number(v);
+    const updates: Partial<TextField> = { fontSize: fs };
+    if (!element.multiline) {
+      updates.height = heightFromFontSize(fs);
+    }
+    updateElement(element.id, updates);
+  });
+  const maxLengthField = useDeferredValue(element.maxLength ?? "", (v) =>
+    updateElement(element.id, {
+      maxLength: v ? Number(v) : undefined,
+    }),
+  );
+
   return (
     <div className="flex flex-col gap-3">
       <PropertyField label={t("properties.name")}>
-        <Input
-          value={element.name}
-          onChange={(e) => updateElement(element.id, { name: e.target.value })}
-          className="h-7 text-xs"
-        />
+        <Input {...nameField} className="h-7 text-xs" />
       </PropertyField>
 
       <PropertyField label={t("properties.defaultValue")}>
-        <Input
-          value={element.defaultValue}
-          onChange={(e) =>
-            updateElement(element.id, { defaultValue: e.target.value })
-          }
-          className="h-7 text-xs"
-        />
+        <Input {...defaultValueField} className="h-7 text-xs" />
       </PropertyField>
 
       <Separator />
@@ -178,17 +286,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
       <SectionHeader label={t("properties.typography")} />
 
       <PropertyField label={t("properties.fontSize")}>
-        <NumericInput
-          value={element.fontSize}
-          onChange={(e) => {
-            const fs = Number(e.target.value);
-            const updates: Partial<TextField> = { fontSize: fs };
-            if (!element.multiline) {
-              updates.height = heightFromFontSize(fs);
-            }
-            updateElement(element.id, updates);
-          }}
-        />
+        <NumericInput {...fontSizeField} />
       </PropertyField>
 
       {!element.multiline && (
@@ -216,12 +314,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
 
       <PropertyField label={t("properties.maxLength")}>
         <NumericInput
-          value={element.maxLength ?? ""}
-          onChange={(e) =>
-            updateElement(element.id, {
-              maxLength: e.target.value ? Number(e.target.value) : undefined,
-            })
-          }
+          {...maxLengthField}
           placeholder={t("properties.noLimit")}
         />
       </PropertyField>
@@ -238,14 +331,14 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
 
   if (!element || !isCheckbox(element)) return null;
 
+  const nameField = useDeferredValue(element.name, (v) =>
+    updateElement(element.id, { name: v }),
+  );
+
   return (
     <div className="flex flex-col gap-3">
       <PropertyField label={t("properties.name")}>
-        <Input
-          value={element.name}
-          onChange={(e) => updateElement(element.id, { name: e.target.value })}
-          className="h-7 text-xs"
-        />
+        <Input {...nameField} className="h-7 text-xs" />
       </PropertyField>
 
       <div className="flex items-center justify-between">
@@ -272,32 +365,28 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
 
   if (!element || !isRadioButton(element)) return null;
 
+  const groupNameField = useDeferredValue(element.groupName, (v) =>
+    updateElement(element.id, { groupName: v }),
+  );
+  const valueField = useDeferredValue(element.value, (v) =>
+    updateElement(element.id, { value: v }),
+  );
+  const labelField = useDeferredValue(element.label, (v) =>
+    updateElement(element.id, { label: v }),
+  );
+
   return (
     <div className="flex flex-col gap-3">
       <PropertyField label={t("properties.groupName")}>
-        <Input
-          value={element.groupName}
-          onChange={(e) =>
-            updateElement(element.id, { groupName: e.target.value })
-          }
-          className="h-7 text-xs"
-        />
+        <Input {...groupNameField} className="h-7 text-xs" />
       </PropertyField>
 
       <PropertyField label={t("properties.value")}>
-        <Input
-          value={element.value}
-          onChange={(e) => updateElement(element.id, { value: e.target.value })}
-          className="h-7 text-xs"
-        />
+        <Input {...valueField} className="h-7 text-xs" />
       </PropertyField>
 
       <PropertyField label={t("properties.label")}>
-        <Input
-          value={element.label}
-          onChange={(e) => updateElement(element.id, { label: e.target.value })}
-          className="h-7 text-xs"
-        />
+        <Input {...labelField} className="h-7 text-xs" />
       </PropertyField>
     </div>
   );
@@ -323,46 +412,36 @@ function SinglePositionProperties({ elementId }: { elementId: string }) {
     : Math.round(element.height);
   const isAutoHeight = isTextField(element) && !element.multiline;
 
+  const xField = useDeferredValue(displayX, (v) =>
+    updateElement(element.id, { x: Number(v) }),
+  );
+  const yField = useDeferredValue(displayY, (v) =>
+    updateElement(element.id, { y: Number(v) }),
+  );
+  const wField = useDeferredValue(displayW, (v) =>
+    updateElement(element.id, { width: Number(v) }),
+  );
+  const hField = useDeferredValue(displayH, (v) =>
+    updateElement(element.id, { height: Number(v) }),
+  );
+
   return (
     <div className="flex flex-col gap-3">
       <SectionHeader label={t("properties.position")} />
       <div className="grid grid-cols-2 gap-2">
         <PropertyField label={t("properties.x")}>
-          <NumericInput
-            value={displayX}
-            onChange={(e) =>
-              updateElement(element.id, { x: Number(e.target.value) })
-            }
-          />
+          <NumericInput {...xField} />
         </PropertyField>
         <PropertyField label={t("properties.y")}>
-          <NumericInput
-            value={displayY}
-            onChange={(e) =>
-              updateElement(element.id, { y: Number(e.target.value) })
-            }
-          />
+          <NumericInput {...yField} />
         </PropertyField>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <PropertyField label={t("properties.width")}>
-          <NumericInput
-            value={displayW}
-            onChange={(e) =>
-              updateElement(element.id, { width: Number(e.target.value) })
-            }
-          />
+          <NumericInput {...wField} />
         </PropertyField>
         <PropertyField label={t("properties.height")}>
-          <NumericInput
-            value={displayH}
-            onChange={(e) =>
-              updateElement(element.id, {
-                height: Number(e.target.value),
-              })
-            }
-            disabled={isAutoHeight}
-          />
+          <NumericInput {...hField} disabled={isAutoHeight} />
         </PropertyField>
       </div>
     </div>
@@ -371,7 +450,7 @@ function SinglePositionProperties({ elementId }: { elementId: string }) {
 
 function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
   const { t } = useTranslation();
-  const updateElement = useEditorStore((s) => s.updateElement);
+  const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
 
   if (elements.length === 0) return null;
 
@@ -384,22 +463,28 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
 
   const hasSingleLine = elements.some((el) => !el.multiline);
 
+  const fontSizeField = useDeferredValue(
+    allSameFontSize ? elements[0].fontSize : "",
+    (v) => {
+      const val = Number(v);
+      batchUpdateElements(
+        elements.map((el) => ({
+          id: el.id,
+          changes: {
+            fontSize: val,
+            ...(!el.multiline ? { height: heightFromFontSize(val) } : {}),
+          },
+        })),
+      );
+    },
+  );
+
   return (
     <div className="flex flex-col gap-3">
       <PropertyField label={t("properties.fontSize")}>
         <NumericInput
-          value={allSameFontSize ? elements[0].fontSize : ""}
+          {...fontSizeField}
           placeholder={allSameFontSize ? undefined : t("properties.mixed")}
-          onChange={(e) => {
-            const val = Number(e.target.value);
-            for (const el of elements) {
-              const updates: Partial<TextField> = { fontSize: val };
-              if (!el.multiline) {
-                updates.height = heightFromFontSize(val);
-              }
-              updateElement(el.id, updates);
-            }
-          }}
         />
       </PropertyField>
 
@@ -416,9 +501,9 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
         <Switch
           checked={allSameRequired ? elements[0].required : false}
           onCheckedChange={(checked) => {
-            for (const el of elements) {
-              updateElement(el.id, { required: checked });
-            }
+            batchUpdateElements(
+              elements.map((el) => ({ id: el.id, changes: { required: checked } })),
+            );
           }}
         />
       </div>
@@ -428,7 +513,7 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
 
 function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
   const { t } = useTranslation();
-  const updateElement = useEditorStore((s) => s.updateElement);
+  const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
 
   if (elements.length === 0) return null;
 
@@ -436,18 +521,21 @@ function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
     (el) => el.groupName === elements[0].groupName,
   );
 
+  const groupNameField = useDeferredValue(
+    allSameGroup ? elements[0].groupName : "",
+    (v) => {
+      batchUpdateElements(
+        elements.map((el) => ({ id: el.id, changes: { groupName: v } })),
+      );
+    },
+  );
+
   return (
     <div className="flex flex-col gap-3">
       <PropertyField label={t("properties.groupName")}>
         <Input
-          value={allSameGroup ? elements[0].groupName : ""}
+          {...groupNameField}
           placeholder={allSameGroup ? undefined : t("properties.mixed")}
-          onChange={(e) => {
-            const val = e.target.value;
-            for (const el of elements) {
-              updateElement(el.id, { groupName: val });
-            }
-          }}
           className="h-7 text-xs"
         />
       </PropertyField>
@@ -457,7 +545,7 @@ function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
 
 function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
   const { t } = useTranslation();
-  const updateElement = useEditorStore((s) => s.updateElement);
+  const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
 
   if (elements.length === 0) return null;
 
@@ -476,59 +564,65 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
     : "";
   const hasAutoHeight = elements.some((el) => isTextField(el) && !el.multiline);
 
+  const xField = useDeferredValue(
+    allSameX ? Math.round(elements[0].x) : "",
+    (v) =>
+      batchUpdateElements(
+        elements.map((el) => ({ id: el.id, changes: { x: Number(v) } })),
+      ),
+  );
+  const yField = useDeferredValue(
+    allSameY ? Math.round(elements[0].y) : "",
+    (v) =>
+      batchUpdateElements(
+        elements.map((el) => ({ id: el.id, changes: { y: Number(v) } })),
+      ),
+  );
+  const wField = useDeferredValue(
+    allSameW ? Math.round(elements[0].width) : "",
+    (v) =>
+      batchUpdateElements(
+        elements.map((el) => ({ id: el.id, changes: { width: Number(v) } })),
+      ),
+  );
+  const hField = useDeferredValue(
+    heightDisplayValue,
+    (v) =>
+      batchUpdateElements(
+        elements
+          .filter((el) => !(isTextField(el) && !el.multiline))
+          .map((el) => ({ id: el.id, changes: { height: Number(v) } })),
+      ),
+  );
+
   return (
     <div className="flex flex-col gap-3">
       <SectionHeader label={t("properties.position")} />
       <div className="grid grid-cols-2 gap-2">
         <PropertyField label={t("properties.x")}>
           <NumericInput
-            value={allSameX ? Math.round(elements[0].x) : ""}
+            {...xField}
             placeholder={allSameX ? undefined : t("properties.mixed")}
-            onChange={(e) => {
-              const val = Number(e.target.value);
-              for (const el of elements) {
-                updateElement(el.id, { x: val });
-              }
-            }}
           />
         </PropertyField>
         <PropertyField label={t("properties.y")}>
           <NumericInput
-            value={allSameY ? Math.round(elements[0].y) : ""}
+            {...yField}
             placeholder={allSameY ? undefined : t("properties.mixed")}
-            onChange={(e) => {
-              const val = Number(e.target.value);
-              for (const el of elements) {
-                updateElement(el.id, { y: val });
-              }
-            }}
           />
         </PropertyField>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <PropertyField label={t("properties.width")}>
           <NumericInput
-            value={allSameW ? Math.round(elements[0].width) : ""}
+            {...wField}
             placeholder={allSameW ? undefined : t("properties.mixed")}
-            onChange={(e) => {
-              const val = Number(e.target.value);
-              for (const el of elements) {
-                updateElement(el.id, { width: val });
-              }
-            }}
           />
         </PropertyField>
         <PropertyField label={t("properties.height")}>
           <NumericInput
-            value={heightDisplayValue}
+            {...hField}
             placeholder={allSameH ? undefined : t("properties.mixed")}
-            onChange={(e) => {
-              const val = Number(e.target.value);
-              for (const el of elements) {
-                if (isTextField(el) && !el.multiline) continue;
-                updateElement(el.id, { height: val });
-              }
-            }}
           />
         </PropertyField>
       </div>
@@ -756,6 +850,10 @@ function GuideProperties({ guideId }: { guideId: string }) {
     : t("properties.vertical");
   const posLabel = isHorizontal ? "Y" : "X";
 
+  const posField = useDeferredValue(Math.round(guide.position), (v) =>
+    updateGuidePosition(guide.id, Number(v)),
+  );
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
@@ -770,12 +868,7 @@ function GuideProperties({ guideId }: { guideId: string }) {
       </div>
       <Separator />
       <PropertyField label={t("properties.positionLabel", { axis: posLabel })}>
-        <NumericInput
-          value={Math.round(guide.position)}
-          onChange={(e) =>
-            updateGuidePosition(guide.id, Number(e.target.value))
-          }
-        />
+        <NumericInput {...posField} />
       </PropertyField>
       <button
         onClick={() => removeGuide(guide.id)}
