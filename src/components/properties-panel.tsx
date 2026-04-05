@@ -44,7 +44,7 @@ import {
   SquareSquare,
   Trash2,
 } from "lucide-react";
-import { useEditorStore } from "@/stores/editor-store";
+import { useEditorStore, type GuideLine } from "@/stores/editor-store";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 function useDeferredValue(
@@ -53,6 +53,11 @@ function useDeferredValue(
 ) {
   const [local, setLocal] = useState(String(storeValue ?? ""));
   const activeRef = useRef(false);
+  const preEditRef = useRef<{
+    elements: FormElement[];
+    guides: GuideLine[];
+  } | null>(null);
+  const originalValueRef = useRef(String(storeValue ?? ""));
   const onCommitRef = useRef(onCommit);
   onCommitRef.current = onCommit;
 
@@ -63,22 +68,81 @@ function useDeferredValue(
   }, [storeValue]);
 
   const onFocus = useCallback(() => {
+    if (activeRef.current) return;
     activeRef.current = true;
-  }, []);
+    originalValueRef.current = String(storeValue ?? "");
+    preEditRef.current = {
+      elements: useEditorStore.getState().elements,
+      guides: useEditorStore.getState().guides,
+    };
+    useEditorStore.temporal.getState().pause();
+  }, [storeValue]);
 
   const onChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setLocal(e.target.value);
+      onCommitRef.current(e.target.value);
     },
     [],
   );
 
-  const onBlur = useCallback(() => {
+  const finishEdit = useCallback((revert: boolean) => {
+    if (!activeRef.current) return;
     activeRef.current = false;
-    onCommitRef.current(local);
-  }, [local]);
+    const preEdit = preEditRef.current;
+    preEditRef.current = null;
 
-  return { value: local, onFocus, onChange, onBlur };
+    if (revert && preEdit) {
+      useEditorStore.setState({
+        elements: preEdit.elements,
+        guides: preEdit.guides,
+      });
+      setLocal(originalValueRef.current);
+    }
+
+    useEditorStore.temporal.getState().resume();
+
+    if (!revert && preEdit) {
+      const current = {
+        elements: useEditorStore.getState().elements,
+        guides: useEditorStore.getState().guides,
+      };
+      if (
+        preEdit.elements !== current.elements ||
+        preEdit.guides !== current.guides
+      ) {
+        const ts = useEditorStore.temporal.getState();
+        const past = [...ts.pastStates, preEdit];
+        if (past.length > 50) past.splice(0, past.length - 50);
+        useEditorStore.temporal.setState({
+          pastStates: past,
+          futureStates: [],
+        });
+      }
+    }
+  }, []);
+
+  const onBlur = useCallback(() => {
+    finishEdit(false);
+  }, [finishEdit]);
+
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        finishEdit(false);
+        (e.target as HTMLInputElement).select();
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        finishEdit(true);
+        (e.target as HTMLInputElement).blur();
+      }
+    },
+    [finishEdit],
+  );
+
+  return { value: local, onFocus, onChange, onBlur, onKeyDown };
 }
 
 function PropertyField({
