@@ -108,12 +108,16 @@ function App() {
       </div>
 
       {isFileDragOver && (
-        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-background/60 backdrop-blur-[2px] pointer-events-none animate-in fade-in-0 duration-150">
-          <div className="flex flex-col items-center gap-3 text-muted-foreground">
-            <FileDown className="h-12 w-12" />
-            <p className="text-sm font-medium">
-              {pdfBytes ? t("canvas.dropToReplace") : t("canvas.dropToOpen")}
-            </p>
+        <div className="absolute inset-0 z-[60] pointer-events-none animate-in fade-in-0 duration-150">
+          <div className="absolute inset-0 bg-background/40" />
+          <div className="absolute inset-3 rounded-lg border-2 border-dashed border-muted-foreground/25" />
+          <div className="flex h-full items-center justify-center">
+            <div className="flex items-center gap-2.5 rounded-md border border-border bg-card px-4 py-2.5">
+              <FileDown className="h-4 w-4 text-muted-foreground" />
+              <p className="text-sm font-medium text-foreground">
+                {pdfBytes ? t("canvas.dropToReplace") : t("canvas.dropToOpen")}
+              </p>
+            </div>
           </div>
         </div>
       )}
