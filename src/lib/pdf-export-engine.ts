@@ -10,9 +10,13 @@ import {
 } from "pdf-lib";
 import type {
   Checkbox,
+  DropdownField,
   FormElement,
   RadioButton,
   TextField,
+  ButtonField,
+  OptionListField,
+  SignatureField,
 } from "./form-element-model";
 import { hexToRgb, resolveFontFamily } from "./font-utils";
 
@@ -87,6 +91,18 @@ export async function exportFormElements(
         break;
       case "checkbox":
         addCheckboxField(form, page, { ...el, name: safeName }, pageHeight);
+        break;
+      case "dropdown":
+        addDropdownField(form, page, { ...el, name: safeName }, pageHeight, pdf);
+        break;
+      case "button":
+        addButtonField(form, page, { ...el, name: safeName }, pageHeight, pdf);
+        break;
+      case "optionlist":
+        addOptionListField(form, page, { ...el, name: safeName }, pageHeight, pdf);
+        break;
+      case "signature":
+        addSignatureField(form, page, { ...el, name: safeName }, pageHeight, pdf);
         break;
     }
   }
@@ -192,6 +208,136 @@ function addCheckboxField(
 
   if (el.defaultChecked) {
     field.check();
+  }
+}
+
+function addDropdownField(
+  form: ReturnType<PDFDocument["getForm"]>,
+  page: PDFPage,
+  el: DropdownField & { name: string },
+  pageHeight: number,
+  pdfDoc: PDFDocument,
+): void {
+  const field = form.createDropdown(el.name);
+  const pdfY = pageHeight - el.y - el.height;
+
+  const font = pdfDoc.embedStandardFont(StandardFonts.Helvetica);
+
+  field.addToPage(page, {
+    x: el.x,
+    y: pdfY,
+    width: el.width,
+    height: el.height,
+    font,
+  });
+
+  if (el.options.length > 0) {
+    field.setOptions(el.options);
+  }
+
+  if (el.defaultValue) {
+    field.select(el.defaultValue);
+  }
+
+  if (el.required) {
+    field.isRequired();
+  }
+}
+
+function addButtonField(
+  form: ReturnType<PDFDocument["getForm"]>,
+  page: PDFPage,
+  el: ButtonField & { name: string },
+  pageHeight: number,
+  pdfDoc: PDFDocument,
+): void {
+  const field = form.createButton(el.name);
+  const pdfY = pageHeight - el.y - el.height;
+
+  const font = pdfDoc.embedStandardFont(StandardFonts.Helvetica);
+
+  field.addToPage(el.label, page, {
+    x: el.x,
+    y: pdfY,
+    width: el.width,
+    height: el.height,
+    font,
+    textColor: rgb(0, 0, 0),
+    backgroundColor: rgb(0.9, 0.9, 0.9),
+    borderColor: rgb(0.5, 0.5, 0.5),
+    borderWidth: 1,
+  });
+}
+
+function addOptionListField(
+  form: ReturnType<PDFDocument["getForm"]>,
+  page: PDFPage,
+  el: OptionListField & { name: string },
+  pageHeight: number,
+  pdfDoc: PDFDocument,
+): void {
+  const field = form.createOptionList(el.name);
+  const pdfY = pageHeight - el.y - el.height;
+
+  const font = pdfDoc.embedStandardFont(StandardFonts.Helvetica);
+
+  field.addToPage(page, {
+    x: el.x,
+    y: pdfY,
+    width: el.width,
+    height: el.height,
+    font,
+  });
+
+  if (el.options.length > 0) {
+    field.setOptions(el.options);
+  }
+
+  if (el.defaultValue) {
+    field.select(el.defaultValue);
+  }
+
+  if (el.required) {
+    field.isRequired();
+  }
+}
+
+function addSignatureField(
+  _form: ReturnType<PDFDocument["getForm"]>,
+  page: PDFPage,
+  el: SignatureField & { name: string },
+  pageHeight: number,
+  pdfDoc: PDFDocument,
+): void {
+  const pdfY = pageHeight - el.y - el.height;
+
+  const sigFieldDict = pdfDoc.context.obj({
+    Type: "Annot",
+    Subtype: "Widget",
+    FT: "Sig",
+    Rect: [el.x, pdfY, el.x + el.width, pdfY + el.height],
+    T: el.name,
+    V: null,
+    P: page.ref,
+  });
+
+  const sigRef = pdfDoc.context.register(
+    sigFieldDict as unknown as import("pdf-lib").PDFDict,
+  );
+
+  const acroForm = pdf.catalog.lookup(PDFName.of("AcroForm"));
+  if (acroForm instanceof PDFDict) {
+    const fields = acroForm.lookup(PDFName.of("Fields"));
+    if (fields instanceof PDFArray) {
+      fields.push(sigRef);
+    }
+  }
+
+  const annots = page.node.lookup(PDFName.of("Annots"));
+  if (annots instanceof PDFArray) {
+    annots.push(sigRef);
+  } else {
+    page.node.set(PDFName.of("Annots"), pdfDoc.context.obj([sigRef]));
   }
 }
 

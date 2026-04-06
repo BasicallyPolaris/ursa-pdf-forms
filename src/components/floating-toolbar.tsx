@@ -11,8 +11,12 @@ import { TOOL_SHORTCUT_MAP } from "@/lib/shortcuts";
 import { useEditorStore } from "@/stores/editor-store";
 import {
   AlignLeft,
+  ChevronDown,
   CircleDot,
+  List,
   MousePointer2,
+  MousePointerSquare,
+  PenLine,
   Square,
   Type,
 } from "lucide-react";
@@ -31,6 +35,23 @@ const TOOL_KEYS = [
   { id: "textarea" as const, labelKey: "toolbar.textarea", icon: AlignLeft },
   { id: "checkbox" as const, labelKey: "toolbar.checkbox", icon: Square },
   { id: "radio" as const, labelKey: "toolbar.radio", icon: CircleDot },
+  {
+    id: "dropdown" as const,
+    labelKey: "toolbar.dropdown",
+    icon: ChevronDown,
+    separate: true,
+  },
+  { id: "optionlist" as const, labelKey: "toolbar.optionlist", icon: List },
+  {
+    id: "button" as const,
+    labelKey: "toolbar.button",
+    icon: MousePointerSquare,
+  },
+  {
+    id: "signature" as const,
+    labelKey: "toolbar.signature",
+    icon: PenLine,
+  },
 ];
 
 export function FloatingToolbar() {

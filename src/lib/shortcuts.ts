@@ -16,6 +16,10 @@ export type ShortcutId =
   | "toolTextarea"
   | "toolCheckbox"
   | "toolRadio"
+  | "toolDropdown"
+  | "toolButton"
+  | "toolOptionList"
+  | "toolSignature"
   | "zoomIn"
   | "zoomOut"
   | "zoomFit"
@@ -115,6 +119,32 @@ export const SHORTCUTS: ShortcutDef[] = [
   },
   { id: "toolRadio", i18nKey: "shortcuts.toolRadio", group: "tools", key: "r" },
   {
+    id: "toolDropdown",
+    i18nKey: "shortcuts.toolDropdown",
+    group: "tools",
+    key: "d",
+  },
+  {
+    id: "toolButton",
+    i18nKey: "shortcuts.toolButton",
+    group: "tools",
+    key: "b",
+  },
+  {
+    id: "toolOptionList",
+    i18nKey: "shortcuts.toolOptionList",
+    group: "tools",
+    shift: true,
+    key: "o",
+  },
+  {
+    id: "toolSignature",
+    i18nKey: "shortcuts.toolSignature",
+    group: "tools",
+    shift: true,
+    key: "s",
+  },
+  {
     id: "zoomIn",
     i18nKey: "shortcuts.zoomIn",
     group: "view",
@@ -188,4 +218,8 @@ export const TOOL_SHORTCUT_MAP: Record<string, ShortcutId> = {
   textarea: "toolTextarea",
   checkbox: "toolCheckbox",
   radio: "toolRadio",
+  dropdown: "toolDropdown",
+  button: "toolButton",
+  optionlist: "toolOptionList",
+  signature: "toolSignature",
 };

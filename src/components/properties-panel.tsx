@@ -20,6 +20,10 @@ import {
   isCheckbox,
   isRadioButton,
   isTextField,
+  isDropdownField,
+  isButtonField,
+  isOptionListField,
+  isSignatureField,
   type FormElement,
   type RadioButton,
   type TextField,
@@ -598,6 +602,253 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
 
       <PropertyField label={t("properties.label")}>
         <Input {...labelField} className="h-7 text-xs" />
+      </PropertyField>
+    </div>
+  );
+}
+
+function DropdownProperties({ elementId }: { elementId: string }) {
+  const { t } = useTranslation();
+  const element = useEditorStore((s) =>
+    s.elements.find((el) => el.id === elementId),
+  );
+  const updateElement = useEditorStore((s) => s.updateElement);
+
+  if (!element || !isDropdownField(element)) return null;
+
+  const nameField = useDeferredValue(element.name, (v) =>
+    updateElement(element.id, { name: v }),
+  );
+
+  const addOption = () => {
+    const next = element.options.length + 1;
+    updateElement(element.id, {
+      options: [...element.options, `Option ${next}`],
+    });
+  };
+
+  const removeOption = (index: number) => {
+    updateElement(element.id, {
+      options: element.options.filter((_, i) => i !== index),
+    });
+  };
+
+  const updateOption = (index: number, value: string) => {
+    const newOptions = [...element.options];
+    newOptions[index] = value;
+    updateElement(element.id, { options: newOptions });
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <PropertyField label={t("properties.name")}>
+        <Input {...nameField} className="h-7 text-xs" />
+      </PropertyField>
+
+      <Separator />
+
+      <SectionHeader label={t("properties.options")} />
+
+      <div className="flex flex-col gap-1.5">
+        {element.options.map((opt, i) => (
+          <div key={i} className="flex items-center gap-1">
+            <input
+              type="radio"
+              name={`default-${element.id}`}
+              checked={element.defaultValue === opt}
+              onChange={() =>
+                updateElement(element.id, { defaultValue: opt })
+              }
+              className="h-3 w-3 accent-primary"
+            />
+            <Input
+              value={opt}
+              onChange={(e) => updateOption(i, e.target.value)}
+              className="h-6 flex-1 text-xs"
+            />
+            <button
+              type="button"
+              onClick={() => removeOption(i)}
+              className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-destructive"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={addOption}
+          className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        >
+          +
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <Label className="text-[11px] text-muted-foreground">
+          {t("properties.editable")}
+        </Label>
+        <Switch
+          checked={element.editable}
+          onCheckedChange={(checked) =>
+            updateElement(element.id, { editable: checked })
+          }
+        />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <Label className="text-[11px] text-muted-foreground">
+          {t("properties.required")}
+        </Label>
+        <Switch
+          checked={element.required}
+          onCheckedChange={(checked) =>
+            updateElement(element.id, { required: checked })
+          }
+        />
+      </div>
+    </div>
+  );
+}
+
+function ButtonProperties({ elementId }: { elementId: string }) {
+  const { t } = useTranslation();
+  const element = useEditorStore((s) =>
+    s.elements.find((el) => el.id === elementId),
+  );
+  const updateElement = useEditorStore((s) => s.updateElement);
+
+  if (!element || !isButtonField(element)) return null;
+
+  const nameField = useDeferredValue(element.name, (v) =>
+    updateElement(element.id, { name: v }),
+  );
+  const labelField = useDeferredValue(element.label, (v) =>
+    updateElement(element.id, { label: v }),
+  );
+
+  return (
+    <div className="flex flex-col gap-3">
+      <PropertyField label={t("properties.name")}>
+        <Input {...nameField} className="h-7 text-xs" />
+      </PropertyField>
+
+      <PropertyField label={t("properties.label")}>
+        <Input {...labelField} className="h-7 text-xs" />
+      </PropertyField>
+    </div>
+  );
+}
+
+function OptionListProperties({ elementId }: { elementId: string }) {
+  const { t } = useTranslation();
+  const element = useEditorStore((s) =>
+    s.elements.find((el) => el.id === elementId),
+  );
+  const updateElement = useEditorStore((s) => s.updateElement);
+
+  if (!element || !isOptionListField(element)) return null;
+
+  const nameField = useDeferredValue(element.name, (v) =>
+    updateElement(element.id, { name: v }),
+  );
+
+  const addOption = () => {
+    const next = element.options.length + 1;
+    updateElement(element.id, {
+      options: [...element.options, `Option ${next}`],
+    });
+  };
+
+  const removeOption = (index: number) => {
+    updateElement(element.id, {
+      options: element.options.filter((_, i) => i !== index),
+    });
+  };
+
+  const updateOption = (index: number, value: string) => {
+    const newOptions = [...element.options];
+    newOptions[index] = value;
+    updateElement(element.id, { options: newOptions });
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <PropertyField label={t("properties.name")}>
+        <Input {...nameField} className="h-7 text-xs" />
+      </PropertyField>
+
+      <Separator />
+
+      <SectionHeader label={t("properties.options")} />
+
+      <div className="flex flex-col gap-1.5">
+        {element.options.map((opt, i) => (
+          <div key={i} className="flex items-center gap-1">
+            <input
+              type="radio"
+              name={`default-${element.id}`}
+              checked={element.defaultValue === opt}
+              onChange={() =>
+                updateElement(element.id, { defaultValue: opt })
+              }
+              className="h-3 w-3 accent-primary"
+            />
+            <Input
+              value={opt}
+              onChange={(e) => updateOption(i, e.target.value)}
+              className="h-6 flex-1 text-xs"
+            />
+            <button
+              type="button"
+              onClick={() => removeOption(i)}
+              className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-destructive"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={addOption}
+          className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        >
+          +
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <Label className="text-[11px] text-muted-foreground">
+          {t("properties.required")}
+        </Label>
+        <Switch
+          checked={element.required}
+          onCheckedChange={(checked) =>
+            updateElement(element.id, { required: checked })
+          }
+        />
+      </div>
+    </div>
+  );
+}
+
+function SignatureProperties({ elementId }: { elementId: string }) {
+  const { t } = useTranslation();
+  const element = useEditorStore((s) =>
+    s.elements.find((el) => el.id === elementId),
+  );
+  const updateElement = useEditorStore((s) => s.updateElement);
+
+  if (!element || !isSignatureField(element)) return null;
+
+  const nameField = useDeferredValue(element.name, (v) =>
+    updateElement(element.id, { name: v }),
+  );
+
+  return (
+    <div className="flex flex-col gap-3">
+      <PropertyField label={t("properties.name")}>
+        <Input {...nameField} className="h-7 text-xs" />
       </PropertyField>
     </div>
   );
@@ -1192,7 +1443,7 @@ function PropertiesPanelContent() {
     const allSameType = types.size === 1;
     const singleType = allSameType ? [...types][0] : null;
     const config = singleType ? getElementStyleConfigByType(singleType) : null;
-    const hasTypeProps = singleType === "text" || singleType === "radio";
+    const hasTypeProps = ["text", "radio", "dropdown", "button", "optionlist", "signature"].includes(singleType ?? "");
 
     return (
       <div className="h-full overflow-y-auto">
@@ -1215,6 +1466,10 @@ function PropertiesPanelContent() {
                       text: t("properties.textFields"),
                       checkbox: t("properties.checkboxes"),
                       radio: t("properties.radioButtons"),
+                      dropdown: t("properties.dropdowns"),
+                      button: t("properties.buttons"),
+                      optionlist: t("properties.optionLists"),
+                      signature: t("properties.signatures"),
                     }[singleType]
                   : t("properties.mixedTypes")}
               </span>
@@ -1290,6 +1545,18 @@ function PropertiesPanelContent() {
         {isCheckbox(element) && <CheckboxProperties elementId={element.id} />}
         {isRadioButton(element) && (
           <RadioButtonProperties elementId={element.id} />
+        )}
+        {isDropdownField(element) && (
+          <DropdownProperties elementId={element.id} />
+        )}
+        {isButtonField(element) && (
+          <ButtonProperties elementId={element.id} />
+        )}
+        {isOptionListField(element) && (
+          <OptionListProperties elementId={element.id} />
+        )}
+        {isSignatureField(element) && (
+          <SignatureProperties elementId={element.id} />
         )}
         <Separator className="my-3" />
 

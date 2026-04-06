@@ -11,16 +11,22 @@ interface DrawPreviewLayerProps {
   activeTool: string;
 }
 
+const TOOL_STYLE_MAP: Record<string, string> = {
+  input: "text",
+  textarea: "multiline",
+  dropdown: "dropdown",
+  optionlist: "optionlist",
+};
+
 export function DrawPreviewLayer({ drawRectStyle, activeTool }: DrawPreviewLayerProps) {
   if (!drawRectStyle || drawRectStyle.width <= 0) return null;
 
+  const styleType = TOOL_STYLE_MAP[activeTool] ?? "text";
+  const config = getElementStyleConfigByType(styleType);
+
   return (
     <div
-      className={`pointer-events-none absolute ${
-        HORIZONTAL_DRAW_TOOLS.has(activeTool)
-          ? getElementStyleConfigByType("text")!.drawPreviewClass
-          : getElementStyleConfigByType("multiline")!.drawPreviewClass
-      }`}
+      className={`pointer-events-none absolute ${config?.drawPreviewClass ?? ""}`}
       style={{
         left: drawRectStyle.left,
         top: drawRectStyle.top,

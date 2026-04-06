@@ -110,7 +110,7 @@ interface EditorState {
   renderPdfBytes: Uint8Array | null;
   pages: PageInfo[];
   zoom: number;
-  activeTool: "select" | "input" | "textarea" | "checkbox" | "radio";
+  activeTool: "select" | "input" | "textarea" | "checkbox" | "radio" | "dropdown" | "button" | "optionlist" | "signature";
 
   elements: FormElement[];
   selectedIds: Set<string>;

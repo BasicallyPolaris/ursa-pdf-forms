@@ -5,6 +5,8 @@ import {
 import { screenToPdf } from "@/lib/coordinates";
 import {
   createTextField,
+  createDropdownField,
+  createOptionListField,
   heightFromFontSize,
   type FormElement,
 } from "@/lib/form-element-model";
@@ -159,14 +161,24 @@ export function useDrawingTool(deps: {
         );
         const pdfWidth = width / deps.zoom;
 
-        newEl = createTextField({
-          x: pdfTopLeft.x,
-          y: pdfTopLeft.y,
-          pageNumber: start.pageNumber,
-          name: `text_${state.elements.length + 1}`,
-          multiline: false,
-          width: pdfWidth,
-        });
+        if (activeTool === "dropdown") {
+          newEl = createDropdownField({
+            x: pdfTopLeft.x,
+            y: pdfTopLeft.y,
+            pageNumber: start.pageNumber,
+            name: `dropdown_${state.elements.length + 1}`,
+            width: pdfWidth,
+          });
+        } else {
+          newEl = createTextField({
+            x: pdfTopLeft.x,
+            y: pdfTopLeft.y,
+            pageNumber: start.pageNumber,
+            name: `text_${state.elements.length + 1}`,
+            multiline: false,
+            width: pdfWidth,
+          });
+        }
       } else if (RECT_DRAW_TOOLS.has(activeTool)) {
         const height = Math.abs(drawRect.currentY - drawRect.startY);
         if (width > 5 && height > 5) {
@@ -177,15 +189,26 @@ export function useDrawingTool(deps: {
           const pdfWidth = width / deps.zoom;
           const pdfHeight = height / deps.zoom;
 
-          newEl = createTextField({
-            x: pdfTopLeft.x,
-            y: pdfTopLeft.y,
-            pageNumber: start.pageNumber,
-            name: `text_${state.elements.length + 1}`,
-            multiline: true,
-            width: pdfWidth,
-            height: pdfHeight,
-          });
+          if (activeTool === "optionlist") {
+            newEl = createOptionListField({
+              x: pdfTopLeft.x,
+              y: pdfTopLeft.y,
+              pageNumber: start.pageNumber,
+              name: `optionlist_${state.elements.length + 1}`,
+              width: pdfWidth,
+              height: pdfHeight,
+            });
+          } else {
+            newEl = createTextField({
+              x: pdfTopLeft.x,
+              y: pdfTopLeft.y,
+              pageNumber: start.pageNumber,
+              name: `text_${state.elements.length + 1}`,
+              multiline: true,
+              width: pdfWidth,
+              height: pdfHeight,
+            });
+          }
         }
       }
 

@@ -2,16 +2,24 @@ import {
   createCheckbox,
   createRadioButton,
   createTextField,
+  createDropdownField,
+  createButtonField,
+  createOptionListField,
+  createSignatureField,
   getUniqueName,
 } from "@/lib/form-element-model";
 import { formatShortcut } from "@/lib/shortcuts";
 import { useEditorStore } from "@/stores/editor-store";
 import {
   AlignLeft,
+  ChevronDown,
   CircleDot,
   ClipboardPaste,
   Copy,
   CopyPlus,
+  List,
+  MousePointerSquare,
+  PenLine,
   Scissors,
   SquareCheck,
   TextCursorInput,
@@ -195,6 +203,62 @@ export function CanvasContextMenu({
               pageNumber: context.pageNumber,
               groupName: "group_1",
               value: `option_${elements.length + 1}`,
+            });
+            store.addElement(newEl);
+            store.selectElements(new Set([newEl.id]));
+          },
+        },
+        {
+          label: t("contextMenu.addDropdown"),
+          icon: ChevronDown,
+          action: () => {
+            const newEl = createDropdownField({
+              x: context.pdfX,
+              y: context.pdfY,
+              pageNumber: context.pageNumber,
+              name: getUniqueName(`dropdown_${elements.length + 1}`, elements),
+            });
+            store.addElement(newEl);
+            store.selectElements(new Set([newEl.id]));
+          },
+        },
+        {
+          label: t("contextMenu.addOptionList"),
+          icon: List,
+          action: () => {
+            const newEl = createOptionListField({
+              x: context.pdfX,
+              y: context.pdfY,
+              pageNumber: context.pageNumber,
+              name: getUniqueName(`optionlist_${elements.length + 1}`, elements),
+            });
+            store.addElement(newEl);
+            store.selectElements(new Set([newEl.id]));
+          },
+        },
+        {
+          label: t("contextMenu.addButton"),
+          icon: MousePointerSquare,
+          action: () => {
+            const newEl = createButtonField({
+              x: context.pdfX,
+              y: context.pdfY,
+              pageNumber: context.pageNumber,
+              name: getUniqueName(`button_${elements.length + 1}`, elements),
+            });
+            store.addElement(newEl);
+            store.selectElements(new Set([newEl.id]));
+          },
+        },
+        {
+          label: t("contextMenu.addSignature"),
+          icon: PenLine,
+          action: () => {
+            const newEl = createSignatureField({
+              x: context.pdfX,
+              y: context.pdfY,
+              pageNumber: context.pageNumber,
+              name: getUniqueName(`signature_${elements.length + 1}`, elements),
             });
             store.addElement(newEl);
             store.selectElements(new Set([newEl.id]));

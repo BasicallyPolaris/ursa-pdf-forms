@@ -45,10 +45,69 @@ export interface RadioButton {
   label: string;
 }
 
+export interface DropdownField {
+  type: "dropdown";
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pageNumber: number;
+  name: string;
+  options: string[];
+  defaultValue: string;
+  fontSize: number;
+  required: boolean;
+  editable: boolean;
+}
+
+export interface ButtonField {
+  type: "button";
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pageNumber: number;
+  name: string;
+  label: string;
+  fontSize: number;
+}
+
+export interface OptionListField {
+  type: "optionlist";
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pageNumber: number;
+  name: string;
+  options: string[];
+  defaultValue: string;
+  fontSize: number;
+  required: boolean;
+}
+
+export interface SignatureField {
+  type: "signature";
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pageNumber: number;
+  name: string;
+}
+
 export type FormElement =
   | TextField
   | Checkbox
-  | RadioButton;
+  | RadioButton
+  | DropdownField
+  | ButtonField
+  | OptionListField
+  | SignatureField;
 
 let nextId = 1;
 function generateId(): string {
@@ -196,6 +255,134 @@ export function createRadioButton(opts: RadioButtonOptions): RadioButton {
 
 export function isRadioButton(el: FormElement): el is RadioButton {
   return el.type === "radio";
+}
+
+interface DropdownFieldOptions {
+  x: number;
+  y: number;
+  pageNumber: number;
+  name?: string;
+  options?: string[];
+  defaultValue?: string;
+  fontSize?: number;
+  required?: boolean;
+  editable?: boolean;
+  width?: number;
+  height?: number;
+}
+
+export function createDropdownField(opts: DropdownFieldOptions): DropdownField {
+  const fontSize = opts.fontSize ?? 12;
+  return {
+    type: "dropdown",
+    id: generateId(),
+    x: opts.x,
+    y: opts.y,
+    width: safePositive(opts.width, 150),
+    height: safePositive(opts.height, heightFromFontSize(fontSize)),
+    pageNumber: opts.pageNumber,
+    name: opts.name ?? "",
+    options: opts.options ?? ["Option 1", "Option 2"],
+    defaultValue: opts.defaultValue ?? "",
+    fontSize,
+    required: opts.required ?? false,
+    editable: opts.editable ?? false,
+  };
+}
+
+export function isDropdownField(el: FormElement): el is DropdownField {
+  return el.type === "dropdown";
+}
+
+interface ButtonFieldOptions {
+  x: number;
+  y: number;
+  pageNumber: number;
+  name?: string;
+  label?: string;
+  fontSize?: number;
+  width?: number;
+  height?: number;
+}
+
+export function createButtonField(opts: ButtonFieldOptions): ButtonField {
+  const fontSize = opts.fontSize ?? 12;
+  return {
+    type: "button",
+    id: generateId(),
+    x: opts.x,
+    y: opts.y,
+    width: safePositive(opts.width, 80),
+    height: safePositive(opts.height, heightFromFontSize(fontSize)),
+    pageNumber: opts.pageNumber,
+    name: opts.name ?? "",
+    label: opts.label ?? "Button",
+    fontSize,
+  };
+}
+
+export function isButtonField(el: FormElement): el is ButtonField {
+  return el.type === "button";
+}
+
+interface OptionListFieldOptions {
+  x: number;
+  y: number;
+  pageNumber: number;
+  name?: string;
+  options?: string[];
+  defaultValue?: string;
+  fontSize?: number;
+  required?: boolean;
+  width?: number;
+  height?: number;
+}
+
+export function createOptionListField(opts: OptionListFieldOptions): OptionListField {
+  return {
+    type: "optionlist",
+    id: generateId(),
+    x: opts.x,
+    y: opts.y,
+    width: safePositive(opts.width, 150),
+    height: safePositive(opts.height, 80),
+    pageNumber: opts.pageNumber,
+    name: opts.name ?? "",
+    options: opts.options ?? ["Option 1", "Option 2"],
+    defaultValue: opts.defaultValue ?? "",
+    fontSize: opts.fontSize ?? 12,
+    required: opts.required ?? false,
+  };
+}
+
+export function isOptionListField(el: FormElement): el is OptionListField {
+  return el.type === "optionlist";
+}
+
+interface SignatureFieldOptions {
+  x: number;
+  y: number;
+  pageNumber: number;
+  name?: string;
+  width?: number;
+  height?: number;
+}
+
+export function createSignatureField(opts: SignatureFieldOptions): SignatureField {
+  return {
+    type: "signature",
+    id: generateId(),
+    x: opts.x,
+    y: opts.y,
+    width: safePositive(opts.width, 150),
+    height: safePositive(opts.height, 40),
+    pageNumber: opts.pageNumber,
+    name: opts.name ?? "",
+  };
+}
+
+export function isSignatureField(el: FormElement): el is SignatureField {
+  return el.type === "signature";
 }
 
 export function sanitizeNumericValue(value: unknown): number | undefined {

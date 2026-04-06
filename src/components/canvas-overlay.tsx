@@ -24,6 +24,10 @@ import { getElementStyleConfig } from "@/lib/element-style-map";
 import {
   createCheckbox,
   createRadioButton,
+  createDropdownField,
+  createButtonField,
+  createOptionListField,
+  createSignatureField,
   type FormElement,
   getElementName,
 } from "@/lib/form-element-model";
@@ -264,7 +268,7 @@ export function CanvasOverlay() {
             pageNumber,
             name: `checkbox_${elements.length + 1}`,
           });
-        } else {
+        } else if (activeTool === "radio") {
           newEl = createRadioButton({
             x: pdf.x,
             y: pdf.y,
@@ -272,6 +276,22 @@ export function CanvasOverlay() {
             groupName: "group_1",
             value: `option_${elements.length + 1}`,
           });
+        } else if (activeTool === "button") {
+          newEl = createButtonField({
+            x: pdf.x,
+            y: pdf.y,
+            pageNumber,
+            name: `button_${elements.length + 1}`,
+          });
+        } else if (activeTool === "signature") {
+          newEl = createSignatureField({
+            x: pdf.x,
+            y: pdf.y,
+            pageNumber,
+            name: `signature_${elements.length + 1}`,
+          });
+        } else {
+          return;
         }
         addElement(newEl);
         selectElements(new Set([newEl.id]));
@@ -743,6 +763,49 @@ export function CanvasOverlay() {
             >
               {el.defaultValue}
             </span>
+          )}
+          {el.type === "dropdown" && (
+            <svg
+              viewBox="0 0 12 12"
+              className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`}
+            >
+              <rect x="1" y="1" width="10" height="10" rx="1" fill="none" stroke="currentColor" strokeWidth="1" />
+              <path d="M4 5L6 7L8 5" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+          {el.type === "button" && (
+            <svg
+              viewBox="0 0 12 8"
+              className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`}
+            >
+              <rect x="1" y="1" width="10" height="6" rx="1" fill="none" stroke="currentColor" strokeWidth="1" />
+            </svg>
+          )}
+          {el.type === "optionlist" && (
+            <svg
+              viewBox="0 0 12 12"
+              className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`}
+            >
+              <rect x="1" y="1" width="10" height="10" rx="1" fill="none" stroke="currentColor" strokeWidth="1" />
+              <line x1="3" y1="4" x2="9" y2="4" stroke="currentColor" strokeWidth="1" />
+              <line x1="3" y1="6" x2="9" y2="6" stroke="currentColor" strokeWidth="1" />
+              <line x1="3" y1="8" x2="9" y2="8" stroke="currentColor" strokeWidth="1" />
+            </svg>
+          )}
+          {el.type === "signature" && (
+            <svg
+              viewBox="0 0 16 10"
+              className={`h-3/5 w-4/5 ${getElementStyleConfig(el).colorClass}`}
+            >
+              <path
+                d="M1 7C2 5 4 3 6 5C8 7 8 3 10 2C12 1 13 4 15 4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1"
+                strokeLinecap="round"
+              />
+              <line x1="1" y1="9" x2="15" y2="9" stroke="currentColor" strokeWidth="0.5" opacity="0.5" />
+            </svg>
           )}
           <span
             className={`absolute -top-4 left-0 max-w-20 truncate overflow-hidden text-[10px] select-none ${getElementStyleConfig(el).textColorClass}`}
