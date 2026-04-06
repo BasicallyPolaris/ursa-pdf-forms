@@ -158,7 +158,22 @@ function collectFields(
       ),
     );
   } else if (ft === PDFName.of("Btn")) {
-    if (isRadioField(fieldDict, ctx)) {
+    if (isPushButton(fieldDict, ctx)) {
+      const name = getFieldName(fieldDict) ?? parentPartialName ?? "";
+      elements.push(
+        extractButtonField(
+          fieldDict,
+          ctx,
+          generateId(),
+          x,
+          y,
+          width,
+          height,
+          pageNumber,
+          name,
+        ),
+      );
+    } else if (isRadioField(fieldDict, ctx)) {
       const groupName = parentPartialName ?? "";
       const exportValue = getExportValue(fieldDict) ?? "";
       elements.push({
@@ -179,6 +194,37 @@ function collectFields(
       elements.push(
         extractCheckboxField(
           fieldDict,
+          generateId(),
+          x,
+          y,
+          width,
+          height,
+          pageNumber,
+          name,
+        ),
+      );
+    }
+  } else if (ft === PDFName.of("Ch")) {
+    const name = getFieldName(fieldDict) ?? parentPartialName ?? "";
+    if (isComboField(fieldDict, ctx)) {
+      elements.push(
+        extractDropdownField(
+          fieldDict,
+          ctx,
+          generateId(),
+          x,
+          y,
+          width,
+          height,
+          pageNumber,
+          name,
+        ),
+      );
+    } else {
+      elements.push(
+        extractOptionListField(
+          fieldDict,
+          ctx,
           generateId(),
           x,
           y,
@@ -316,6 +362,173 @@ function extractCheckboxField(
   };
 }
 
+function extractButtonField(
+  dict: PDFDict,
+  ctx: LookupCtx,
+  id: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  pageNumber: number,
+  name: string,
+): FormElement {
+  const da = getInheritableAttr(dict, PDFName.of("DA"), ctx);
+  const daStr = tryAsString(da) ?? "";
+  const fontSize = parseFontSizeFromDA(daStr);
+
+  const label = extractButtonLabel(dict);
+
+  return {
+    type: "button",
+    id,
+    x,
+    y,
+    width,
+    height,
+    pageNumber,
+    name,
+    label: label || "Button",
+    fontSize: fontSize > 0 ? fontSize : 12,
+    fontFamily: "Helvetica",
+    fontWeight: "regular" as const,
+    textColor: "#000000",
+    backgroundColor: null,
+    borderColor: null,
+    borderWidth: 1,
+  };
+}
+
+function extractButtonLabel(dict: PDFDict): string {
+  const ap = dict.lookup(PDFName.of("AP"));
+  if (!(ap instanceof PDFDict)) return "";
+  const n = ap.lookup(PDFName.of("N"));
+  if (!(n instanceof PDFDict)) return "";
+  for (const [key] of n.entries()) {
+    if (key === PDFName.of("Off")) continue;
+    const stream = n.lookup(key);
+    if (stream && typeof stream === "object" && "decodeText" in stream) {
+      try {
+        const content = (stream as { decodeText: () => string }).decodeText();
+        const match = content.match(/\(([^)]*)\)/);
+        if (match) return match[1];
+      } catch {
+        // ignore
+      }
+    }
+  }
+  return "";
+}
+
+function extractDropdownField(
+  dict: PDFDict,
+  ctx: LookupCtx,
+  id: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  pageNumber: number,
+  name: string,
+): FormElement {
+  const options = extractChoiceOptions(dict, ctx);
+  const v = getInheritableAttr(dict, PDFName.of("V"), ctx);
+  const defaultValue = tryAsString(v) ?? "";
+  const da = getInheritableAttr(dict, PDFName.of("DA"), ctx);
+  const daStr = tryAsString(da) ?? "";
+  const fontSize = parseFontSizeFromDA(daStr);
+  const flags = getInheritableAttr(dict, PDFName.of("Ff"), ctx);
+  const flagNum = flags instanceof PDFNumber ? flags.asNumber() : 0;
+  const required = (flagNum & (1 << 1)) !== 0;
+  const editable = (flagNum & (1 << 18)) !== 0;
+
+  return {
+    type: "dropdown",
+    id,
+    x,
+    y,
+    width,
+    height,
+    pageNumber,
+    name,
+    options,
+    defaultValue,
+    fontSize: fontSize > 0 ? fontSize : 12,
+    required,
+    editable,
+    fontFamily: "Helvetica",
+    fontWeight: "regular" as const,
+    textColor: "#000000",
+    backgroundColor: null,
+    borderColor: null,
+    borderWidth: 1,
+  };
+}
+
+function extractOptionListField(
+  dict: PDFDict,
+  ctx: LookupCtx,
+  id: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  pageNumber: number,
+  name: string,
+): FormElement {
+  const options = extractChoiceOptions(dict, ctx);
+  const v = getInheritableAttr(dict, PDFName.of("V"), ctx);
+  const defaultValue = tryAsString(v) ?? "";
+  const da = getInheritableAttr(dict, PDFName.of("DA"), ctx);
+  const daStr = tryAsString(da) ?? "";
+  const fontSize = parseFontSizeFromDA(daStr);
+  const flags = getInheritableAttr(dict, PDFName.of("Ff"), ctx);
+  const flagNum = flags instanceof PDFNumber ? flags.asNumber() : 0;
+  const required = (flagNum & (1 << 1)) !== 0;
+
+  return {
+    type: "optionlist",
+    id,
+    x,
+    y,
+    width,
+    height,
+    pageNumber,
+    name,
+    options,
+    defaultValue,
+    fontSize: fontSize > 0 ? fontSize : 12,
+    required,
+    fontFamily: "Helvetica",
+    fontWeight: "regular" as const,
+    textColor: "#000000",
+    backgroundColor: null,
+    borderColor: null,
+    borderWidth: 1,
+  };
+}
+
+function extractChoiceOptions(
+  dict: PDFDict,
+  ctx: LookupCtx,
+): string[] {
+  const opt = getInheritableAttr(dict, PDFName.of("Opt"), ctx);
+  if (!(opt instanceof PDFArray)) return [];
+  const values: string[] = [];
+  for (let i = 0; i < opt.size(); i++) {
+    const item = opt.lookup(i);
+    if (item instanceof PDFArray && item.size() >= 2) {
+      const exportVal = tryAsString(item.lookup(0));
+      const displayVal = tryAsString(item.lookup(1));
+      values.push(displayVal ?? exportVal ?? `Option ${i + 1}`);
+    } else {
+      const str = tryAsString(item);
+      values.push(str ?? `Option ${i + 1}`);
+    }
+  }
+  return values;
+}
+
 function tryAsString(val: unknown): string | null {
   if (val == null) return null;
   if (typeof (val as { decodeText?: unknown }).decodeText === "function") {
@@ -372,6 +585,20 @@ function isRadioField(dict: PDFDict, ctx: LookupCtx): boolean {
   if (!(flags instanceof PDFNumber)) return false;
   const flagNum = flags.asNumber();
   return (flagNum & (1 << 15)) !== 0;
+}
+
+function isPushButton(dict: PDFDict, ctx: LookupCtx): boolean {
+  const flags = getInheritableAttr(dict, PDFName.of("Ff"), ctx);
+  if (!(flags instanceof PDFNumber)) return false;
+  const flagNum = flags.asNumber();
+  return (flagNum & (1 << 16)) !== 0;
+}
+
+function isComboField(dict: PDFDict, ctx: LookupCtx): boolean {
+  const flags = getInheritableAttr(dict, PDFName.of("Ff"), ctx);
+  if (!(flags instanceof PDFNumber)) return false;
+  const flagNum = flags.asNumber();
+  return (flagNum & (1 << 17)) !== 0;
 }
 
 function parseFontSizeFromDA(da: string): number {

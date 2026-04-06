@@ -12,6 +12,9 @@ import {
   createTextField,
   createCheckbox,
   createRadioButton,
+  createButtonField,
+  createDropdownField,
+  createOptionListField,
   type FormElement,
 } from "@/lib/form-element-model";
 
@@ -227,6 +230,134 @@ describe("extractAcroFormFields", () => {
     expect(extracted.length).toBe(4);
     const types = extracted.map((el) => el.type).sort();
     expect(types).toEqual(["checkbox", "radio", "radio", "text"]);
+  });
+
+  it("extracts a push button", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      createButtonField({
+        x: 72,
+        y: 700,
+        pageNumber: 1,
+        name: "submitBtn",
+        label: "Submit",
+        fontSize: 12,
+        width: 80,
+        height: 24,
+      }),
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(1);
+    const field = extracted[0];
+    expect(field.type).toBe("button");
+    if (field.type === "button") {
+      expect(field.name).toBe("submitBtn");
+      expect(field.pageNumber).toBe(1);
+      expect(field.fontSize).toBe(12);
+    }
+  });
+
+  it("extracts a dropdown (combo box)", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      createDropdownField({
+        x: 72,
+        y: 700,
+        pageNumber: 1,
+        name: "country",
+        options: ["USA", "Canada", "Mexico"],
+        defaultValue: "Canada",
+        fontSize: 12,
+        width: 150,
+        height: 20,
+      }),
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(1);
+    const field = extracted[0];
+    expect(field.type).toBe("dropdown");
+    if (field.type === "dropdown") {
+      expect(field.name).toBe("country");
+      expect(field.pageNumber).toBe(1);
+      expect(field.options).toEqual(["USA", "Canada", "Mexico"]);
+      expect(field.fontSize).toBe(12);
+    }
+  });
+
+  it("extracts an option list (list box)", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      createOptionListField({
+        x: 72,
+        y: 600,
+        pageNumber: 1,
+        name: "colors",
+        options: ["Red", "Green", "Blue"],
+        defaultValue: "Green",
+        fontSize: 12,
+        width: 150,
+        height: 60,
+      }),
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(1);
+    const field = extracted[0];
+    expect(field.type).toBe("optionlist");
+    if (field.type === "optionlist") {
+      expect(field.name).toBe("colors");
+      expect(field.pageNumber).toBe(1);
+      expect(field.options).toEqual(["Red", "Green", "Blue"]);
+      expect(field.fontSize).toBe(12);
+    }
+  });
+
+  it("distinguishes button, checkbox, and radio in mixed document", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      createButtonField({
+        x: 72,
+        y: 720,
+        pageNumber: 1,
+        name: "btn",
+        label: "Click",
+      }),
+      createCheckbox({
+        x: 72,
+        y: 700,
+        pageNumber: 1,
+        name: "check",
+      }),
+      createRadioButton({
+        x: 72,
+        y: 680,
+        pageNumber: 1,
+        groupName: "group",
+        value: "a",
+      }),
+      createRadioButton({
+        x: 72,
+        y: 660,
+        pageNumber: 1,
+        groupName: "group",
+        value: "b",
+      }),
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(4);
+    const types = extracted.map((el) => el.type).sort();
+    expect(types).toEqual(["button", "checkbox", "radio", "radio"]);
   });
 
   it("handles unchecked checkbox", async () => {

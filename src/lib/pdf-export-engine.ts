@@ -8,6 +8,28 @@ import {
   rgb,
   StandardFonts,
 } from "pdf-lib";
+
+const RESOLVED_FONT_TO_ENUM_KEY: Record<string, keyof typeof StandardFonts> = {
+  Helvetica: "Helvetica",
+  "Helvetica-Bold": "HelveticaBold",
+  "Helvetica-Oblique": "HelveticaOblique",
+  "Helvetica-BoldOblique": "HelveticaBoldOblique",
+  Courier: "Courier",
+  "Courier-Bold": "CourierBold",
+  "Courier-Oblique": "CourierOblique",
+  "Courier-BoldOblique": "CourierBoldOblique",
+  "Times-Roman": "TimesRoman",
+  "Times-Bold": "TimesRomanBold",
+  "Times-Italic": "TimesRomanItalic",
+  "Times-BoldItalic": "TimesRomanBoldItalic",
+  Symbol: "Symbol",
+  ZapfDingbats: "ZapfDingbats",
+};
+
+function embedStandardFont(pdfDoc: PDFDocument, resolvedName: string) {
+  const key = RESOLVED_FONT_TO_ENUM_KEY[resolvedName] ?? "Helvetica";
+  return pdfDoc.embedStandardFont(StandardFonts[key]);
+}
 import type {
   Checkbox,
   DropdownField,
@@ -142,9 +164,7 @@ function addTextField(
   const pdfY = pageHeight - el.y - el.height;
 
   const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
-  const font = pdfDoc.embedStandardFont(
-    StandardFonts[resolvedFont as keyof typeof StandardFonts] ?? StandardFonts.Helvetica,
-  );
+  const font = embedStandardFont(pdfDoc, resolvedFont);
 
   const textColor = el.textColor ? hexToRgb(el.textColor) : undefined;
   const backgroundColor = el.backgroundColor ? hexToRgb(el.backgroundColor) : undefined;
@@ -218,9 +238,7 @@ function addDropdownField(
   const pdfY = pageHeight - el.y - el.height;
 
   const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
-  const font = pdfDoc.embedStandardFont(
-    StandardFonts[resolvedFont as keyof typeof StandardFonts] ?? StandardFonts.Helvetica,
-  );
+  const font = embedStandardFont(pdfDoc, resolvedFont);
 
   const textColor = el.textColor ? hexToRgb(el.textColor) : undefined;
   const backgroundColor = el.backgroundColor ? hexToRgb(el.backgroundColor) : undefined;
@@ -266,9 +284,7 @@ function addButtonField(
   const pdfY = pageHeight - el.y - el.height;
 
   const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
-  const font = pdfDoc.embedStandardFont(
-    StandardFonts[resolvedFont as keyof typeof StandardFonts] ?? StandardFonts.Helvetica,
-  );
+  const font = embedStandardFont(pdfDoc, resolvedFont);
 
   const textColor = el.textColor ? hexToRgb(el.textColor) : undefined;
   const backgroundColor = el.backgroundColor ? hexToRgb(el.backgroundColor) : undefined;
@@ -302,9 +318,7 @@ function addOptionListField(
   const pdfY = pageHeight - el.y - el.height;
 
   const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
-  const font = pdfDoc.embedStandardFont(
-    StandardFonts[resolvedFont as keyof typeof StandardFonts] ?? StandardFonts.Helvetica,
-  );
+  const font = embedStandardFont(pdfDoc, resolvedFont);
 
   const textColor = el.textColor ? hexToRgb(el.textColor) : undefined;
   const backgroundColor = el.backgroundColor ? hexToRgb(el.backgroundColor) : undefined;

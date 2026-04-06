@@ -266,6 +266,10 @@ type TypographyField = {
 
 type ElementWithTypography = FormElement & TypographyField;
 
+function elementHasTypography(el: FormElement): el is ElementWithTypography {
+  return el.type === "text" || el.type === "dropdown" || el.type === "button" || el.type === "optionlist";
+}
+
 function FontFamilySelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { t } = useTranslation();
   return (
@@ -775,7 +779,7 @@ function DraggableOptionList({
         const isDragging = dragIndex === i;
         return (
           <div
-            key={`${i}-${opt}`}
+            key={i}
             data-opt-row
             className={`flex items-center gap-1 rounded-sm transition-opacity ${
               isDragging ? "opacity-25" : ""
@@ -1149,68 +1153,144 @@ function SinglePositionProperties({ elementId }: { elementId: string }) {
   );
 }
 
-function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
+function MultiTypographySection({ elements }: { elements: ElementWithTypography[] }) {
   const { t } = useTranslation();
   const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
 
-  if (elements.length === 0) return null;
-
+  const allSameFontFamily = elements.every(
+    (el) => el.fontFamily === elements[0].fontFamily,
+  );
   const allSameFontSize = elements.every(
     (el) => el.fontSize === elements[0].fontSize,
   );
-  const allSameRequired = elements.every(
-    (el) => el.required === elements[0].required,
+  const allSameTextColor = elements.every(
+    (el) => el.textColor === elements[0].textColor,
   );
 
-  const hasSingleLine = elements.some((el) => !el.multiline);
+  const allSameFontWeight = elements.every(
+    (el) => el.fontWeight === elements[0].fontWeight,
+  );
 
   const fontSizeField = useDeferredValue(
     allSameFontSize ? elements[0].fontSize : "",
     (v) => {
       const val = Number(v);
       batchUpdateElements(
-        elements.map((el) => ({
-          id: el.id,
-          changes: {
+        elements.map((el) => {
+          const changes: Partial<FormElement> & { fontSize: number } = {
             fontSize: val,
-            ...(!el.multiline ? { height: heightFromFontSize(val) } : {}),
-          },
-        })),
+          };
+          if (isTextField(el) && !el.multiline) {
+            (changes as Partial<TextField>).height = heightFromFontSize(val);
+          }
+          return { id: el.id, changes };
+        }),
       );
     },
   );
 
-  return (
-    <div className="flex flex-col gap-3">
-      <PropertyField label={t("properties.fontSize")}>
-        <NumericInput
-          {...fontSizeField}
-          placeholder={allSameFontSize ? undefined : t("properties.mixed")}
-        />
-      </PropertyField>
+  const mixed = t("properties.mixed");
+  const hasSingleLine = elements.some(
+    (el) => isTextField(el) && !el.multiline,
+  );
 
+  return (
+    <>
+      <Separator />
+      <SectionHeader label={t("properties.typography")} />
+      <FontFamilySelect
+        value={allSameFontFamily ? elements[0].fontFamily : ""}
+        onChange={(v) =>
+          batchUpdateElements(
+            elements.map((el) => ({ id: el.id, changes: { fontFamily: v } })),
+          )
+        }
+      />
+      <div className="flex items-center gap-2">
+        <PropertyField label={t("properties.fontSize")}>
+          <NumericInput
+            {...fontSizeField}
+            placeholder={allSameFontSize ? undefined : mixed}
+          />
+        </PropertyField>
+        <div className="flex flex-col gap-1.5 pt-4">
+          <BoldItalicButtons
+            fontWeight={allSameFontWeight ? elements[0].fontWeight : "regular"}
+            onChange={(w) =>
+              batchUpdateElements(
+                elements.map((el) => ({ id: el.id, changes: { fontWeight: w } })),
+              )
+            }
+          />
+        </div>
+      </div>
+      <TextColorPicker
+        value={allSameTextColor ? elements[0].textColor : "#000000"}
+        onChange={(v) =>
+          batchUpdateElements(
+            elements.map((el) => ({ id: el.id, changes: { textColor: v } })),
+          )
+        }
+      />
       {hasSingleLine && (
         <p className="text-[10px] text-muted-foreground">
           {t("properties.singleLineAutoHeight")}
         </p>
       )}
+    </>
+  );
+}
 
-      <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-muted-foreground">
-          {t("properties.required")}
-        </Label>
-        <Switch
-          checked={allSameRequired ? elements[0].required : false}
-          onCheckedChange={(checked) => {
-            batchUpdateElements(
-              elements.map((el) => ({
-                id: el.id,
-                changes: { required: checked },
-              })),
-            );
-          }}
-        />
-      </div>
+function MultiAppearanceSection({ elements }: { elements: ElementWithTypography[] }) {
+  const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
+
+  const allSameBg = elements.every(
+    (el) => el.backgroundColor === elements[0].backgroundColor,
+  );
+  const allSameBorder = elements.every(
+    (el) => el.borderColor === elements[0].borderColor,
+  );
+
+  const representative: TypographyField = {
+    fontFamily: "",
+    fontWeight: "regular",
+    fontSize: 12,
+    textColor: "#000000",
+    backgroundColor: allSameBg ? elements[0].backgroundColor : null,
+    borderColor: allSameBorder ? elements[0].borderColor : null,
+    borderWidth: elements[0].borderWidth,
+  };
+
+  return (
+    <AppearanceSection
+      element={representative}
+      onUpdate={(updates) =>
+        batchUpdateElements(
+          elements.map((el) => ({ id: el.id, changes: updates })),
+        )
+      }
+    />
+  );
+}
+
+function MultiRequiredSwitch({ elements }: { elements: { required: boolean; id: string }[] }) {
+  const { t } = useTranslation();
+  const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
+  const allSame = elements.every((el) => el.required === elements[0].required);
+
+  return (
+    <div className="flex items-center justify-between">
+      <Label className="text-[11px] text-muted-foreground">
+        {t("properties.required")}
+      </Label>
+      <Switch
+        checked={allSame ? elements[0].required : false}
+        onCheckedChange={(checked) =>
+          batchUpdateElements(
+            elements.map((el) => ({ id: el.id, changes: { required: checked } })),
+          )
+        }
+      />
     </div>
   );
 }
@@ -1709,8 +1789,17 @@ function PropertiesPanelContent() {
           </div>
           <Separator className="mb-3" />
 
+          {(() => {
+            const typoEls = selectedElements.filter(elementHasTypography);
+            return typoEls.length > 0 ? (
+              <>
+                <MultiTypographySection elements={typoEls} />
+                <MultiAppearanceSection elements={typoEls} />
+              </>
+            ) : null;
+          })()}
           {singleType === "text" && (
-            <MultiTextFieldProperties
+            <MultiRequiredSwitch
               elements={selectedElements.filter(isTextField)}
             />
           )}
