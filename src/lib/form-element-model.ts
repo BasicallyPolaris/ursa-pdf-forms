@@ -20,6 +20,8 @@ export interface TextField {
   borderWidth: number;
 }
 
+export type FillStyle = "circle" | "checkmark" | "cross" | "star" | "diamond";
+
 export interface Checkbox {
   type: "checkbox";
   id: string;
@@ -30,6 +32,7 @@ export interface Checkbox {
   pageNumber: number;
   name: string;
   defaultChecked: boolean;
+  fillStyle: FillStyle;
 }
 
 export interface RadioButton {
@@ -43,7 +46,7 @@ export interface RadioButton {
   groupName: string;
   value: string;
   label: string;
-  fillStyle: "circle" | "checkmark" | "cross" | "star" | "diamond";
+  fillStyle: FillStyle;
 }
 
 export interface DropdownField {

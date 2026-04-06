@@ -361,7 +361,6 @@ function AppearanceSection({ element, onUpdate }: { element: TypographyField; on
   const { t } = useTranslation();
   return (
     <>
-      <Separator />
       <SectionHeader label={t("properties.appearance")} />
       <PropertyField label={t("properties.backgroundColor")}>
         <div className="flex items-center gap-2">
@@ -446,7 +445,6 @@ function TypographySection({ element, onUpdate }: { element: ElementWithTypograp
   });
   return (
     <>
-      <Separator />
       <SectionHeader label={t("properties.typography")} />
       <FontFamilySelect
         value={element.fontFamily}
@@ -500,6 +498,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
         <Input {...defaultValueField} className="h-7 text-xs" />
       </PropertyField>
 
+      <Separator />
       <TypographySection
         element={element}
         onUpdate={(updates) => updateElement(element.id, updates)}
@@ -535,6 +534,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
         />
       </PropertyField>
 
+      <Separator />
       <AppearanceSection
         element={element}
         onUpdate={(updates) => updateElement(element.id, updates)}
@@ -854,6 +854,7 @@ function DropdownProperties({ elementId }: { elementId: string }) {
       <PropertyField label={t("properties.name")}>
         <Input {...nameField} className="h-7 text-xs" />
       </PropertyField>
+      <Separator />
 
       <TypographySection
         element={element}
@@ -913,6 +914,7 @@ function DropdownProperties({ elementId }: { elementId: string }) {
           }
         />
       </div>
+      <Separator />
 
       <AppearanceSection
         element={element}
@@ -946,6 +948,7 @@ function ButtonProperties({ elementId }: { elementId: string }) {
 
       <PropertyField label={t("properties.label")}>
         <Input {...labelField} className="h-7 text-xs" />
+      <Separator />
       </PropertyField>
 
       <TypographySection
@@ -953,6 +956,7 @@ function ButtonProperties({ elementId }: { elementId: string }) {
         onUpdate={(updates) => updateElement(element.id, updates)}
       />
 
+      <Separator />
       <AppearanceSection
         element={element}
         onUpdate={(updates) => updateElement(element.id, updates)}
@@ -1007,6 +1011,7 @@ function OptionListProperties({ elementId }: { elementId: string }) {
   return (
     <div className="flex flex-col gap-3">
       <PropertyField label={t("properties.name")}>
+      <Separator />
         <Input {...nameField} className="h-7 text-xs" />
       </PropertyField>
 
@@ -1057,6 +1062,7 @@ function OptionListProperties({ elementId }: { elementId: string }) {
         />
       </div>
 
+      <Separator />
       <AppearanceSection
         element={element}
         onUpdate={(updates) => updateElement(element.id, updates)}
@@ -1188,7 +1194,6 @@ function MultiTypographySection({ elements }: { elements: ElementWithTypography[
 
   return (
     <>
-      <Separator />
       <SectionHeader label={t("properties.typography")} />
       <FontFamilySelect
         value={allSameFontFamily ? elements[0].fontFamily : ""}
@@ -1746,7 +1751,6 @@ function PropertiesPanelContent() {
     const allSameType = types.size === 1;
     const singleType = allSameType ? [...types][0] : null;
     const config = singleType ? getElementStyleConfigByType(singleType) : null;
-    const hasTypeProps = ["text", "radio", "dropdown", "button", "optionlist"].includes(singleType ?? "");
 
     return (
       <div className="h-full overflow-y-auto">
@@ -1783,7 +1787,9 @@ function PropertiesPanelContent() {
             const typoEls = selectedElements.filter(elementHasTypography);
             return typoEls.length > 0 ? (
               <>
+                <Separator />
                 <MultiTypographySection elements={typoEls} />
+                <Separator />
                 <MultiAppearanceSection elements={typoEls} />
               </>
             ) : null;
@@ -1798,7 +1804,7 @@ function PropertiesPanelContent() {
               elements={selectedElements.filter(isRadioButton)}
             />
           )}
-          {hasTypeProps && <Separator />}
+          <Separator />
 
           <MultiPositionProperties elements={selectedElements} />
 
