@@ -696,6 +696,134 @@ describe("extractAcroFormFields", () => {
     }
   });
 
+  it("corrects dimensions for border width on text field round-trip", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      {
+        type: "text",
+        id: "el_1",
+        x: 100,
+        y: 600,
+        width: 200,
+        height: 5,
+        pageNumber: 1,
+        name: "bordered",
+        defaultValue: "",
+        fontSize: 12,
+        multiline: false,
+        required: false,
+        maxLength: undefined,
+        textColor: "#000000",
+        fontFamily: "Helvetica",
+        fontWeight: "regular",
+        backgroundColor: null,
+        borderColor: "#000000",
+        borderWidth: 5,
+      },
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(1);
+    const field = extracted[0];
+    expect(field.type).toBe("text");
+    if (field.type === "text") {
+      expect(field.borderWidth).toBe(5);
+      expect(field.x).toBeCloseTo(100, 0);
+      expect(field.y).toBeCloseTo(600, 0);
+      expect(field.width).toBeCloseTo(200, 0);
+      expect(field.height).toBeCloseTo(5, 0);
+    }
+  });
+
+  it("corrects dimensions for border on checkbox round-trip", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      createCheckbox({
+        x: 100,
+        y: 700,
+        pageNumber: 1,
+        name: "cb",
+        width: 15,
+        height: 15,
+      }),
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(1);
+    expect(extracted[0].type).toBe("checkbox");
+    if (extracted[0].type === "checkbox") {
+      expect(extracted[0].x).toBeCloseTo(100, 0);
+      expect(extracted[0].y).toBeCloseTo(700, 0);
+      expect(extracted[0].width).toBeCloseTo(15, 0);
+      expect(extracted[0].height).toBeCloseTo(15, 0);
+    }
+  });
+
+  it("corrects dimensions for border on radio button round-trip", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      createRadioButton({
+        x: 100,
+        y: 700,
+        pageNumber: 1,
+        groupName: "grp",
+        value: "a",
+        width: 12,
+        height: 12,
+      }),
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(1);
+    expect(extracted[0].type === "radio").toBe(true);
+    if (extracted[0].type === "radio") {
+      expect(extracted[0].x).toBeCloseTo(100, 0);
+      expect(extracted[0].y).toBeCloseTo(700, 0);
+      expect(extracted[0].width).toBeCloseTo(12, 0);
+      expect(extracted[0].height).toBeCloseTo(12, 0);
+    }
+  });
+
+  it("corrects dimensions for border on button round-trip", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      {
+        type: "button",
+        id: "el_1",
+        x: 72,
+        y: 700,
+        width: 80,
+        height: 5,
+        pageNumber: 1,
+        name: "btn",
+        label: "Go",
+        fontSize: 12,
+        fontFamily: "Helvetica",
+        fontWeight: "regular",
+        textColor: "#000000",
+        backgroundColor: null,
+        borderColor: null,
+        borderWidth: 4,
+      },
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(1);
+    expect(extracted[0].type).toBe("button");
+    if (extracted[0].type === "button") {
+      expect(extracted[0].width).toBeCloseTo(80, 0);
+      expect(extracted[0].height).toBeCloseTo(5, 0);
+    }
+  });
+
   it("extracts fields when /P is only on parent dict", async () => {
     const basePdf = await createPdfWithPages(1);
     const elements: FormElement[] = [

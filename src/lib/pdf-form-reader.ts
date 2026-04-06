@@ -137,10 +137,13 @@ function collectFields(
   if (!rect) return;
 
   const pageHeight = pages[pageNumber - 1].getSize().height;
-  const x = rect.x1;
-  const y = pageHeight - rect.y2;
-  const width = rect.x2 - rect.x1;
-  const height = rect.y2 - rect.y1;
+  const rawX = rect.x1;
+  const rawY = pageHeight - rect.y2;
+  const rawWidth = rect.x2 - rect.x1;
+  const rawHeight = rect.y2 - rect.y1;
+
+  const border = getBorderExpansion(fieldDict, ctx);
+  const { x, y, width, height } = adjustRectForBorder(rawX, rawY, rawWidth, rawHeight, border);
 
   if (width <= 0 || height <= 0) return;
 
@@ -262,10 +265,13 @@ function collectRadioKids(
     if (!rect) continue;
 
     const pageHeight = pages[pageNumber - 1].getSize().height;
-    const x = rect.x1;
-    const y = pageHeight - rect.y2;
-    const width = rect.x2 - rect.x1;
-    const height = rect.y2 - rect.y1;
+    const rawX = rect.x1;
+    const rawY = pageHeight - rect.y2;
+    const rawWidth = rect.x2 - rect.x1;
+    const rawHeight = rect.y2 - rect.y1;
+
+    const border = getBorderExpansion(kidDict, ctx);
+    const { x, y, width, height } = adjustRectForBorder(rawX, rawY, rawWidth, rawHeight, border);
 
     if (width <= 0 || height <= 0) continue;
 
@@ -703,6 +709,32 @@ function parseBorderWidth(dict: PDFDict, ctx: LookupCtx): number {
     if (w instanceof PDFNumber) return w.asNumber();
   }
   return 1;
+}
+
+function getBorderExpansion(dict: PDFDict, ctx: LookupCtx): number {
+  const bs = getInheritableAttr(dict, PDFName.of("BS"), ctx);
+  if (bs instanceof PDFDict) {
+    const w = bs.get(PDFName.of("W"));
+    if (w instanceof PDFNumber) return w.asNumber();
+    return 0;
+  }
+  return 0;
+}
+
+function adjustRectForBorder(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  borderExpansion: number,
+): { x: number; y: number; width: number; height: number } {
+  if (borderExpansion <= 0) return { x, y, width, height };
+  return {
+    x: x + borderExpansion / 2,
+    y: y + borderExpansion / 2,
+    width: width - borderExpansion,
+    height: height - borderExpansion,
+  };
 }
 
 interface ParsedTypography {

@@ -43,6 +43,7 @@ import {
   AlignStartVertical,
   BetweenHorizontalStart,
   BetweenVerticalStart,
+  ChevronRight,
   Expand,
   GripVertical,
   MousePointer2,
@@ -175,11 +176,41 @@ function PropertyField({
   );
 }
 
-function SectionHeader({ label }: { label: string }) {
+const collapsedSections = new Set<string>();
+
+function CollapsibleSection({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(() => !collapsedSections.has(label));
+
   return (
-    <span className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-      {label}
-    </span>
+    <div>
+      <button
+        type="button"
+        onClick={() => {
+          setOpen((prev) => {
+            if (prev) collapsedSections.add(label);
+            else collapsedSections.delete(label);
+            return !prev;
+          });
+        }}
+        className="flex w-full items-center justify-between rounded-sm py-0.5 text-left outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+      >
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          {label}
+        </span>
+        <ChevronRight
+          className={`h-3 w-3 shrink-0 text-muted-foreground/50 ${
+            open ? "rotate-90" : ""
+          }`}
+        />
+      </button>
+      {open && <div className="flex flex-col gap-3 pt-2">{children}</div>}
+    </div>
   );
 }
 
@@ -364,7 +395,6 @@ function AppearanceSection({ element, onUpdate }: { element: TypographyField; on
   const { t } = useTranslation();
   return (
     <>
-      <SectionHeader label={t("properties.appearance")} />
       <PropertyField label={t("properties.backgroundColor")}>
         <div className="flex items-center gap-2">
           <input
@@ -448,7 +478,6 @@ function TypographySection({ element, onUpdate }: { element: ElementWithTypograp
   });
   return (
     <>
-      <SectionHeader label={t("properties.typography")} />
       <FontFamilySelect
         value={element.fontFamily}
         onChange={(v) => onUpdate({ fontFamily: v })}
@@ -493,56 +522,60 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <SectionHeader label={t("properties.general")} />
-      <PropertyField label={t("properties.name")}>
-        <Input {...nameField} className="h-7 text-xs" />
-      </PropertyField>
+      <CollapsibleSection label={t("properties.general")}>
+        <PropertyField label={t("properties.name")}>
+          <Input {...nameField} className="h-7 text-xs" />
+        </PropertyField>
 
-      <PropertyField label={t("properties.defaultValue")}>
-        <Input {...defaultValueField} className="h-7 text-xs" />
-      </PropertyField>
+        <PropertyField label={t("properties.defaultValue")}>
+          <Input {...defaultValueField} className="h-7 text-xs" />
+        </PropertyField>
 
-      <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-muted-foreground">
-          {t("properties.required")}
-        </Label>
-        <Switch
-          checked={element.required}
-          onCheckedChange={(checked) =>
-            updateElement(element.id, { required: checked })
-          }
-        />
-      </div>
-
-      <PropertyField label={t("properties.maxLength")}>
-        <NumericInput
-          {...maxLengthField}
-          placeholder={t("properties.noLimit")}
-        />
-      </PropertyField>
-
-      <Separator />
-      <TypographySection
-        element={element}
-        onUpdate={(updates) => updateElement(element.id, updates)}
-      />
-
-      {!element.multiline && (
         <div className="flex items-center justify-between">
           <Label className="text-[11px] text-muted-foreground">
-            {t("properties.height")}
+            {t("properties.required")}
           </Label>
-          <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
-            {t("properties.pt", { value: Math.round(element.height) })}
-          </span>
+          <Switch
+            checked={element.required}
+            onCheckedChange={(checked) =>
+              updateElement(element.id, { required: checked })
+            }
+          />
         </div>
-      )}
+
+        <PropertyField label={t("properties.maxLength")}>
+          <NumericInput
+            {...maxLengthField}
+            placeholder={t("properties.noLimit")}
+          />
+        </PropertyField>
+      </CollapsibleSection>
 
       <Separator />
-      <AppearanceSection
-        element={element}
-        onUpdate={(updates) => updateElement(element.id, updates)}
-      />
+      <CollapsibleSection label={t("properties.typography")}>
+        <TypographySection
+          element={element}
+          onUpdate={(updates) => updateElement(element.id, updates)}
+        />
+        {!element.multiline && (
+          <div className="flex items-center justify-between">
+            <Label className="text-[11px] text-muted-foreground">
+              {t("properties.height")}
+            </Label>
+            <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
+              {t("properties.pt", { value: Math.round(element.height) })}
+            </span>
+          </div>
+        )}
+      </CollapsibleSection>
+
+      <Separator />
+      <CollapsibleSection label={t("properties.appearance")}>
+        <AppearanceSection
+          element={element}
+          onUpdate={(updates) => updateElement(element.id, updates)}
+        />
+      </CollapsibleSection>
     </div>
   );
 }
@@ -562,23 +595,23 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <SectionHeader label={t("properties.general")} />
-      <PropertyField label={t("properties.name")}>
-        <Input {...nameField} className="h-7 text-xs" />
-      </PropertyField>
+      <CollapsibleSection label={t("properties.general")}>
+        <PropertyField label={t("properties.name")}>
+          <Input {...nameField} className="h-7 text-xs" />
+        </PropertyField>
 
-      <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-muted-foreground">
-          {t("properties.defaultChecked")}
-        </Label>
-        <Switch
-          checked={element.defaultChecked}
-          onCheckedChange={(checked) =>
-            updateElement(element.id, { defaultChecked: checked })
-          }
-        />
-      </div>
-
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px] text-muted-foreground">
+            {t("properties.defaultChecked")}
+          </Label>
+          <Switch
+            checked={element.defaultChecked}
+            onCheckedChange={(checked) =>
+              updateElement(element.id, { defaultChecked: checked })
+            }
+          />
+        </div>
+      </CollapsibleSection>
     </div>
   );
 }
@@ -606,19 +639,19 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <SectionHeader label={t("properties.general")} />
-      <PropertyField label={t("properties.groupName")}>
-        <Input {...groupNameField} className="h-7 text-xs" />
-      </PropertyField>
+      <CollapsibleSection label={t("properties.general")}>
+        <PropertyField label={t("properties.groupName")}>
+          <Input {...groupNameField} className="h-7 text-xs" />
+        </PropertyField>
 
-      <PropertyField label={t("properties.value")}>
-        <Input {...valueField} className="h-7 text-xs" />
-      </PropertyField>
+        <PropertyField label={t("properties.value")}>
+          <Input {...valueField} className="h-7 text-xs" />
+        </PropertyField>
 
-      <PropertyField label={t("properties.label")}>
-        <Input {...labelField} className="h-7 text-xs" />
-      </PropertyField>
-
+        <PropertyField label={t("properties.label")}>
+          <Input {...labelField} className="h-7 text-xs" />
+        </PropertyField>
+      </CollapsibleSection>
     </div>
   );
 }
@@ -806,75 +839,79 @@ function DropdownProperties({ elementId }: { elementId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <SectionHeader label={t("properties.general")} />
-      <PropertyField label={t("properties.name")}>
-        <Input {...nameField} className="h-7 text-xs" />
-      </PropertyField>
+      <CollapsibleSection label={t("properties.general")}>
+        <PropertyField label={t("properties.name")}>
+          <Input {...nameField} className="h-7 text-xs" />
+        </PropertyField>
 
-      <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-muted-foreground">
-          {t("properties.required")}
-        </Label>
-        <Switch
-          checked={element.required}
-          onCheckedChange={(checked) =>
-            updateElement(element.id, { required: checked })
-          }
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px] text-muted-foreground">
+            {t("properties.required")}
+          </Label>
+          <Switch
+            checked={element.required}
+            onCheckedChange={(checked) =>
+              updateElement(element.id, { required: checked })
+            }
+          />
+        </div>
+      </CollapsibleSection>
+
+      <Separator />
+      <CollapsibleSection label={t("properties.typography")}>
+        <TypographySection
+          element={element}
+          onUpdate={(updates) => updateElement(element.id, updates)}
         />
-      </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px] text-muted-foreground">
+            {t("properties.height")}
+          </Label>
+          <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
+            {t("properties.pt", { value: Math.round(element.height) })}
+          </span>
+        </div>
+      </CollapsibleSection>
 
       <Separator />
-      <TypographySection
-        element={element}
-        onUpdate={(updates) => updateElement(element.id, updates)}
-      />
-
-      <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-muted-foreground">
-          {t("properties.height")}
-        </Label>
-        <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
-          {t("properties.pt", { value: Math.round(element.height) })}
-        </span>
-      </div>
-
-      <Separator />
-      <SectionHeader label={t("properties.options")} />
-
-      <DraggableOptionList
-        options={element.options}
-        defaultValue={element.defaultValue}
-        elementId={element.id}
-        onUpdateOption={updateOption}
-        onRemoveOption={removeOption}
-        onReorderOptions={reorderOptions}
-        onSetDefault={(v) => updateElement(element.id, { defaultValue: v })}
-      />
-      <button
-        type="button"
-        onClick={addOption}
-        className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
-      >
-        +
-      </button>
-
-      <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-muted-foreground">
-          {t("properties.editable")}
-        </Label>
-        <Switch
-          checked={element.editable}
-          onCheckedChange={(checked) =>
-            updateElement(element.id, { editable: checked })
-          }
+      <CollapsibleSection label={t("properties.options")}>
+        <DraggableOptionList
+          options={element.options}
+          defaultValue={element.defaultValue}
+          elementId={element.id}
+          onUpdateOption={updateOption}
+          onRemoveOption={removeOption}
+          onReorderOptions={reorderOptions}
+          onSetDefault={(v) => updateElement(element.id, { defaultValue: v })}
         />
-      </div>
+        <button
+          type="button"
+          onClick={addOption}
+          className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
+        >
+          +
+        </button>
+
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px] text-muted-foreground">
+            {t("properties.editable")}
+          </Label>
+          <Switch
+            checked={element.editable}
+            onCheckedChange={(checked) =>
+              updateElement(element.id, { editable: checked })
+            }
+          />
+        </div>
+      </CollapsibleSection>
 
       <Separator />
-      <AppearanceSection
-        element={element}
-        onUpdate={(updates) => updateElement(element.id, updates)}
-      />
+      <CollapsibleSection label={t("properties.appearance")}>
+        <AppearanceSection
+          element={element}
+          onUpdate={(updates) => updateElement(element.id, updates)}
+        />
+      </CollapsibleSection>
     </div>
   );
 }
@@ -897,26 +934,31 @@ function ButtonProperties({ elementId }: { elementId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <SectionHeader label={t("properties.general")} />
-      <PropertyField label={t("properties.name")}>
-        <Input {...nameField} className="h-7 text-xs" />
-      </PropertyField>
+      <CollapsibleSection label={t("properties.general")}>
+        <PropertyField label={t("properties.name")}>
+          <Input {...nameField} className="h-7 text-xs" />
+        </PropertyField>
 
-      <PropertyField label={t("properties.label")}>
-        <Input {...labelField} className="h-7 text-xs" />
-      </PropertyField>
-
-      <Separator />
-      <TypographySection
-        element={element}
-        onUpdate={(updates) => updateElement(element.id, updates)}
-      />
+        <PropertyField label={t("properties.label")}>
+          <Input {...labelField} className="h-7 text-xs" />
+        </PropertyField>
+      </CollapsibleSection>
 
       <Separator />
-      <AppearanceSection
-        element={element}
-        onUpdate={(updates) => updateElement(element.id, updates)}
-      />
+      <CollapsibleSection label={t("properties.typography")}>
+        <TypographySection
+          element={element}
+          onUpdate={(updates) => updateElement(element.id, updates)}
+        />
+      </CollapsibleSection>
+
+      <Separator />
+      <CollapsibleSection label={t("properties.appearance")}>
+        <AppearanceSection
+          element={element}
+          onUpdate={(updates) => updateElement(element.id, updates)}
+        />
+      </CollapsibleSection>
     </div>
   );
 }
@@ -966,63 +1008,67 @@ function OptionListProperties({ elementId }: { elementId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <SectionHeader label={t("properties.general")} />
-      <PropertyField label={t("properties.name")}>
-        <Input {...nameField} className="h-7 text-xs" />
-      </PropertyField>
+      <CollapsibleSection label={t("properties.general")}>
+        <PropertyField label={t("properties.name")}>
+          <Input {...nameField} className="h-7 text-xs" />
+        </PropertyField>
 
-      <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-muted-foreground">
-          {t("properties.required")}
-        </Label>
-        <Switch
-          checked={element.required}
-          onCheckedChange={(checked) =>
-            updateElement(element.id, { required: checked })
-          }
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px] text-muted-foreground">
+            {t("properties.required")}
+          </Label>
+          <Switch
+            checked={element.required}
+            onCheckedChange={(checked) =>
+              updateElement(element.id, { required: checked })
+            }
+          />
+        </div>
+      </CollapsibleSection>
+
+      <Separator />
+      <CollapsibleSection label={t("properties.typography")}>
+        <TypographySection
+          element={element}
+          onUpdate={(updates) => updateElement(element.id, updates)}
         />
-      </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px] text-muted-foreground">
+            {t("properties.height")}
+          </Label>
+          <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
+            {t("properties.pt", { value: Math.round(element.height) })}
+          </span>
+        </div>
+      </CollapsibleSection>
 
       <Separator />
-      <TypographySection
-        element={element}
-        onUpdate={(updates) => updateElement(element.id, updates)}
-      />
-
-      <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-muted-foreground">
-          {t("properties.height")}
-        </Label>
-        <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
-          {t("properties.pt", { value: Math.round(element.height) })}
-        </span>
-      </div>
-
-      <Separator />
-      <SectionHeader label={t("properties.options")} />
-
-      <DraggableOptionList
-        options={element.options}
-        defaultValue={element.defaultValue}
-        elementId={element.id}
-        onUpdateOption={updateOption}
-        onRemoveOption={removeOption}
-        onReorderOptions={reorderOptions}
-        onSetDefault={(v) => updateElement(element.id, { defaultValue: v })}
-      />
-      <button
-        type="button"
-        onClick={addOption}
-        className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
-      >
-        +
-      </button>
+      <CollapsibleSection label={t("properties.options")}>
+        <DraggableOptionList
+          options={element.options}
+          defaultValue={element.defaultValue}
+          elementId={element.id}
+          onUpdateOption={updateOption}
+          onRemoveOption={removeOption}
+          onReorderOptions={reorderOptions}
+          onSetDefault={(v) => updateElement(element.id, { defaultValue: v })}
+        />
+        <button
+          type="button"
+          onClick={addOption}
+          className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
+        >
+          +
+        </button>
+      </CollapsibleSection>
 
       <Separator />
-      <AppearanceSection
-        element={element}
-        onUpdate={(updates) => updateElement(element.id, updates)}
-      />
+      <CollapsibleSection label={t("properties.appearance")}>
+        <AppearanceSection
+          element={element}
+          onUpdate={(updates) => updateElement(element.id, updates)}
+        />
+      </CollapsibleSection>
     </div>
   );
 }
@@ -1085,8 +1131,7 @@ function SinglePositionProperties({ elementId }: { elementId: string }) {
   );
 
   return (
-    <div className="flex flex-col gap-3">
-      <SectionHeader label={t("properties.position")} />
+    <>
       <div className="grid grid-cols-2 gap-2">
         <PropertyField label={t("properties.x")}>
           <NumericInput {...xField} />
@@ -1103,7 +1148,7 @@ function SinglePositionProperties({ elementId }: { elementId: string }) {
           <NumericInput {...hField} disabled={isAutoHeight} />
         </PropertyField>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -1150,7 +1195,6 @@ function MultiTypographySection({ elements }: { elements: ElementWithTypography[
 
   return (
     <>
-      <SectionHeader label={t("properties.typography")} />
       <FontFamilySelect
         value={allSameFontFamily ? elements[0].fontFamily : ""}
         onChange={(v) =>
@@ -1530,8 +1574,7 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
   );
 
   return (
-    <div className="flex flex-col gap-3">
-      <SectionHeader label={t("properties.position")} />
+    <>
       <div className="grid grid-cols-2 gap-2">
         <PropertyField label={t("properties.x")}>
           <NumericInput
@@ -1565,20 +1608,35 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
           {t("properties.singleLineAutoHeight")}
         </p>
       )}
-    </div>
+    </>
   );
 }
 
 function AlignmentSection() {
+  const { t } = useTranslation();
   const selectedIds = useEditorStore((s) => s.selectedIds);
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col gap-2">
-        <CenterOnPageButtons />
-        {selectedIds.size >= 2 && <AlignButtons />}
-        {selectedIds.size >= 2 && <SizingButtons />}
-        {selectedIds.size >= 3 && <DistributeButtons />}
+      <div className="flex flex-col gap-3">
+        <CollapsibleSection label={t("properties.center")}>
+          <CenterOnPageButtons />
+        </CollapsibleSection>
+        {selectedIds.size >= 2 && (
+          <CollapsibleSection label={t("properties.alignment")}>
+            <AlignButtons />
+          </CollapsibleSection>
+        )}
+        {selectedIds.size >= 2 && (
+          <CollapsibleSection label={t("properties.adjustSizing")}>
+            <SizingButtons />
+          </CollapsibleSection>
+        )}
+        {selectedIds.size >= 3 && (
+          <CollapsibleSection label={t("properties.distribute")}>
+            <DistributeButtons />
+          </CollapsibleSection>
+        )}
       </div>
     </TooltipProvider>
   );
@@ -1617,29 +1675,26 @@ function CenterOnPageButtons() {
   );
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <SectionHeader label={t("properties.center")} />
-      <div className="flex gap-1">
-        <ToolButton
-          onClick={() => centerSelectionOnPageH()}
-          title={t("properties.centerHorizontally")}
-        >
-          <SquareCenterlineDashedHorizontal className="h-3.5 w-3.5" />
-        </ToolButton>
-        <ToolButton
-          onClick={() => centerSelectionOnPageV()}
-          title={t("properties.centerVertically")}
-        >
-          <SquareCenterlineDashedVertical className="h-3.5 w-3.5" />
-        </ToolButton>
-        <span className="w-px bg-border" />
-        <ToolButton
-          onClick={() => centerSelectionOnPage()}
-          title={t("properties.centerOnPage")}
-        >
-          <SquareSquare className="h-3.5 w-3.5" />
-        </ToolButton>
-      </div>
+    <div className="flex gap-1">
+      <ToolButton
+        onClick={() => centerSelectionOnPageH()}
+        title={t("properties.centerHorizontally")}
+      >
+        <SquareCenterlineDashedHorizontal className="h-3.5 w-3.5" />
+      </ToolButton>
+      <ToolButton
+        onClick={() => centerSelectionOnPageV()}
+        title={t("properties.centerVertically")}
+      >
+        <SquareCenterlineDashedVertical className="h-3.5 w-3.5" />
+      </ToolButton>
+      <span className="w-px bg-border" />
+      <ToolButton
+        onClick={() => centerSelectionOnPage()}
+        title={t("properties.centerOnPage")}
+      >
+        <SquareSquare className="h-3.5 w-3.5" />
+      </ToolButton>
     </div>
   );
 }
@@ -1649,8 +1704,7 @@ function AlignButtons() {
   const alignElements = useEditorStore((s) => s.alignElements);
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <SectionHeader label={t("properties.alignment")} />
+    <>
       <div className="flex gap-1">
         <ToolButton
           onClick={() => alignElements("left")}
@@ -1691,7 +1745,7 @@ function AlignButtons() {
           <AlignEndHorizontal className="h-3.5 w-3.5" />
         </ToolButton>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -1700,8 +1754,7 @@ function SizingButtons() {
   const matchElementSize = useEditorStore((s) => s.matchElementSize);
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <SectionHeader label={t("properties.adjustSizing")} />
+    <>
       <div className="flex items-center gap-1">
         <span className="flex w-8 items-center justify-center text-[9px] font-medium text-muted-foreground">
           {t("properties.widthShort")}
@@ -1736,7 +1789,7 @@ function SizingButtons() {
           <Shrink className="h-3.5 w-3.5 rotate-90" />
         </ToolButton>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -1745,22 +1798,19 @@ function DistributeButtons() {
   const distributeElements = useEditorStore((s) => s.distributeElements);
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <SectionHeader label={t("properties.distribute")} />
-      <div className="flex gap-1">
-        <ToolButton
-          onClick={() => distributeElements("horizontal")}
-          title={t("properties.distributeHorizontally")}
-        >
-          <BetweenVerticalStart className="h-3.5 w-3.5" />
-        </ToolButton>
-        <ToolButton
-          onClick={() => distributeElements("vertical")}
-          title={t("properties.distributeVertically")}
-        >
-          <BetweenHorizontalStart className="h-3.5 w-3.5" />
-        </ToolButton>
-      </div>
+    <div className="flex gap-1">
+      <ToolButton
+        onClick={() => distributeElements("horizontal")}
+        title={t("properties.distributeHorizontally")}
+      >
+        <BetweenVerticalStart className="h-3.5 w-3.5" />
+      </ToolButton>
+      <ToolButton
+        onClick={() => distributeElements("vertical")}
+        title={t("properties.distributeVertically")}
+      >
+        <BetweenHorizontalStart className="h-3.5 w-3.5" />
+      </ToolButton>
     </div>
   );
 }
@@ -1872,7 +1922,7 @@ function PropertiesPanelContent() {
     return (
       <div className="h-full overflow-y-auto">
         <div className="flex flex-col gap-3 p-3">
-          <div className="mb-3 flex items-center gap-2">
+          <div className="flex items-center gap-2">
             {config && (
               <span
                 className={`flex h-5 w-5 items-center justify-center rounded ${config.colorClass}`}
@@ -1908,55 +1958,59 @@ function PropertiesPanelContent() {
               (el): el is FormElement & { required: boolean } => "required" in el,
             );
             return namedEls.length > 0 || requiredEls.length > 0 ? (
-              <>
-                <SectionHeader label={t("properties.general")} />
+              <CollapsibleSection label={t("properties.general")}>
                 {namedEls.length > 0 && <MultiNameField elements={namedEls} />}
                 {requiredEls.length > 0 && <MultiRequiredSwitch elements={requiredEls} />}
-              </>
+                {singleType === "text" && (
+                  <MultiTextFieldProperties
+                    elements={selectedElements.filter(isTextField)}
+                  />
+                )}
+                {singleType === "checkbox" && (
+                  <MultiCheckboxProperties
+                    elements={selectedElements.filter(isCheckbox)}
+                  />
+                )}
+                {singleType === "radio" && (
+                  <MultiRadioProperties
+                    elements={selectedElements.filter(isRadioButton)}
+                  />
+                )}
+                {singleType === "dropdown" && (
+                  <MultiDropdownProperties
+                    elements={selectedElements.filter(isDropdownField)}
+                  />
+                )}
+                {singleType === "button" && (
+                  <MultiButtonProperties
+                    elements={selectedElements.filter(isButtonField)}
+                  />
+                )}
+              </CollapsibleSection>
             ) : null;
           })()}
-
-          {singleType === "text" && (
-            <MultiTextFieldProperties
-              elements={selectedElements.filter(isTextField)}
-            />
-          )}
-          {singleType === "checkbox" && (
-            <MultiCheckboxProperties
-              elements={selectedElements.filter(isCheckbox)}
-            />
-          )}
-          {singleType === "radio" && (
-            <MultiRadioProperties
-              elements={selectedElements.filter(isRadioButton)}
-            />
-          )}
-          {singleType === "dropdown" && (
-            <MultiDropdownProperties
-              elements={selectedElements.filter(isDropdownField)}
-            />
-          )}
-          {singleType === "button" && (
-            <MultiButtonProperties
-              elements={selectedElements.filter(isButtonField)}
-            />
-          )}
 
           {(() => {
             const typoEls = selectedElements.filter(elementHasTypography);
             return typoEls.length > 0 ? (
               <>
                 <Separator />
-                <MultiTypographySection elements={typoEls} />
+                <CollapsibleSection label={t("properties.typography")}>
+                  <MultiTypographySection elements={typoEls} />
+                </CollapsibleSection>
                 <Separator />
-                <MultiAppearanceSection elements={typoEls} />
+                <CollapsibleSection label={t("properties.appearance")}>
+                  <MultiAppearanceSection elements={typoEls} />
+                </CollapsibleSection>
               </>
             ) : null;
           })()}
 
           <Separator />
 
-          <MultiPositionProperties elements={selectedElements} />
+          <CollapsibleSection label={t("properties.position")}>
+            <MultiPositionProperties elements={selectedElements} />
+          </CollapsibleSection>
 
           <Separator />
 
@@ -1986,8 +2040,8 @@ function PropertiesPanelContent() {
 
   return (
     <div className="h-full overflow-y-auto select-none">
-      <div className="p-3">
-        <div className="mb-3 flex items-center justify-between">
+      <div className="flex flex-col gap-3 p-3">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span
               className={`flex h-5 w-5 items-center justify-center rounded ${config.colorClass}`}
@@ -2006,7 +2060,7 @@ function PropertiesPanelContent() {
             onChange={(page) => updateElement(element.id, { pageNumber: page })}
           />
         </div>
-        <Separator className="mb-3" />
+        <Separator />
 
         {isTextField(element) && <TextFieldProperties elementId={element.id} />}
         {isCheckbox(element) && <CheckboxProperties elementId={element.id} />}
@@ -2022,12 +2076,16 @@ function PropertiesPanelContent() {
         {isOptionListField(element) && (
           <OptionListProperties elementId={element.id} />
         )}
-        <Separator className="my-3" />
+        <Separator />
 
-        <SinglePositionProperties elementId={element.id} />
-        <Separator className="my-3" />
+        <CollapsibleSection label={t("properties.position")}>
+          <SinglePositionProperties elementId={element.id} />
+        </CollapsibleSection>
+        <Separator />
 
-        <CenterOnPageButtons />
+        <CollapsibleSection label={t("properties.center")}>
+          <CenterOnPageButtons />
+        </CollapsibleSection>
       </div>
     </div>
   );
