@@ -305,13 +305,16 @@ function extractTextField(
   const defaultValue = tryAsString(v) ?? "";
   const da = getInheritableAttr(dict, PDFName.of("DA"), ctx);
   const daStr = tryAsString(da) ?? "";
-  const fontSize = parseFontSizeFromDA(daStr);
+  const { fontFamily, fontWeight, textColor, fontSize } =
+    parseTypographyFromDA(daStr);
   const flags = getInheritableAttr(dict, PDFName.of("Ff"), ctx);
   const flagNum = flags instanceof PDFNumber ? flags.asNumber() : 0;
   const multiline = (flagNum & (1 << 12)) !== 0;
   const required = (flagNum & (1 << 1)) !== 0;
   const maxLen = getInheritableAttr(dict, PDFName.of("MaxLen"), ctx);
   const maxLength = maxLen instanceof PDFNumber ? maxLen.asNumber() : undefined;
+  const { backgroundColor, borderColor } = parseAppearanceColors(dict, ctx);
+  const borderWidth = parseBorderWidth(dict, ctx);
 
   return {
     type: "text",
@@ -323,16 +326,16 @@ function extractTextField(
     pageNumber,
     name,
     defaultValue,
-    fontSize: fontSize > 0 ? fontSize : 12,
+    fontSize,
     multiline,
     required,
     maxLength,
-    textColor: "#000000",
-    fontFamily: "Helvetica",
-    fontWeight: "regular" as const,
-    backgroundColor: null,
-    borderColor: null,
-    borderWidth: 1,
+    textColor,
+    fontFamily,
+    fontWeight,
+    backgroundColor,
+    borderColor,
+    borderWidth,
   };
 }
 
@@ -376,9 +379,11 @@ function extractButtonField(
 ): FormElement {
   const da = getInheritableAttr(dict, PDFName.of("DA"), ctx);
   const daStr = tryAsString(da) ?? "";
-  const fontSize = parseFontSizeFromDA(daStr);
-
+  const { fontFamily, fontWeight, textColor, fontSize } =
+    parseTypographyFromDA(daStr);
   const label = extractButtonLabel(dict);
+  const { backgroundColor, borderColor } = parseAppearanceColors(dict, ctx);
+  const borderWidth = parseBorderWidth(dict, ctx);
 
   return {
     type: "button",
@@ -390,13 +395,13 @@ function extractButtonField(
     pageNumber,
     name,
     label: label || "Button",
-    fontSize: fontSize > 0 ? fontSize : 12,
-    fontFamily: "Helvetica",
-    fontWeight: "regular" as const,
-    textColor: "#000000",
-    backgroundColor: null,
-    borderColor: null,
-    borderWidth: 1,
+    fontSize,
+    fontFamily,
+    fontWeight,
+    textColor,
+    backgroundColor,
+    borderColor,
+    borderWidth,
   };
 }
 
@@ -437,11 +442,14 @@ function extractDropdownField(
   const defaultValue = tryAsString(v) ?? "";
   const da = getInheritableAttr(dict, PDFName.of("DA"), ctx);
   const daStr = tryAsString(da) ?? "";
-  const fontSize = parseFontSizeFromDA(daStr);
+  const { fontFamily, fontWeight, textColor, fontSize } =
+    parseTypographyFromDA(daStr);
   const flags = getInheritableAttr(dict, PDFName.of("Ff"), ctx);
   const flagNum = flags instanceof PDFNumber ? flags.asNumber() : 0;
   const required = (flagNum & (1 << 1)) !== 0;
   const editable = (flagNum & (1 << 18)) !== 0;
+  const { backgroundColor, borderColor } = parseAppearanceColors(dict, ctx);
+  const borderWidth = parseBorderWidth(dict, ctx);
 
   return {
     type: "dropdown",
@@ -454,15 +462,15 @@ function extractDropdownField(
     name,
     options,
     defaultValue,
-    fontSize: fontSize > 0 ? fontSize : 12,
+    fontSize,
     required,
     editable,
-    fontFamily: "Helvetica",
-    fontWeight: "regular" as const,
-    textColor: "#000000",
-    backgroundColor: null,
-    borderColor: null,
-    borderWidth: 1,
+    fontFamily,
+    fontWeight,
+    textColor,
+    backgroundColor,
+    borderColor,
+    borderWidth,
   };
 }
 
@@ -661,7 +669,7 @@ interface AppearanceColors {
   borderColor: string | null;
 }
 
-export function parseAppearanceColors(dict: PDFDict, ctx: LookupCtx): AppearanceColors {
+function parseAppearanceColors(dict: PDFDict, ctx: LookupCtx): AppearanceColors {
   const mk = getInheritableAttr(dict, PDFName.of("MK"), ctx);
   if (!(mk instanceof PDFDict)) return { backgroundColor: null, borderColor: null };
 
@@ -690,7 +698,7 @@ function parseColorArray(val: unknown): string | null {
   return null;
 }
 
-export function parseBorderWidth(dict: PDFDict, ctx: LookupCtx): number {
+function parseBorderWidth(dict: PDFDict, ctx: LookupCtx): number {
   const bs = getInheritableAttr(dict, PDFName.of("BS"), ctx);
   if (bs instanceof PDFDict) {
     const w = bs.get(PDFName.of("W"));
@@ -706,7 +714,7 @@ interface ParsedTypography {
   fontSize: number;
 }
 
-export function parseTypographyFromDA(daStr: string): ParsedTypography {
+function parseTypographyFromDA(daStr: string): ParsedTypography {
   const { fontFamily, fontWeight } = parseFontNameFromDA(daStr);
   const fontSize = parseFontSizeFromDA(daStr);
   const textColor = parseTextColorFromDA(daStr);

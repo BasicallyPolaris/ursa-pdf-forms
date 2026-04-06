@@ -452,16 +452,14 @@ function TypographySection({ element, onUpdate }: { element: ElementWithTypograp
         value={element.fontFamily}
         onChange={(v) => onUpdate({ fontFamily: v })}
       />
-      <div className="flex items-center gap-2">
+      <div className="flex items-end gap-2">
         <PropertyField label={t("properties.fontSize")}>
           <NumericInput {...fontSizeField} />
         </PropertyField>
-        <div className="flex flex-col gap-1.5 pt-4">
-          <BoldItalicButtons
-            fontWeight={element.fontWeight}
-            onChange={(w) => onUpdate({ fontWeight: w })}
-          />
-        </div>
+        <BoldItalicButtons
+          fontWeight={element.fontWeight}
+          onChange={(w) => onUpdate({ fontWeight: w })}
+        />
       </div>
       <TextColorPicker
         value={element.textColor}
@@ -1200,23 +1198,21 @@ function MultiTypographySection({ elements }: { elements: ElementWithTypography[
           )
         }
       />
-      <div className="flex items-center gap-2">
+      <div className="flex items-end gap-2">
         <PropertyField label={t("properties.fontSize")}>
           <NumericInput
             {...fontSizeField}
             placeholder={allSameFontSize ? undefined : mixed}
           />
         </PropertyField>
-        <div className="flex flex-col gap-1.5 pt-4">
-          <BoldItalicButtons
-            fontWeight={allSameFontWeight ? elements[0].fontWeight : "regular"}
-            onChange={(w) =>
-              batchUpdateElements(
-                elements.map((el) => ({ id: el.id, changes: { fontWeight: w } })),
+        <BoldItalicButtons
+          fontWeight={allSameFontWeight ? elements[0].fontWeight : "regular"}
+          onChange={(w) =>
+            batchUpdateElements(
+              elements.map((el) => ({ id: el.id, changes: { fontWeight: w } })),
               )
             }
           />
-        </div>
       </div>
       <TextColorPicker
         value={allSameTextColor ? elements[0].textColor : "#000000"}
