@@ -13,9 +13,8 @@ export function useFileDrop() {
       const payload = event.payload;
 
       if (payload.type === "enter") {
-        if (hasPdf(payload.paths)) {
-          useEditorStore.getState().setFileDragOver(true);
-        }
+        useEditorStore.getState().setDragFileValid(hasPdf(payload.paths));
+        useEditorStore.getState().setFileDragOver(true);
         return;
       }
 
@@ -26,11 +25,13 @@ export function useFileDrop() {
 
       if (payload.type === "leave") {
         useEditorStore.getState().setFileDragOver(false);
+        useEditorStore.getState().setDragFileValid(false);
         return;
       }
 
       if (payload.type === "drop") {
         useEditorStore.getState().setFileDragOver(false);
+        useEditorStore.getState().setDragFileValid(false);
 
         const paths = payload.paths;
         const pdfPath = paths.find((p: string) =>

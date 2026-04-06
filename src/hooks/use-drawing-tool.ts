@@ -1,13 +1,20 @@
-import { useCallback, useRef, useState } from "react";
-import { useEditorStore } from "@/stores/editor-store";
+import {
+  HORIZONTAL_DRAW_TOOLS,
+  RECT_DRAW_TOOLS,
+} from "@/components/canvas-overlay/shared-constants";
+import { screenToPdf } from "@/lib/coordinates";
 import {
   createTextField,
   heightFromFontSize,
   type FormElement,
 } from "@/lib/form-element-model";
-import { screenToPdf } from "@/lib/coordinates";
-import { snapPosition, type SnapGuide, type SnapContext } from "@/lib/snap-engine";
-import { HORIZONTAL_DRAW_TOOLS, RECT_DRAW_TOOLS } from "@/components/canvas-overlay/shared-constants";
+import {
+  snapPosition,
+  type SnapContext,
+  type SnapGuide,
+} from "@/lib/snap-engine";
+import { useEditorStore } from "@/stores/editor-store";
+import { useCallback, useRef, useState } from "react";
 
 interface DrawRect {
   startX: number;
@@ -86,14 +93,24 @@ export function useDrawingTool(deps: {
         { x: currentX, y: currentY },
         { zoom: deps.zoom, pageX: start.pageX, pageY: start.pageY },
       );
-      const snapCtx = deps.buildSnapContext(new Set(), start.pageNumber, modifiers);
+      const snapCtx = deps.buildSnapContext(
+        new Set(),
+        start.pageNumber,
+        modifiers,
+      );
       let snappedCurrentX = currentX;
       let snappedCurrentY = currentY;
       if (snapCtx.hasAnySnap) {
         const snap = snapPosition(pdfCurrent.x, pdfCurrent.y, 0, 0, snapCtx);
         const snappedScreen = {
-          x: pdfCurrent.x * deps.zoom + start.pageX + (snap.x - pdfCurrent.x) * deps.zoom,
-          y: pdfCurrent.y * deps.zoom + start.pageY + (snap.y - pdfCurrent.y) * deps.zoom,
+          x:
+            pdfCurrent.x * deps.zoom +
+            start.pageX +
+            (snap.x - pdfCurrent.x) * deps.zoom,
+          y:
+            pdfCurrent.y * deps.zoom +
+            start.pageY +
+            (snap.y - pdfCurrent.y) * deps.zoom,
         };
         snappedCurrentX = snappedScreen.x;
         snappedCurrentY = snappedScreen.y;

@@ -100,7 +100,8 @@
     "zoom": "Zoom",
     "removeField": "Remove field",
     "dropToOpen": "Drop PDF to open",
-    "dropToReplace": "Drop PDF to replace current document"
+    "dropToReplace": "Drop PDF to replace current document",
+    "dropInvalidFile": "Only PDF files are supported"
   },
   "shortcuts": {
     "title": "Keyboard Shortcuts",

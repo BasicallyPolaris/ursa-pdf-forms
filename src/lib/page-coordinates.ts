@@ -14,9 +14,10 @@ export function resolveElementPosition(
 ): ResolvedPosition {
   if (pages.length === 0) return { pageNumber, x, y };
 
-  const sorted = pages[0].pageNumber <= pages[pages.length - 1].pageNumber
-    ? pages
-    : [...pages].sort((a, b) => a.pageNumber - b.pageNumber);
+  const sorted =
+    pages[0].pageNumber <= pages[pages.length - 1].pageNumber
+      ? pages
+      : [...pages].sort((a, b) => a.pageNumber - b.pageNumber);
   const idx = sorted.findIndex((p) => p.pageNumber === pageNumber);
   if (idx === -1) return { pageNumber, x, y };
 

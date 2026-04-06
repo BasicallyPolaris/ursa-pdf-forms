@@ -1,5 +1,17 @@
-import { PDFDocument, PDFName, PDFPage, PDFArray, PDFDict, PDFRef } from "pdf-lib";
-import type { FormElement, TextField, Checkbox, RadioButton } from "./form-element-model";
+import {
+  PDFArray,
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  PDFPage,
+  PDFRef,
+} from "pdf-lib";
+import type {
+  Checkbox,
+  FormElement,
+  RadioButton,
+  TextField,
+} from "./form-element-model";
 
 export class ExportValidationError extends Error {
   errors: string[];
@@ -63,11 +75,7 @@ export async function exportFormElements(
     const page = pdf.getPage(el.pageNumber - 1);
     const { height: pageHeight } = page.getSize();
 
-    const safeName = dedupeFieldName(
-      "name" in el ? el.name : "",
-      usedNames,
-      i,
-    );
+    const safeName = dedupeFieldName("name" in el ? el.name : "", usedNames, i);
     usedNames.add(safeName);
 
     switch (el.type) {
@@ -138,7 +146,11 @@ function addTextField(
     field.isRequired();
   }
 
-  if (el.maxLength !== undefined && Number.isFinite(el.maxLength) && el.maxLength > 0) {
+  if (
+    el.maxLength !== undefined &&
+    Number.isFinite(el.maxLength) &&
+    el.maxLength > 0
+  ) {
     field.setMaxLength(el.maxLength);
   }
 }
@@ -174,9 +186,8 @@ function stripWidgetAnnotations(pdf: PDFDocument): void {
     const kept: (PDFRef | PDFDict)[] = [];
     for (let i = 0; i < annots.size(); i++) {
       const annotRef = annots.get(i) as PDFRef | PDFDict;
-      const annotDict = annotRef instanceof PDFRef
-        ? pdf.context.lookup(annotRef)
-        : annotRef;
+      const annotDict =
+        annotRef instanceof PDFRef ? pdf.context.lookup(annotRef) : annotRef;
 
       if (annotDict instanceof PDFDict) {
         const subtype = annotDict.get(PDFName.of("Subtype"));
@@ -193,7 +204,9 @@ function stripWidgetAnnotations(pdf: PDFDocument): void {
   }
 }
 
-export async function stripAcroFormFromPdf(pdfBytes: Uint8Array): Promise<Uint8Array> {
+export async function stripAcroFormFromPdf(
+  pdfBytes: Uint8Array,
+): Promise<Uint8Array> {
   const pdf = await PDFDocument.load(pdfBytes);
   const existingForm = pdf.catalog.lookup(PDFName.of("AcroForm"));
   if (!existingForm) return pdfBytes;

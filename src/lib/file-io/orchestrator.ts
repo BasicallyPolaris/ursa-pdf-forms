@@ -1,8 +1,16 @@
-import type { FileSystemPort, DialogPort, StorePort, WindowPort } from "./ports";
-import type { FileIO, FileIOLabels, UnsavedAction } from "./types";
-import { loadPdfDocument } from "@/lib/pdf-loader";
+import {
+  exportFormElements,
+  stripAcroFormFromPdf,
+} from "@/lib/pdf-export-engine";
 import { extractAcroFormFields } from "@/lib/pdf-form-reader";
-import { stripAcroFormFromPdf, exportFormElements } from "@/lib/pdf-export-engine";
+import { loadPdfDocument } from "@/lib/pdf-loader";
+import type {
+  DialogPort,
+  FileSystemPort,
+  StorePort,
+  WindowPort,
+} from "./ports";
+import type { FileIO, FileIOLabels, UnsavedAction } from "./types";
 
 function extractFileName(filePath: string, fallback: string): string {
   return filePath.split(/[/\\]/).pop() ?? fallback;
@@ -146,9 +154,7 @@ export function createFileIO(
     });
   }
 
-  async function loadPdfFromPath(
-    filePath: string,
-  ): Promise<string | null> {
+  async function loadPdfFromPath(filePath: string): Promise<string | null> {
     const labels = getLabels();
     try {
       const bytes = await ports.fs.readFile(filePath);

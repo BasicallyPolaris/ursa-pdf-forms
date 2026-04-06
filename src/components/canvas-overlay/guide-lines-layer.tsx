@@ -2,7 +2,7 @@ import { useRef } from "react";
 import type { PageInfo } from "@/lib/pdf-loader";
 import type { PageLayout } from "@/lib/page-layout";
 import type { GuideLine } from "@/stores/editor-store";
-import { TOP_PADDING, PAGE_GAP, H_PADDING } from "@/lib/coordinates";
+import { V_PADDING, PAGE_GAP, H_PADDING } from "@/lib/coordinates";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
 
 interface GuideLinesLayerProps {
@@ -58,7 +58,7 @@ export function GuideLinesLayer({
           const overlayEl = overlayRef.current;
           if (!overlayEl) return;
 
-          let dragPageOffset = TOP_PADDING;
+          let dragPageOffset = V_PADDING;
           let dragPageHeight = pages[0]?.height ?? 792;
           let dragPageWidth = pages[0]?.width ?? 612;
           let dragPageXOffset =
@@ -68,7 +68,7 @@ export function GuideLinesLayer({
               (overlayWidth - (pages[0]?.width ?? 612) * zoom) / 2,
             );
           if (guide.orientation === "horizontal") {
-            let yOff = TOP_PADDING;
+            let yOff = V_PADDING;
             for (const p of pages) {
               const pH = p.height * zoom;
               if (initialPosition * zoom >= 0 && initialPosition * zoom <= pH) {
@@ -138,7 +138,7 @@ export function GuideLinesLayer({
           return pages.map((page, pi) => {
             const layout = layouts.get(page.pageNumber);
             const screenY =
-              (layout?.yOffset ?? TOP_PADDING) + guide.position * zoom;
+              (layout?.yOffset ?? V_PADDING) + guide.position * zoom;
             return (
               <div
                 key={`${guide.id}-page-${pi}`}

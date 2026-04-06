@@ -1,27 +1,27 @@
-import { createFileIO } from "./orchestrator";
-import {
-  tauriFileSystem,
-  tauriDialogs,
-  zustandStore,
-  tauriWindow,
-} from "./adapters/tauri";
 import i18n from "@/i18n";
+import {
+  tauriDialogs,
+  tauriFileSystem,
+  tauriWindow,
+  zustandStore,
+} from "./adapters/tauri";
+import { createFileIO } from "./orchestrator";
 
-export { createFileIO } from "./orchestrator";
-export type { FileIO, UnsavedAction, FileIOLabels } from "./types";
-export type {
-  FileSystemPort,
-  DialogPort,
-  StorePort,
-  WindowPort,
-  FileFilter,
-} from "./ports";
 export {
-  createTestFileSystem,
   createTestDialogs,
+  createTestFileSystem,
   createTestStore,
   createTestWindow,
 } from "./adapters/test";
+export { createFileIO } from "./orchestrator";
+export type {
+  DialogPort,
+  FileFilter,
+  FileSystemPort,
+  StorePort,
+  WindowPort,
+} from "./ports";
+export type { FileIO, FileIOLabels, UnsavedAction } from "./types";
 
 export const fileIO = createFileIO(
   {

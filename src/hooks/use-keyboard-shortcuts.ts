@@ -1,12 +1,12 @@
-import { useEffect } from "react";
-import { redo, undo, useEditorStore } from "@/stores/editor-store";
+import { PAGE_GAP, V_PADDING } from "@/lib/coordinates";
 import { fileIO } from "@/lib/file-io";
-import { TOP_PADDING, PAGE_GAP } from "@/lib/coordinates";
 import {
   computePageLayouts,
   findPageAtScreenPoint,
   getLayoutContentWidth,
 } from "@/lib/page-layout";
+import { redo, undo, useEditorStore } from "@/stores/editor-store";
+import { useEffect } from "react";
 
 const TOOL_KEY_MAP: Record<string, string> = {
   v: "select",
@@ -38,11 +38,7 @@ function getMousePage(): number | null {
     store.zoom,
     scrollEl.clientWidth,
   );
-  const layouts = computePageLayouts(
-    store.pages,
-    store.zoom,
-    layoutWidth,
-  );
+  const layouts = computePageLayouts(store.pages, store.zoom, layoutWidth);
   return findPageAtScreenPoint(relX, relY, layouts);
 }
 
@@ -55,7 +51,7 @@ function getVisiblePage(): number | undefined {
   const zoom = store.zoom;
   let closestPage = 1;
   let closestDist = Infinity;
-  let yOffset = TOP_PADDING;
+  let yOffset = V_PADDING;
   for (const page of store.pages) {
     const pageScreenHeight = page.height * zoom;
     const pageCenter = yOffset + pageScreenHeight / 2;
@@ -162,7 +158,9 @@ export function useKeyboardShortcuts() {
         const tool = TOOL_KEY_MAP[e.key.toLowerCase()];
         if (tool) {
           e.preventDefault();
-          store.setActiveTool(tool as "select" | "input" | "checkbox" | "radio");
+          store.setActiveTool(
+            tool as "select" | "input" | "checkbox" | "radio",
+          );
         }
       }
     };

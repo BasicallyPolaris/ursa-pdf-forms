@@ -36,15 +36,18 @@ interface PdfPageProps {
 }
 
 const PdfPage = memo(function PdfPage({ pageNumber, zoom }: PdfPageProps) {
-  const canvasRef     = useRef<HTMLCanvasElement>(null);
-  const handleRef     = useRef<RenderHandle | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const handleRef = useRef<RenderHandle | null>(null);
   const rasterZoomRef = useRef<number | null>(null);
-  const timerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (rasterZoomRef.current === zoom) return;
 
-    if (timerRef.current !== null) { clearTimeout(timerRef.current); timerRef.current = null; }
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
     handleRef.current?.cancel();
     handleRef.current = null;
 
@@ -58,13 +61,20 @@ const PdfPage = memo(function PdfPage({ pageNumber, zoom }: PdfPageProps) {
         .then(({ bitmap, renderedScale }: RenderResult) => {
           handleRef.current = null;
           const canvas = canvasRef.current;
-          if (!canvas) { bitmap.close(); return; }
+          if (!canvas) {
+            bitmap.close();
+            return;
+          }
 
-          if (canvas.width !== bitmap.width || canvas.height !== bitmap.height) {
-            canvas.width  = bitmap.width;
+          if (
+            canvas.width !== bitmap.width ||
+            canvas.height !== bitmap.height
+          ) {
+            canvas.width = bitmap.width;
             canvas.height = bitmap.height;
           }
-          canvas.getContext("2d", { alpha: false, willReadFrequently: false })
+          canvas
+            .getContext("2d", { alpha: false, willReadFrequently: false })
             ?.drawImage(bitmap, 0, 0);
           bitmap.close();
           rasterZoomRef.current = renderedScale;
@@ -76,7 +86,10 @@ const PdfPage = memo(function PdfPage({ pageNumber, zoom }: PdfPageProps) {
     }, RASTERIZE_DEBOUNCE_MS);
 
     return () => {
-      if (timerRef.current !== null) { clearTimeout(timerRef.current); timerRef.current = null; }
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
       handleRef.current?.cancel();
       handleRef.current = null;
     };
@@ -95,18 +108,19 @@ interface PdfCanvasProps {
 }
 
 export function PdfCanvas({ children }: PdfCanvasProps) {
-  const { t }         = useTranslation();
-  const pdfBytes      = useEditorStore((s) => s.renderPdfBytes ?? s.pdfBytes);
-  const pages         = useEditorStore((s) => s.pages);
+  const { t } = useTranslation();
+  const pdfBytes = useEditorStore((s) => s.renderPdfBytes ?? s.pdfBytes);
+  const pages = useEditorStore((s) => s.pages);
   const committedZoom = useEditorStore((s) => s.zoom);
 
-  const outerRef           = useRef<HTMLDivElement>(null);
-  const committedZoomRef   = useRef(committedZoom);
-  const pageWrapperRefs    = useRef<Map<number, HTMLElement>>(new Map());
+  const outerRef = useRef<HTMLDivElement>(null);
+  const committedZoomRef = useRef(committedZoom);
+  const pageWrapperRefs = useRef<Map<number, HTMLElement>>(new Map());
 
   useEffect(() => {
     if (!pdfBytes) return;
-    getRenderManager().load(pdfBytes)
+    getRenderManager()
+      .load(pdfBytes)
       .catch((err) => console.error("[PdfCanvas] load failed:", err));
     return () => getRenderManager().cancelAll();
   }, [pdfBytes]);
@@ -127,21 +141,30 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   );
 
   const [visiblePages, setVisiblePages] = useState<Set<number>>(new Set());
-  const layoutsRef  = useRef(layouts);
+  const layoutsRef = useRef(layouts);
   layoutsRef.current = layouts;
-  const pagesRef    = useRef(pages);
-  pagesRef.current  = pages;
+  const pagesRef = useRef(pages);
+  pagesRef.current = pages;
 
   const scrollRafRef = useRef<number | null>(null);
 
   const computeVisibleSet = useCallback((): Set<number> => {
-    const el = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
+    const el = document.querySelector<HTMLElement>(
+      "[data-pdf-scroll-container]",
+    );
     if (!el || pagesRef.current.length === 0) return new Set();
-    const raw = getVisiblePageNumbers(layoutsRef.current, el.scrollTop, el.clientHeight);
+    const raw = getVisiblePageNumbers(
+      layoutsRef.current,
+      el.scrollTop,
+      el.clientHeight,
+    );
     const arr = [...raw].sort((a, b) => a - b);
-    const lo  = Math.max(1,                     (arr[0]                   ?? 1) - VIRTUAL_OVERSCAN);
-    const hi  = Math.min(pagesRef.current.length, (arr[arr.length - 1] ?? 1) + VIRTUAL_OVERSCAN);
-    const s   = new Set<number>();
+    const lo = Math.max(1, (arr[0] ?? 1) - VIRTUAL_OVERSCAN);
+    const hi = Math.min(
+      pagesRef.current.length,
+      (arr[arr.length - 1] ?? 1) + VIRTUAL_OVERSCAN,
+    );
+    const s = new Set<number>();
     for (let i = lo; i <= hi; i++) s.add(i);
     return s;
   }, []);
@@ -155,12 +178,14 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   useEffect(() => {
     const listener: ZoomListener = {
       onZoomSettle(_zoom: number) {
-        const scrollEl = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
+        const scrollEl = document.querySelector<HTMLElement>(
+          "[data-pdf-scroll-container]",
+        );
         if (scrollEl && pagesRef.current.length > 0) {
           pendingScrollCorrectionRef.current = {
             scrollTop: scrollEl.scrollTop,
-            oldZoom:   committedZoomRef.current,
-            oldVpH:    scrollEl.clientHeight,
+            oldZoom: committedZoomRef.current,
+            oldVpH: scrollEl.clientHeight,
           };
         }
       },
@@ -171,14 +196,20 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   }, []);
 
   useLayoutEffect(() => {
-    const scrollEl = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
+    const scrollEl = document.querySelector<HTMLElement>(
+      "[data-pdf-scroll-container]",
+    );
     if (!scrollEl) return;
 
     const pending = pendingScrollCorrectionRef.current;
     if (pending && pages.length > 0) {
       preserveViewportScrollAfterZoomChange(
-        scrollEl, pages, pending.oldZoom, committedZoom,
-        pending.scrollTop, pending.oldVpH,
+        scrollEl,
+        pages,
+        pending.oldZoom,
+        committedZoom,
+        pending.scrollTop,
+        pending.oldVpH,
       );
       pendingScrollCorrectionRef.current = null;
     }
@@ -188,7 +219,12 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     setVisiblePages((prev) => {
       if (prev.size === next.size) {
         let same = true;
-        for (const p of next) { if (!prev.has(p)) { same = false; break; } }
+        for (const p of next) {
+          if (!prev.has(p)) {
+            same = false;
+            break;
+          }
+        }
         if (same) return prev;
       }
       return next;
@@ -201,7 +237,9 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   });
 
   useEffect(() => {
-    const el = document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
+    const el = document.querySelector<HTMLElement>(
+      "[data-pdf-scroll-container]",
+    );
     if (!el) return;
     const onScroll = () => {
       if (scrollRafRef.current !== null) return;
@@ -211,7 +249,12 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
         setVisiblePages((prev) => {
           if (prev.size === next.size) {
             let same = true;
-            for (const p of next) { if (!prev.has(p)) { same = false; break; } }
+            for (const p of next) {
+              if (!prev.has(p)) {
+                same = false;
+                break;
+              }
+            }
             if (same) return prev;
           }
           return next;
@@ -221,14 +264,16 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       el.removeEventListener("scroll", onScroll);
-      if (scrollRafRef.current !== null) cancelAnimationFrame(scrollRafRef.current);
+      if (scrollRafRef.current !== null)
+        cancelAnimationFrame(scrollRafRef.current);
     };
   }, [computeVisibleSet]);
 
   const visiblePageItems = useMemo(() => {
-    const items: Array<{ page: (typeof pages)[number]; layout: PageLayout }> = [];
+    const items: Array<{ page: (typeof pages)[number]; layout: PageLayout }> =
+      [];
     for (const num of visiblePages) {
-      const page   = pages[num - 1];
+      const page = pages[num - 1];
       const layout = layouts.get(num);
       if (page && layout) items.push({ page, layout });
     }
@@ -239,20 +284,76 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     return (
       <div className="flex h-full items-center justify-center select-none">
         <div className="flex flex-col items-center gap-5 text-muted-foreground">
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" className="text-border">
-            <rect x="8" y="4" width="32" height="40" rx="3" stroke="currentColor" strokeWidth="2" />
-            <line x1="14" y1="14" x2="34" y2="14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <line x1="14" y1="20" x2="34" y2="20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <line x1="14" y1="26" x2="28" y2="26" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <rect x="14" y="32" width="10" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 48 48"
+            fill="none"
+            className="text-border"
+          >
+            <rect
+              x="8"
+              y="4"
+              width="32"
+              height="40"
+              rx="3"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <line
+              x1="14"
+              y1="14"
+              x2="34"
+              y2="14"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+            <line
+              x1="14"
+              y1="20"
+              x2="34"
+              y2="20"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+            <line
+              x1="14"
+              y1="26"
+              x2="28"
+              y2="26"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+            <rect
+              x="14"
+              y="32"
+              width="10"
+              height="6"
+              rx="1"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            />
           </svg>
           <div className="flex flex-col items-center gap-1.5">
-            <p className="text-sm text-center font-medium text-foreground">{t("canvas.emptyTitle")}</p>
-            <p className="text-xs text-center text-muted-foreground">{t("canvas.emptyDescription")}</p>
+            <p className="text-sm text-center font-medium text-foreground">
+              {t("canvas.emptyTitle")}
+            </p>
+            <p className="text-xs text-center text-muted-foreground">
+              {t("canvas.emptyDescription")}
+            </p>
           </div>
           <div className="mt-2 flex flex-col gap-1.5 text-[11px] text-muted-foreground/70">
-            <div className="flex items-center gap-2"><Kbd>Ctrl</Kbd>+<Kbd>O</Kbd><span>{t("canvas.openPdf")}</span></div>
-            <div className="flex items-center gap-2"><Kbd>Ctrl</Kbd>+<Kbd>Scroll</Kbd><span>{t("canvas.zoom")}</span></div>
+            <div className="flex items-center gap-2">
+              <Kbd>Ctrl</Kbd>+<Kbd>O</Kbd>
+              <span>{t("canvas.openPdf")}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Kbd>Ctrl</Kbd>+<Kbd>Scroll</Kbd>
+              <span>{t("canvas.zoom")}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -264,11 +365,26 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
       <div className="flex h-full items-center justify-center select-none">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <svg className="h-6 w-6 animate-spin" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"
-              strokeDasharray="32" strokeLinecap="round" className="opacity-25" />
-            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeDasharray="32"
+              strokeLinecap="round"
+              className="opacity-25"
+            />
+            <path
+              d="M12 2a10 10 0 0 1 10 10"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
           </svg>
-          <span className="text-xs">{t("canvas.loading", "Loading PDF...")}</span>
+          <span className="text-xs">
+            {t("canvas.loading", "Loading PDF...")}
+          </span>
         </div>
       </div>
     );
@@ -279,7 +395,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
       ref={outerRef}
       className="relative min-w-full bg-muted/20"
       style={{
-        height:   totalHeight        > 0 ? totalHeight        : undefined,
+        height: totalHeight > 0 ? totalHeight : undefined,
         minWidth: layoutContentWidth > 0 ? layoutContentWidth : undefined,
       }}
       onDragStart={(e) => e.preventDefault()}
@@ -287,16 +403,20 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
       {visiblePageItems.map(({ page, layout }) => (
         <div
           key={page.pageNumber}
-          ref={(el) => { if (el) pageWrapperRefs.current.set(page.pageNumber, el); }}
+          ref={(el) => {
+            if (el) pageWrapperRefs.current.set(page.pageNumber, el);
+          }}
           className="absolute bg-white shadow-md overflow-hidden"
-          style={{ left: layout.xOffset, top: layout.yOffset, width: layout.screenWidth, height: layout.screenHeight }}
+          style={{
+            left: layout.xOffset,
+            top: layout.yOffset,
+            width: layout.screenWidth,
+            height: layout.screenHeight,
+          }}
           data-page-wrapper={page.pageNumber}
           data-page-number={page.pageNumber}
         >
-          <PdfPage
-            pageNumber={page.pageNumber}
-            zoom={committedZoom}
-          />
+          <PdfPage pageNumber={page.pageNumber} zoom={committedZoom} />
         </div>
       ))}
 

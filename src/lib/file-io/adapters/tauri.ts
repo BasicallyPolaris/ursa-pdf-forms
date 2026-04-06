@@ -1,14 +1,14 @@
-import { open, save, message } from "@tauri-apps/plugin-dialog";
-import { readFile, writeFile } from "@tauri-apps/plugin-fs";
 import {
-  useEditorStore,
   isDirty as storeIsDirty,
   markClean as storeMarkClean,
+  useEditorStore,
 } from "@/stores/editor-store";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { message, open, save } from "@tauri-apps/plugin-dialog";
+import { readFile, writeFile } from "@tauri-apps/plugin-fs";
 import type {
-  FileSystemPort,
   DialogPort,
+  FileSystemPort,
   StorePort,
   WindowPort,
 } from "../ports";

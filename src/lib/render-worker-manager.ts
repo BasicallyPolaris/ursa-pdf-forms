@@ -1,7 +1,7 @@
 import {
   loadPdfDocument,
-  type PdfDocument,
   type CancellableRender,
+  type PdfDocument,
 } from "./pdf-loader";
 
 export interface RenderResult {

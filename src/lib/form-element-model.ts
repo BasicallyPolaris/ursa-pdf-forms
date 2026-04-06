@@ -61,7 +61,9 @@ export function getUniqueName(
   existingElements: FormElement[],
 ): string {
   const existingNames = new Set(
-    existingElements.map((el) => ("name" in el ? (el as { name: string }).name : "")),
+    existingElements.map((el) =>
+      "name" in el ? (el as { name: string }).name : "",
+    ),
   );
   const match = baseName.match(/^(.*?)(\d+)$/);
   if (match) {
@@ -96,7 +98,8 @@ interface TextFieldOptions {
 
 export function createTextField(opts: TextFieldOptions): TextField {
   const rawFontSize = opts.fontSize ?? 12;
-  const fontSize = Number.isFinite(rawFontSize) && rawFontSize > 0 ? rawFontSize : 12;
+  const fontSize =
+    Number.isFinite(rawFontSize) && rawFontSize > 0 ? rawFontSize : 12;
   const multiline = opts.multiline ?? false;
   return {
     type: "text",
@@ -104,7 +107,10 @@ export function createTextField(opts: TextFieldOptions): TextField {
     x: opts.x,
     y: opts.y,
     width: safePositive(opts.width, 150),
-    height: safePositive(opts.height, multiline ? 60 : heightFromFontSize(fontSize)),
+    height: safePositive(
+      opts.height,
+      multiline ? 60 : heightFromFontSize(fontSize),
+    ),
     pageNumber: opts.pageNumber,
     name: opts.name ?? "",
     defaultValue: opts.defaultValue ?? "",
@@ -185,14 +191,16 @@ export function sanitizeNumericValue(value: unknown): number | undefined {
 }
 
 export function getElementName(el: FormElement): string {
-  if (el.type === "radio" && "groupName" in el) return (el as RadioButton).groupName || (el as RadioButton).value;
+  if (el.type === "radio" && "groupName" in el)
+    return (el as RadioButton).groupName || (el as RadioButton).value;
   if ("name" in el) return (el as { name: string }).name;
   return "";
 }
 
-export function validateElementForExport(
-  elements: FormElement[],
-): { valid: boolean; errors: string[] } {
+export function validateElementForExport(elements: FormElement[]): {
+  valid: boolean;
+  errors: string[];
+} {
   const errors: string[] = [];
   const names = new Map<string, number>();
   const radioGroupNames = new Set<string>();

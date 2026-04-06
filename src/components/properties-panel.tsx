@@ -1,13 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useTranslation } from "react-i18next";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NumericInput } from "@/components/ui/numeric-input";
-import {
-  getElementStyleConfig,
-  getElementStyleConfigByType,
-  getFieldTypeLabel,
-} from "@/lib/element-style-map";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -16,6 +10,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  getElementStyleConfig,
+  getElementStyleConfigByType,
+  getFieldTypeLabel,
+} from "@/lib/element-style-map";
 import {
   heightFromFontSize,
   isCheckbox,
@@ -26,6 +25,7 @@ import {
   type TextField,
 } from "@/lib/form-element-model";
 import { resolveElementPosition } from "@/lib/page-coordinates";
+import { useEditorStore, type GuideLine } from "@/stores/editor-store";
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -36,17 +36,17 @@ import {
   BetweenHorizontalStart,
   BetweenVerticalStart,
   Expand,
+  MousePointer2,
   MoveHorizontal,
   MoveVertical,
-  MousePointer2,
   Shrink,
   SquareCenterlineDashedHorizontal,
   SquareCenterlineDashedVertical,
   SquareSquare,
   Trash2,
 } from "lucide-react";
-import { useEditorStore, type GuideLine } from "@/stores/editor-store";
-import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 function useDeferredValue(
   storeValue: string | number,
@@ -79,13 +79,10 @@ function useDeferredValue(
     useEditorStore.temporal.getState().pause();
   }, [storeValue]);
 
-  const onChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setLocal(e.target.value);
-      onCommitRef.current(e.target.value);
-    },
-    [],
-  );
+  const onChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocal(e.target.value);
+    onCommitRef.current(e.target.value);
+  }, []);
 
   const finishEdit = useCallback((revert: boolean) => {
     if (!activeRef.current) return;
@@ -415,12 +412,28 @@ function SinglePositionProperties({ elementId }: { elementId: string }) {
   const isAutoHeight = isTextField(element) && !element.multiline;
 
   const xField = useDeferredValue(displayX, (v) => {
-    const resolved = resolveElementPosition(pages, element.pageNumber, Number(v), element.y);
-    updateElement(element.id, { x: resolved.x, pageNumber: resolved.pageNumber });
+    const resolved = resolveElementPosition(
+      pages,
+      element.pageNumber,
+      Number(v),
+      element.y,
+    );
+    updateElement(element.id, {
+      x: resolved.x,
+      pageNumber: resolved.pageNumber,
+    });
   });
   const yField = useDeferredValue(displayY, (v) => {
-    const resolved = resolveElementPosition(pages, element.pageNumber, element.x, Number(v));
-    updateElement(element.id, { y: resolved.y, pageNumber: resolved.pageNumber });
+    const resolved = resolveElementPosition(
+      pages,
+      element.pageNumber,
+      element.x,
+      Number(v),
+    );
+    updateElement(element.id, {
+      y: resolved.y,
+      pageNumber: resolved.pageNumber,
+    });
   });
   const wField = useDeferredValue(displayW, (v) =>
     updateElement(element.id, { width: Number(v) }),
@@ -506,7 +519,10 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
           checked={allSameRequired ? elements[0].required : false}
           onCheckedChange={(checked) => {
             batchUpdateElements(
-              elements.map((el) => ({ id: el.id, changes: { required: checked } })),
+              elements.map((el) => ({
+                id: el.id,
+                changes: { required: checked },
+              })),
             );
           }}
         />
@@ -575,8 +591,16 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
       const newX = Number(v);
       batchUpdateElements(
         elements.map((el) => {
-          const resolved = resolveElementPosition(pages, el.pageNumber, newX, el.y);
-          return { id: el.id, changes: { x: resolved.x, pageNumber: resolved.pageNumber } };
+          const resolved = resolveElementPosition(
+            pages,
+            el.pageNumber,
+            newX,
+            el.y,
+          );
+          return {
+            id: el.id,
+            changes: { x: resolved.x, pageNumber: resolved.pageNumber },
+          };
         }),
       );
     },
@@ -587,8 +611,16 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
       const newY = Number(v);
       batchUpdateElements(
         elements.map((el) => {
-          const resolved = resolveElementPosition(pages, el.pageNumber, el.x, newY);
-          return { id: el.id, changes: { y: resolved.y, pageNumber: resolved.pageNumber } };
+          const resolved = resolveElementPosition(
+            pages,
+            el.pageNumber,
+            el.x,
+            newY,
+          );
+          return {
+            id: el.id,
+            changes: { y: resolved.y, pageNumber: resolved.pageNumber },
+          };
         }),
       );
     },
@@ -600,14 +632,12 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
         elements.map((el) => ({ id: el.id, changes: { width: Number(v) } })),
       ),
   );
-  const hField = useDeferredValue(
-    heightDisplayValue,
-    (v) =>
-      batchUpdateElements(
-        elements
-          .filter((el) => !(isTextField(el) && !el.multiline))
-          .map((el) => ({ id: el.id, changes: { height: Number(v) } })),
-      ),
+  const hField = useDeferredValue(heightDisplayValue, (v) =>
+    batchUpdateElements(
+      elements
+        .filter((el) => !(isTextField(el) && !el.multiline))
+        .map((el) => ({ id: el.id, changes: { height: Number(v) } })),
+    ),
   );
 
   return (
@@ -784,7 +814,9 @@ function SizingButtons() {
     <div className="flex flex-col gap-1.5">
       <SectionHeader label={t("properties.adjustSizing")} />
       <div className="flex items-center gap-1">
-        <span className="flex w-8 items-center justify-center text-[9px] font-medium text-muted-foreground">W</span>
+        <span className="flex w-8 items-center justify-center text-[9px] font-medium text-muted-foreground">
+          W
+        </span>
         <ToolButton
           onClick={() => matchElementSize("widthWidest")}
           title={t("properties.matchWidthWidest")}
@@ -799,7 +831,9 @@ function SizingButtons() {
         </ToolButton>
       </div>
       <div className="flex items-center gap-1">
-        <span className="flex w-8 items-center justify-center text-[9px] font-medium text-muted-foreground">H</span>
+        <span className="flex w-8 items-center justify-center text-[9px] font-medium text-muted-foreground">
+          H
+        </span>
         <ToolButton
           onClick={() => matchElementSize("heightTallest")}
           title={t("properties.matchHeightTallest")}
@@ -879,10 +913,7 @@ function GuideProperties({ guideId }: { guideId: string }) {
     : (pages[0]?.width ?? Infinity);
 
   const posField = useDeferredValue(Math.round(livePosition), (v) =>
-    updateGuidePosition(
-      guide.id,
-      Math.max(0, Math.min(Number(v), maxPos)),
-    ),
+    updateGuidePosition(guide.id, Math.max(0, Math.min(Number(v), maxPos))),
   );
 
   return (

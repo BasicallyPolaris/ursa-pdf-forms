@@ -1,7 +1,7 @@
 import { getZoomEngine } from "@/lib/use-zoom-animation";
 import { useEditorStore } from "@/stores/editor-store";
-import { flushSync } from "react-dom";
 import { useEffect } from "react";
+import { flushSync } from "react-dom";
 
 export const ZOOM_MIN = 0.5;
 export const ZOOM_MAX = 4;
@@ -65,14 +65,10 @@ export function useZoom() {
 
       if (e.key === "=" || e.key === "+") {
         e.preventDefault();
-        engine.setTarget(
-          clampZoom(engine.getTargetZoom() + ZOOM_STEP),
-        );
+        engine.setTarget(clampZoom(engine.getTargetZoom() + ZOOM_STEP));
       } else if (e.key === "-") {
         e.preventDefault();
-        engine.setTarget(
-          clampZoom(engine.getTargetZoom() - ZOOM_STEP),
-        );
+        engine.setTarget(clampZoom(engine.getTargetZoom() - ZOOM_STEP));
       } else if (e.key === "0") {
         e.preventDefault();
         const container = document.querySelector('[data-testid="canvas-area"]');

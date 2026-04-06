@@ -1,11 +1,15 @@
-import { useCallback, useRef, useState } from "react";
-import { useEditorStore } from "@/stores/editor-store";
-import type { FormElement } from "@/lib/form-element-model";
-import type { PageInfo } from "@/lib/pdf-loader";
-import type { PageLayout } from "@/lib/page-layout";
 import { pdfToScreen, screenToPdf } from "@/lib/coordinates";
-import { snapPosition, type SnapGuide, type SnapContext } from "@/lib/snap-engine";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
+import type { FormElement } from "@/lib/form-element-model";
+import type { PageLayout } from "@/lib/page-layout";
+import type { PageInfo } from "@/lib/pdf-loader";
+import {
+  snapPosition,
+  type SnapContext,
+  type SnapGuide,
+} from "@/lib/snap-engine";
+import { useEditorStore } from "@/stores/editor-store";
+import { useCallback, useRef, useState } from "react";
 
 interface ElementDragConfig {
   zoom: number;
@@ -26,16 +30,25 @@ interface ElementDragConfig {
   ) => number;
   setActiveGuides: (guides: SnapGuide[]) => void;
   setDragLivePositions: (
-    positions: Map<string, { x: number; y: number; width: number; height: number }> | null,
+    positions: Map<
+      string,
+      { x: number; y: number; width: number; height: number }
+    > | null,
   ) => void;
 }
 
 export function useElementDrag(config: ElementDragConfig) {
-  const dragStartPositions = useRef<Map<string, { x: number; y: number }> | null>(null);
+  const dragStartPositions = useRef<Map<
+    string,
+    { x: number; y: number }
+  > | null>(null);
   const draggingId = useRef<string | null>(null);
   const pendingToggleId = useRef<string | null>(null);
   const prevSnapRef = useRef<{ x: number; y: number } | null>(null);
-  const [dragOffset, setDragOffset] = useState<{ dx: number; dy: number } | null>(null);
+  const [dragOffset, setDragOffset] = useState<{
+    dx: number;
+    dy: number;
+  } | null>(null);
   const [dragSnapCorrection, setDragSnapCorrection] = useState<{
     dx: number;
     dy: number;
@@ -75,7 +88,12 @@ export function useElementDrag(config: ElementDragConfig) {
   );
 
   const handleDrag = useCallback(
-    (el: FormElement, screen: { x: number; y: number }, d: { x: number; y: number }, me: MouseEvent) => {
+    (
+      el: FormElement,
+      screen: { x: number; y: number },
+      d: { x: number; y: number },
+      me: MouseEvent,
+    ) => {
       if (pendingToggleId.current) pendingToggleId.current = null;
 
       const { zoom } = config;
@@ -86,9 +104,13 @@ export function useElementDrag(config: ElementDragConfig) {
 
       const store = useEditorStore.getState();
       const currentSelectedIds = store.selectedIds;
-      const isMultiDrag = currentSelectedIds.size > 1 && currentSelectedIds.has(el.id);
+      const isMultiDrag =
+        currentSelectedIds.size > 1 && currentSelectedIds.has(el.id);
 
-      const livePositions = new Map<string, { x: number; y: number; width: number; height: number }>();
+      const livePositions = new Map<
+        string,
+        { x: number; y: number; width: number; height: number }
+      >();
       let correctionDx = 0;
       let correctionDy = 0;
       let guides: SnapGuide[] = [];
@@ -101,16 +123,23 @@ export function useElementDrag(config: ElementDragConfig) {
 
       if (snapCtx.hasAnySnap) {
         const snapOpts = prevSnapRef.current
-          ? { previousSnappedX: prevSnapRef.current.x, previousSnappedY: prevSnapRef.current.y }
+          ? {
+              previousSnappedX: prevSnapRef.current.x,
+              previousSnappedY: prevSnapRef.current.y,
+            }
           : undefined;
 
         if (isMultiDrag) {
           const elements = store.elements;
           const selectedOnPage = elements.filter(
-            (e) => currentSelectedIds.has(e.id) && e.pageNumber === el.pageNumber,
+            (e) =>
+              currentSelectedIds.has(e.id) && e.pageNumber === el.pageNumber,
           );
           if (selectedOnPage.length >= 2) {
-            let minBX = Infinity, minBY = Infinity, maxBX = -Infinity, maxBY = -Infinity;
+            let minBX = Infinity,
+              minBY = Infinity,
+              maxBX = -Infinity,
+              maxBY = -Infinity;
             for (const selEl of selectedOnPage) {
               const sp = dragStartPositions.current?.get(selEl.id);
               if (!sp) continue;
@@ -121,7 +150,14 @@ export function useElementDrag(config: ElementDragConfig) {
               if (px + selEl.width > maxBX) maxBX = px + selEl.width;
               if (py + selEl.height > maxBY) maxBY = py + selEl.height;
             }
-            const result = snapPosition(minBX, minBY, maxBX - minBX, maxBY - minBY, snapCtx, snapOpts);
+            const result = snapPosition(
+              minBX,
+              minBY,
+              maxBX - minBX,
+              maxBY - minBY,
+              snapCtx,
+              snapOpts,
+            );
             correctionDx = result.x - minBX;
             correctionDy = result.y - minBY;
             guides = result.guides;
@@ -129,7 +165,14 @@ export function useElementDrag(config: ElementDragConfig) {
           } else {
             const proposedX = el.x + rawDx;
             const proposedY = el.y + rawDy;
-            const result = snapPosition(proposedX, proposedY, el.width, el.height, snapCtx, snapOpts);
+            const result = snapPosition(
+              proposedX,
+              proposedY,
+              el.width,
+              el.height,
+              snapCtx,
+              snapOpts,
+            );
             correctionDx = result.x - proposedX;
             correctionDy = result.y - proposedY;
             guides = result.guides;
@@ -138,7 +181,14 @@ export function useElementDrag(config: ElementDragConfig) {
         } else {
           const proposedX = el.x + rawDx;
           const proposedY = el.y + rawDy;
-          const result = snapPosition(proposedX, proposedY, el.width, el.height, snapCtx, snapOpts);
+          const result = snapPosition(
+            proposedX,
+            proposedY,
+            el.width,
+            el.height,
+            snapCtx,
+            snapOpts,
+          );
           correctionDx = result.x - proposedX;
           correctionDy = result.y - proposedY;
           guides = result.guides;
@@ -146,8 +196,15 @@ export function useElementDrag(config: ElementDragConfig) {
         }
       }
 
-      setDragOffset({ dx: deltaX + correctionDx * zoom, dy: deltaY + correctionDy * zoom });
-      setDragSnapCorrection(snapCtx.hasAnySnap ? { dx: correctionDx * zoom, dy: correctionDy * zoom } : null);
+      setDragOffset({
+        dx: deltaX + correctionDx * zoom,
+        dy: deltaY + correctionDy * zoom,
+      });
+      setDragSnapCorrection(
+        snapCtx.hasAnySnap
+          ? { dx: correctionDx * zoom, dy: correctionDy * zoom }
+          : null,
+      );
       config.setActiveGuides(
         snapCtx.snapToGrid ? guides.filter((g) => g.type !== "grid") : guides,
       );
@@ -179,7 +236,12 @@ export function useElementDrag(config: ElementDragConfig) {
   );
 
   const handleDragStop = useCallback(
-    (el: FormElement, screen: { x: number; y: number }, d: { x: number; y: number }, me: MouseEvent) => {
+    (
+      el: FormElement,
+      screen: { x: number; y: number },
+      d: { x: number; y: number },
+      me: MouseEvent,
+    ) => {
       const store = useEditorStore.getState();
       const { zoom, layouts, pages, resolveTargetPage } = config;
 
@@ -203,16 +265,27 @@ export function useElementDrag(config: ElementDragConfig) {
 
         let correctionDx = 0;
         let correctionDy = 0;
-        const snapCtx = config.buildSnapContext(currentSelectedIds, el.pageNumber, {
-          shiftKey: me.shiftKey, ctrlKey: me.ctrlKey || me.metaKey,
-        });
+        const snapCtx = config.buildSnapContext(
+          currentSelectedIds,
+          el.pageNumber,
+          {
+            shiftKey: me.shiftKey,
+            ctrlKey: me.ctrlKey || me.metaKey,
+          },
+        );
 
         if (snapCtx.hasAnySnap) {
           const snapOpts = prevSnapRef.current
-            ? { previousSnappedX: prevSnapRef.current.x, previousSnappedY: prevSnapRef.current.y }
+            ? {
+                previousSnappedX: prevSnapRef.current.x,
+                previousSnappedY: prevSnapRef.current.y,
+              }
             : undefined;
           if (selectedOnPage.length >= 2) {
-            let minBX = Infinity, minBY = Infinity, maxBX = -Infinity, maxBY = -Infinity;
+            let minBX = Infinity,
+              minBY = Infinity,
+              maxBX = -Infinity,
+              maxBY = -Infinity;
             for (const selEl of selectedOnPage) {
               const sp = dragStartPositions.current?.get(selEl.id);
               if (!sp) continue;
@@ -223,26 +296,52 @@ export function useElementDrag(config: ElementDragConfig) {
               if (px + selEl.width > maxBX) maxBX = px + selEl.width;
               if (py + selEl.height > maxBY) maxBY = py + selEl.height;
             }
-            const result = snapPosition(minBX, minBY, maxBX - minBX, maxBY - minBY, snapCtx, snapOpts);
+            const result = snapPosition(
+              minBX,
+              minBY,
+              maxBX - minBX,
+              maxBY - minBY,
+              snapCtx,
+              snapOpts,
+            );
             correctionDx = result.x - minBX;
             correctionDy = result.y - minBY;
           } else {
             const proposedX = el.x + rawDx;
             const proposedY = el.y + rawDy;
-            const result = snapPosition(proposedX, proposedY, el.width, el.height, snapCtx, snapOpts);
+            const result = snapPosition(
+              proposedX,
+              proposedY,
+              el.width,
+              el.height,
+              snapCtx,
+              snapOpts,
+            );
             correctionDx = result.x - proposedX;
             correctionDy = result.y - proposedY;
           }
         }
 
-        const updates: Array<{ id: string; x: number; y: number; pageNumber?: number }> = [];
+        const updates: Array<{
+          id: string;
+          x: number;
+          y: number;
+          pageNumber?: number;
+        }> = [];
         for (const otherEl of elements) {
           if (!currentSelectedIds.has(otherEl.id)) continue;
           const startPos = dragStartPositions.current?.get(otherEl.id);
           if (startPos) {
             const newX = startPos.x + rawDx + correctionDx;
             const newY = startPos.y + rawDy + correctionDy;
-            const tp = resolveTargetPage(newX, newY, otherEl.width, otherEl.height, otherEl.pageNumber, layouts);
+            const tp = resolveTargetPage(
+              newX,
+              newY,
+              otherEl.width,
+              otherEl.height,
+              otherEl.pageNumber,
+              layouts,
+            );
             if (tp !== otherEl.pageNumber) {
               const oldLayout = layouts.get(otherEl.pageNumber)!;
               const newLayout = layouts.get(tp)!;
@@ -251,11 +350,27 @@ export function useElementDrag(config: ElementDragConfig) {
                 { x: newX + otherEl.width / 2, y: newY + otherEl.height / 2 },
                 { zoom, pageX: oldLayout.xOffset, pageY: oldLayout.yOffset },
               );
-              const newPdf = screenToPdf(sPt, { zoom, pageX: newLayout.xOffset, pageY: newLayout.yOffset });
+              const newPdf = screenToPdf(sPt, {
+                zoom,
+                pageX: newLayout.xOffset,
+                pageY: newLayout.yOffset,
+              });
               updates.push({
                 id: otherEl.id,
-                x: Math.max(0, Math.min(newPdf.x - otherEl.width / 2, targetPageInfo.width - otherEl.width)),
-                y: Math.max(0, Math.min(newPdf.y - otherEl.height / 2, targetPageInfo.height - otherEl.height)),
+                x: Math.max(
+                  0,
+                  Math.min(
+                    newPdf.x - otherEl.width / 2,
+                    targetPageInfo.width - otherEl.width,
+                  ),
+                ),
+                y: Math.max(
+                  0,
+                  Math.min(
+                    newPdf.y - otherEl.height / 2,
+                    targetPageInfo.height - otherEl.height,
+                  ),
+                ),
                 pageNumber: tp,
               });
             } else {
@@ -265,34 +380,74 @@ export function useElementDrag(config: ElementDragConfig) {
         }
         store.moveElements(updates);
       } else {
-        const snapCtx = config.buildSnapContext(new Set([el.id]), el.pageNumber, {
-          shiftKey: me.shiftKey, ctrlKey: me.ctrlKey || me.metaKey,
-        });
+        const snapCtx = config.buildSnapContext(
+          new Set([el.id]),
+          el.pageNumber,
+          {
+            shiftKey: me.shiftKey,
+            ctrlKey: me.ctrlKey || me.metaKey,
+          },
+        );
         const proposedX = el.x + (d.x - screen.x) / zoom;
         const proposedY = el.y + (d.y - screen.y) / zoom;
         let finalX = proposedX;
         let finalY = proposedY;
         if (snapCtx.hasAnySnap) {
           const snapOpts = prevSnapRef.current
-            ? { previousSnappedX: prevSnapRef.current.x, previousSnappedY: prevSnapRef.current.y }
+            ? {
+                previousSnappedX: prevSnapRef.current.x,
+                previousSnappedY: prevSnapRef.current.y,
+              }
             : undefined;
-          const result = snapPosition(proposedX, proposedY, el.width, el.height, snapCtx, snapOpts);
+          const result = snapPosition(
+            proposedX,
+            proposedY,
+            el.width,
+            el.height,
+            snapCtx,
+            snapOpts,
+          );
           finalX = result.x;
           finalY = result.y;
         }
-        const targetPage = resolveTargetPage(finalX, finalY, el.width, el.height, el.pageNumber, layouts);
+        const targetPage = resolveTargetPage(
+          finalX,
+          finalY,
+          el.width,
+          el.height,
+          el.pageNumber,
+          layouts,
+        );
         if (targetPage !== el.pageNumber) {
           const oldLayout = layouts.get(el.pageNumber)!;
           const newLayout = layouts.get(targetPage)!;
-          const targetPageInfo = pages.find((p) => p.pageNumber === targetPage)!;
+          const targetPageInfo = pages.find(
+            (p) => p.pageNumber === targetPage,
+          )!;
           const screenPt = pdfToScreen(
             { x: finalX + el.width / 2, y: finalY + el.height / 2 },
             { zoom, pageX: oldLayout.xOffset, pageY: oldLayout.yOffset },
           );
-          const newPdf = screenToPdf(screenPt, { zoom, pageX: newLayout.xOffset, pageY: newLayout.yOffset });
+          const newPdf = screenToPdf(screenPt, {
+            zoom,
+            pageX: newLayout.xOffset,
+            pageY: newLayout.yOffset,
+          });
           store.updateElement(el.id, {
-            x: Math.max(0, Math.min(newPdf.x - el.width / 2, targetPageInfo.width - el.width)),
-            y: Math.max(0, Math.min(newPdf.y - el.height / 2, targetPageInfo.height - el.height)),
+            x: Math.max(
+              0,
+              Math.min(
+                newPdf.x - el.width / 2,
+                targetPageInfo.width - el.width,
+              ),
+            ),
+            y: Math.max(
+              0,
+              Math.min(
+                newPdf.y - el.height / 2,
+                targetPageInfo.height - el.height,
+              ),
+            ),
             pageNumber: targetPage,
           });
         } else {

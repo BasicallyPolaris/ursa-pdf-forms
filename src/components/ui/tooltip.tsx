@@ -1,12 +1,18 @@
-import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
+import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 
 function TooltipProvider({ ...props }: TooltipPrimitive.Provider.Props) {
-  return <TooltipPrimitive.Provider data-slot="tooltip-provider" delay={300} {...props} />
+  return (
+    <TooltipPrimitive.Provider
+      data-slot="tooltip-provider"
+      delay={300}
+      {...props}
+    />
+  );
 }
 
 function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
-  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />
+  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />;
 }
 
 function TooltipTrigger({
@@ -19,14 +25,14 @@ function TooltipTrigger({
       className={cn(className)}
       {...props}
     />
-  )
+  );
 }
 
 function TooltipArrow() {
   return (
     <TooltipPrimitive.Arrow
       data-slot="tooltip-arrow"
-      className="flex data-[side=bottom]:-top-[8px] data-[side=left]:right-[-13px] data-[side=left]:rotate-90 data-[side=right]:left-[-13px] data-[side=right]:-rotate-90 data-[side=top]:-bottom-[8px] data-[side=top]:rotate-180"
+      className="flex data-[side=bottom]:-top-2 data-[side=left]:-right-3.25 data-[side=left]:rotate-90 data-[side=right]:-left-3.25 data-[side=right]:-rotate-90 data-[side=top]:-bottom-2 data-[side=top]:rotate-180"
     >
       <svg width="20" height="10" viewBox="0 0 20 10" fill="none">
         <path
@@ -39,7 +45,7 @@ function TooltipArrow() {
         />
       </svg>
     </TooltipPrimitive.Arrow>
-  )
+  );
 }
 
 function TooltipContent({
@@ -60,7 +66,7 @@ function TooltipContent({
         <TooltipPrimitive.Popup
           data-slot="tooltip-content"
           className={cn(
-            "dark rounded-md bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-md outline outline-1 -outline-offset-1 outline-foreground/10 origin-[var(--transform-origin)] duration-150 ease-out transition-[transform,opacity] data-[ending-style]:opacity-0 data-[ending-style]:scale-95 data-[starting-style]:opacity-0 data-[starting-style]:scale-95",
+            "dark rounded-md bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-md outline -outline-offset-1 outline-foreground/10 origin-(--transform-origin) duration-150 ease-out transition-[transform,opacity] data-ending-style:opacity-0 data-ending-style:scale-95 data-starting-style:opacity-0 data-starting-style:scale-95",
             className,
           )}
           {...props}
@@ -70,7 +76,7 @@ function TooltipContent({
         </TooltipPrimitive.Popup>
       </TooltipPrimitive.Positioner>
     </TooltipPrimitive.Portal>
-  )
+  );
 }
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger };

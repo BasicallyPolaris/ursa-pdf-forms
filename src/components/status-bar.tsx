@@ -1,7 +1,7 @@
-import { useTranslation } from "react-i18next";
-import { useEditorStore } from "@/stores/editor-store";
-import { Kbd } from "@/components/ui/kbd";
 import { ShortcutsDialog } from "@/components/shortcuts-dialog";
+import { Kbd } from "@/components/ui/kbd";
+import { useEditorStore } from "@/stores/editor-store";
+import { useTranslation } from "react-i18next";
 
 export function StatusBar() {
   const { t } = useTranslation();

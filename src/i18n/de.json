@@ -100,7 +100,8 @@
     "zoom": "Zoom",
     "removeField": "Feld entfernen",
     "dropToOpen": "PDF zum Öffnen ablegen",
-    "dropToReplace": "PDF ablegen, um aktuelles Dokument zu ersetzen"
+    "dropToReplace": "PDF ablegen, um aktuelles Dokument zu ersetzen",
+    "dropInvalidFile": "Nur PDF-Dateien werden unterstützt"
   },
   "sidebar": {
     "pages": "Seiten"

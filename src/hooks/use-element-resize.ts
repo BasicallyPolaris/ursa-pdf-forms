@@ -1,10 +1,14 @@
-import { useCallback, useRef, useState } from "react";
-import { useEditorStore } from "@/stores/editor-store";
+import { screenToPdf } from "@/lib/coordinates";
+import { lockCursor, unlockCursor } from "@/lib/cursor";
 import type { FormElement } from "@/lib/form-element-model";
 import type { PageLayout } from "@/lib/page-layout";
-import { screenToPdf } from "@/lib/coordinates";
-import { snapResizeBounds, type SnapGuide, type SnapContext } from "@/lib/snap-engine";
-import { lockCursor, unlockCursor } from "@/lib/cursor";
+import {
+  snapResizeBounds,
+  type SnapContext,
+  type SnapGuide,
+} from "@/lib/snap-engine";
+import { useEditorStore } from "@/stores/editor-store";
+import { useCallback, useRef, useState } from "react";
 
 const MIN_SIZE = 10;
 
@@ -18,7 +22,10 @@ interface ElementResizeConfig {
   ) => SnapContext;
   setActiveGuides: (guides: SnapGuide[]) => void;
   setDragLivePositions: (
-    positions: Map<string, { x: number; y: number; width: number; height: number }> | null,
+    positions: Map<
+      string,
+      { x: number; y: number; width: number; height: number }
+    > | null,
   ) => void;
 }
 
@@ -70,13 +77,29 @@ export function useElementResize(config: ElementResizeConfig) {
 
       if (snapCtx.hasAnySnap) {
         const snapOpts = prevSnapRef.current
-          ? { previousSnappedX: prevSnapRef.current.x, previousSnappedY: prevSnapRef.current.y }
+          ? {
+              previousSnappedX: prevSnapRef.current.x,
+              previousSnappedY: prevSnapRef.current.y,
+            }
           : undefined;
-        const result = snapResizeBounds(rawPdf.x, rawPdf.y, rawWidth, rawHeight, dir, snapCtx, snapOpts);
+        const result = snapResizeBounds(
+          rawPdf.x,
+          rawPdf.y,
+          rawWidth,
+          rawHeight,
+          dir,
+          snapCtx,
+          snapOpts,
+        );
         const snappedW = Math.max(MIN_SIZE / zoom, result.width);
         const snappedH = Math.max(MIN_SIZE / zoom, result.height);
 
-        lastResizeSnap.current = { x: result.x, y: result.y, width: snappedW, height: snappedH };
+        lastResizeSnap.current = {
+          x: result.x,
+          y: result.y,
+          width: snappedW,
+          height: snappedH,
+        };
         prevSnapRef.current = { x: result.x, y: result.y };
 
         const dx = (result.x - rawPdf.x) * zoom;
@@ -85,11 +108,21 @@ export function useElementResize(config: ElementResizeConfig) {
         const dh = (snappedH - rawHeight) * zoom;
         setResizeSnapCorrection({ dx, dy, dw, dh });
         config.setActiveGuides(
-          snapCtx.snapToGrid ? result.guides.filter((g) => g.type !== "grid") : result.guides,
+          snapCtx.snapToGrid
+            ? result.guides.filter((g) => g.type !== "grid")
+            : result.guides,
         );
 
-        const livePositions = new Map<string, { x: number; y: number; width: number; height: number }>();
-        livePositions.set(el.id, { x: result.x, y: result.y, width: snappedW, height: snappedH });
+        const livePositions = new Map<
+          string,
+          { x: number; y: number; width: number; height: number }
+        >();
+        livePositions.set(el.id, {
+          x: result.x,
+          y: result.y,
+          width: snappedW,
+          height: snappedH,
+        });
         config.setDragLivePositions(livePositions);
       } else {
         lastResizeSnap.current = null;

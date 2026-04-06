@@ -3,7 +3,7 @@ export interface Point {
   y: number;
 }
 
-export const TOP_PADDING = 16;
+export const V_PADDING = 16;
 export const PAGE_GAP = 8;
 export const H_PADDING = 16;
 

@@ -10,8 +10,17 @@ export interface SnapContext {
   snapThreshold: number;
   pageWidth: number;
   pageHeight: number;
-  otherElements: Array<{ x: number; y: number; width: number; height: number; id?: string }>;
-  rulerGuides: Array<{ orientation: "horizontal" | "vertical"; position: number }>;
+  otherElements: Array<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    id?: string;
+  }>;
+  rulerGuides: Array<{
+    orientation: "horizontal" | "vertical";
+    position: number;
+  }>;
   snapToGrid: boolean;
   snapToPageEdges: boolean;
   snapToElements: boolean;
@@ -59,7 +68,11 @@ interface SnapCandidate {
 
 const TIE_ZONE = 1.0;
 
-function findBestSnap(pos: number, candidates: SnapCandidate[], previousSnapped?: number): SnapCandidate {
+function findBestSnap(
+  pos: number,
+  candidates: SnapCandidate[],
+  previousSnapped?: number,
+): SnapCandidate {
   let best = { snapped: pos, guide: null as SnapGuide | null };
   let bestDist = Infinity;
 
@@ -73,7 +86,8 @@ function findBestSnap(pos: number, candidates: SnapCandidate[], previousSnapped?
 
   if (best.guide && previousSnapped !== undefined) {
     const tied = candidates.filter(
-      (c) => c.guide && Math.abs(Math.abs(c.snapped - pos) - bestDist) <= TIE_ZONE,
+      (c) =>
+        c.guide && Math.abs(Math.abs(c.snapped - pos) - bestDist) <= TIE_ZONE,
     );
     if (tied.length > 1) {
       let closest = best;
@@ -205,7 +219,10 @@ function findAllAlignmentGuides(
   };
 
   if (context.snapToGrid && context.gridSize > 0) {
-    const gridOnly = !context.snapToElements && !context.snapToGuides && !context.snapToPageEdges;
+    const gridOnly =
+      !context.snapToElements &&
+      !context.snapToGuides &&
+      !context.snapToPageEdges;
     const vEdges = gridOnly
       ? [elementEdges.left, elementEdges.right]
       : [elementEdges.left, elementEdges.right, elementEdges.centerX];
@@ -221,7 +238,11 @@ function findAllAlignmentGuides(
     for (const edge of hEdges) {
       const snapped = snapToGrid(edge, context.gridSize);
       if (Math.abs(snapped - edge) <= CONCURRENT_TOLERANCE) {
-        addGuide({ orientation: "horizontal", position: snapped, type: "grid" });
+        addGuide({
+          orientation: "horizontal",
+          position: snapped,
+          type: "grid",
+        });
       }
     }
   }
@@ -263,32 +284,62 @@ function findAllAlignmentGuides(
 
       for (const check of hChecks) {
         if (Math.abs(check.val - check.target) <= CONCURRENT_TOLERANCE) {
-          addGuide({ orientation: "horizontal", position: check.target, type: "element", elementId: other.id });
+          addGuide({
+            orientation: "horizontal",
+            position: check.target,
+            type: "element",
+            elementId: other.id,
+          });
         }
       }
       for (const check of vChecks) {
         if (Math.abs(check.val - check.target) <= CONCURRENT_TOLERANCE) {
-          addGuide({ orientation: "vertical", position: check.target, type: "element", elementId: other.id });
+          addGuide({
+            orientation: "vertical",
+            position: check.target,
+            type: "element",
+            elementId: other.id,
+          });
         }
       }
     }
   }
 
   if (context.snapToGuides) {
-    const vGuidePositions = context.rulerGuides.filter((g) => g.orientation === "vertical").map((g) => g.position);
-    const hGuidePositions = context.rulerGuides.filter((g) => g.orientation === "horizontal").map((g) => g.position);
+    const vGuidePositions = context.rulerGuides
+      .filter((g) => g.orientation === "vertical")
+      .map((g) => g.position);
+    const hGuidePositions = context.rulerGuides
+      .filter((g) => g.orientation === "horizontal")
+      .map((g) => g.position);
 
     for (const guidePos of hGuidePositions) {
-      for (const edge of [elementEdges.top, elementEdges.bottom, elementEdges.centerY]) {
+      for (const edge of [
+        elementEdges.top,
+        elementEdges.bottom,
+        elementEdges.centerY,
+      ]) {
         if (Math.abs(edge - guidePos) <= CONCURRENT_TOLERANCE) {
-          addGuide({ orientation: "horizontal", position: guidePos, type: "ruler" });
+          addGuide({
+            orientation: "horizontal",
+            position: guidePos,
+            type: "ruler",
+          });
         }
       }
     }
     for (const guidePos of vGuidePositions) {
-      for (const edge of [elementEdges.left, elementEdges.right, elementEdges.centerX]) {
+      for (const edge of [
+        elementEdges.left,
+        elementEdges.right,
+        elementEdges.centerX,
+      ]) {
         if (Math.abs(edge - guidePos) <= CONCURRENT_TOLERANCE) {
-          addGuide({ orientation: "vertical", position: guidePos, type: "ruler" });
+          addGuide({
+            orientation: "vertical",
+            position: guidePos,
+            type: "ruler",
+          });
         }
       }
     }
@@ -304,7 +355,11 @@ function findAllAlignmentGuides(
     ];
     for (const check of hEdgeChecks) {
       if (Math.abs(check.edge - check.target) <= CONCURRENT_TOLERANCE) {
-        addGuide({ orientation: "horizontal", position: check.target, type: "page" });
+        addGuide({
+          orientation: "horizontal",
+          position: check.target,
+          type: "page",
+        });
       }
     }
 
@@ -317,7 +372,11 @@ function findAllAlignmentGuides(
     ];
     for (const check of vEdgeChecks) {
       if (Math.abs(check.edge - check.target) <= CONCURRENT_TOLERANCE) {
-        addGuide({ orientation: "vertical", position: check.target, type: "page" });
+        addGuide({
+          orientation: "vertical",
+          position: check.target,
+          type: "page",
+        });
       }
     }
   }
@@ -342,30 +401,58 @@ export function snapPosition(
   if (context.snapToGrid) {
     const gridLeft = snapToGrid(proposedX, context.gridSize);
     if (gridLeft !== proposedX) {
-      xCandidates.push({ snapped: gridLeft, guide: { orientation: "vertical", position: gridLeft, type: "grid" } });
+      xCandidates.push({
+        snapped: gridLeft,
+        guide: { orientation: "vertical", position: gridLeft, type: "grid" },
+      });
     }
     const proposedRight = proposedX + elementWidth;
     const gridRight = snapToGrid(proposedRight, context.gridSize);
     const snappedXFromRight = gridRight - elementWidth;
     if (snappedXFromRight !== proposedX) {
-      xCandidates.push({ snapped: snappedXFromRight, guide: { orientation: "vertical", position: gridRight, type: "grid" } });
+      xCandidates.push({
+        snapped: snappedXFromRight,
+        guide: { orientation: "vertical", position: gridRight, type: "grid" },
+      });
     }
 
     const gridTop = snapToGrid(proposedY, context.gridSize);
     if (gridTop !== proposedY) {
-      yCandidates.push({ snapped: gridTop, guide: { orientation: "horizontal", position: gridTop, type: "grid" } });
+      yCandidates.push({
+        snapped: gridTop,
+        guide: { orientation: "horizontal", position: gridTop, type: "grid" },
+      });
     }
     const proposedBottom = proposedY + elementHeight;
     const gridBottom = snapToGrid(proposedBottom, context.gridSize);
     const snappedYFromBottom = gridBottom - elementHeight;
     if (snappedYFromBottom !== proposedY) {
-      yCandidates.push({ snapped: snappedYFromBottom, guide: { orientation: "horizontal", position: gridBottom, type: "grid" } });
+      yCandidates.push({
+        snapped: snappedYFromBottom,
+        guide: {
+          orientation: "horizontal",
+          position: gridBottom,
+          type: "grid",
+        },
+      });
     }
   }
 
   if (context.snapToPageEdges) {
-    const pageEdgeX = snapToPageEdge(proposedX, elementWidth, context.pageWidth, context.snapThreshold, "vertical");
-    const pageEdgeY = snapToPageEdge(proposedY, elementHeight, context.pageHeight, context.snapThreshold, "horizontal");
+    const pageEdgeX = snapToPageEdge(
+      proposedX,
+      elementWidth,
+      context.pageWidth,
+      context.snapThreshold,
+      "vertical",
+    );
+    const pageEdgeY = snapToPageEdge(
+      proposedY,
+      elementHeight,
+      context.pageHeight,
+      context.snapThreshold,
+      "horizontal",
+    );
     if (pageEdgeX.snapped !== proposedX) {
       xCandidates.push({ snapped: pageEdgeX.snapped, guide: pageEdgeX.guide });
     }
@@ -390,7 +477,11 @@ export function snapPosition(
       if (dist > 0 && dist <= context.snapThreshold) {
         xCandidates.push({
           snapped: check.offset,
-          guide: { orientation: "vertical", position: pageCenterX, type: "page" },
+          guide: {
+            orientation: "vertical",
+            position: pageCenterX,
+            type: "page",
+          },
         });
       }
     }
@@ -405,26 +496,76 @@ export function snapPosition(
       if (dist > 0 && dist <= context.snapThreshold) {
         yCandidates.push({
           snapped: check.offset,
-          guide: { orientation: "horizontal", position: pageCenterY, type: "page" },
+          guide: {
+            orientation: "horizontal",
+            position: pageCenterY,
+            type: "page",
+          },
         });
       }
     }
   }
 
   if (context.snapToElements) {
-    const hBounds = context.otherElements.map((e) => ({ start: e.x, end: e.x + e.width, id: e.id }));
-    const vBounds = context.otherElements.map((e) => ({ start: e.y, end: e.y + e.height, id: e.id }));
+    const hBounds = context.otherElements.map((e) => ({
+      start: e.x,
+      end: e.x + e.width,
+      id: e.id,
+    }));
+    const vBounds = context.otherElements.map((e) => ({
+      start: e.y,
+      end: e.y + e.height,
+      id: e.id,
+    }));
 
-    xCandidates.push(...snapAxisToElements(proposedX, elementWidth, hBounds, context.snapThreshold, "vertical", "element"));
-    yCandidates.push(...snapAxisToElements(proposedY, elementHeight, vBounds, context.snapThreshold, "horizontal", "element"));
+    xCandidates.push(
+      ...snapAxisToElements(
+        proposedX,
+        elementWidth,
+        hBounds,
+        context.snapThreshold,
+        "vertical",
+        "element",
+      ),
+    );
+    yCandidates.push(
+      ...snapAxisToElements(
+        proposedY,
+        elementHeight,
+        vBounds,
+        context.snapThreshold,
+        "horizontal",
+        "element",
+      ),
+    );
   }
 
   if (context.snapToGuides) {
-    const vGuidePositions = context.rulerGuides.filter((g) => g.orientation === "vertical").map((g) => g.position);
-    const hGuidePositions = context.rulerGuides.filter((g) => g.orientation === "horizontal").map((g) => g.position);
+    const vGuidePositions = context.rulerGuides
+      .filter((g) => g.orientation === "vertical")
+      .map((g) => g.position);
+    const hGuidePositions = context.rulerGuides
+      .filter((g) => g.orientation === "horizontal")
+      .map((g) => g.position);
 
-    xCandidates.push(...snapAxisToGuides(proposedX, elementWidth, vGuidePositions, context.snapThreshold, "vertical"));
-    yCandidates.push(...snapAxisToGuides(proposedY, elementHeight, hGuidePositions, context.snapThreshold, "horizontal"));
+    xCandidates.push(
+      ...snapAxisToGuides(
+        proposedX,
+        elementWidth,
+        vGuidePositions,
+        context.snapThreshold,
+        "vertical",
+      ),
+    );
+    yCandidates.push(
+      ...snapAxisToGuides(
+        proposedY,
+        elementHeight,
+        hGuidePositions,
+        context.snapThreshold,
+        "horizontal",
+      ),
+    );
   }
 
   const bestX = findBestSnap(proposedX, xCandidates, options?.previousSnappedX);
@@ -437,7 +578,13 @@ export function snapPosition(
     snappedY = bestY.snapped;
   }
 
-  const allGuides = findAllAlignmentGuides(snappedX, snappedY, elementWidth, elementHeight, context);
+  const allGuides = findAllAlignmentGuides(
+    snappedX,
+    snappedY,
+    elementWidth,
+    elementHeight,
+    context,
+  );
 
   return { x: snappedX, y: snappedY, guides: allGuides };
 }
@@ -453,35 +600,67 @@ function snapEdgePosition(
   if (context.snapToGrid) {
     const gridPos = snapToGrid(edgePos, context.gridSize);
     if (gridPos !== edgePos) {
-      candidates.push({ snapped: gridPos, guide: { orientation, position: gridPos, type: "grid" } });
+      candidates.push({
+        snapped: gridPos,
+        guide: { orientation, position: gridPos, type: "grid" },
+      });
     }
   }
 
   if (context.snapToPageEdges) {
-    const pageSize = orientation === "vertical" ? context.pageWidth : context.pageHeight;
+    const pageSize =
+      orientation === "vertical" ? context.pageWidth : context.pageHeight;
     if (Math.abs(edgePos) <= context.snapThreshold) {
-      candidates.push({ snapped: 0, guide: { orientation, position: 0, type: "page" } });
+      candidates.push({
+        snapped: 0,
+        guide: { orientation, position: 0, type: "page" },
+      });
     }
     if (Math.abs(pageSize - edgePos) <= context.snapThreshold) {
-      candidates.push({ snapped: pageSize, guide: { orientation, position: pageSize, type: "page" } });
+      candidates.push({
+        snapped: pageSize,
+        guide: { orientation, position: pageSize, type: "page" },
+      });
     }
     const pageCenter = pageSize / 2;
-    if (Math.abs(edgePos - pageCenter) > 0 && Math.abs(edgePos - pageCenter) <= context.snapThreshold) {
-      candidates.push({ snapped: pageCenter, guide: { orientation, position: pageCenter, type: "page" } });
+    if (
+      Math.abs(edgePos - pageCenter) > 0 &&
+      Math.abs(edgePos - pageCenter) <= context.snapThreshold
+    ) {
+      candidates.push({
+        snapped: pageCenter,
+        guide: { orientation, position: pageCenter, type: "page" },
+      });
     }
   }
 
   if (context.snapToElements) {
     const bounds =
       orientation === "vertical"
-        ? context.otherElements.map((e) => ({ start: e.x, end: e.x + e.width, id: e.id }))
-        : context.otherElements.map((e) => ({ start: e.y, end: e.y + e.height, id: e.id }));
+        ? context.otherElements.map((e) => ({
+            start: e.x,
+            end: e.x + e.width,
+            id: e.id,
+          }))
+        : context.otherElements.map((e) => ({
+            start: e.y,
+            end: e.y + e.height,
+            id: e.id,
+          }));
     for (const other of bounds) {
       const otherCenter = (other.start + other.end) / 2;
       for (const target of [other.start, other.end, otherCenter]) {
         const dist = Math.abs(edgePos - target);
         if (dist > 0 && dist <= context.snapThreshold) {
-          candidates.push({ snapped: target, guide: { orientation, position: target, type: "element", elementId: other.id } });
+          candidates.push({
+            snapped: target,
+            guide: {
+              orientation,
+              position: target,
+              type: "element",
+              elementId: other.id,
+            },
+          });
         }
       }
     }
@@ -494,7 +673,10 @@ function snapEdgePosition(
     for (const gp of guidePositions) {
       const dist = Math.abs(edgePos - gp);
       if (dist > 0 && dist <= context.snapThreshold) {
-        candidates.push({ snapped: gp, guide: { orientation, position: gp, type: "ruler" } });
+        candidates.push({
+          snapped: gp,
+          guide: { orientation, position: gp, type: "ruler" },
+        });
       }
     }
   }
@@ -510,19 +692,38 @@ export function snapResizeBounds(
   direction: string,
   context: SnapContext,
   options?: { previousSnappedX?: number; previousSnappedY?: number },
-): { x: number; y: number; width: number; height: number; guides: SnapGuide[] } {
+): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  guides: SnapGuide[];
+} {
   let newX = x,
     newY = y,
     newW = width,
     newH = height;
 
-  const movesRight = direction === "right" || direction === "topRight" || direction === "bottomRight";
-  const movesLeft = direction === "left" || direction === "topLeft" || direction === "bottomLeft";
-  const movesBottom = direction === "bottom" || direction === "bottomRight" || direction === "bottomLeft";
-  const movesTop = direction === "top" || direction === "topRight" || direction === "topLeft";
+  const movesRight =
+    direction === "right" ||
+    direction === "topRight" ||
+    direction === "bottomRight";
+  const movesLeft =
+    direction === "left" ||
+    direction === "topLeft" ||
+    direction === "bottomLeft";
+  const movesBottom =
+    direction === "bottom" ||
+    direction === "bottomRight" ||
+    direction === "bottomLeft";
+  const movesTop =
+    direction === "top" || direction === "topRight" || direction === "topLeft";
 
   if (movesRight) {
-    const prevEdge = options?.previousSnappedX !== undefined ? options.previousSnappedX + width : undefined;
+    const prevEdge =
+      options?.previousSnappedX !== undefined
+        ? options.previousSnappedX + width
+        : undefined;
     const result = snapEdgePosition(x + width, context, "vertical", prevEdge);
     if (result.guide) {
       newW = result.snapped - x;
@@ -530,7 +731,12 @@ export function snapResizeBounds(
   }
 
   if (movesLeft) {
-    const result = snapEdgePosition(x, context, "vertical", options?.previousSnappedX);
+    const result = snapEdgePosition(
+      x,
+      context,
+      "vertical",
+      options?.previousSnappedX,
+    );
     if (result.guide) {
       const rightEdge = x + width;
       newX = result.snapped;
@@ -539,15 +745,28 @@ export function snapResizeBounds(
   }
 
   if (movesBottom) {
-    const prevEdge = options?.previousSnappedY !== undefined ? options.previousSnappedY + height : undefined;
-    const result = snapEdgePosition(y + height, context, "horizontal", prevEdge);
+    const prevEdge =
+      options?.previousSnappedY !== undefined
+        ? options.previousSnappedY + height
+        : undefined;
+    const result = snapEdgePosition(
+      y + height,
+      context,
+      "horizontal",
+      prevEdge,
+    );
     if (result.guide) {
       newH = result.snapped - y;
     }
   }
 
   if (movesTop) {
-    const result = snapEdgePosition(y, context, "horizontal", options?.previousSnappedY);
+    const result = snapEdgePosition(
+      y,
+      context,
+      "horizontal",
+      options?.previousSnappedY,
+    );
     if (result.guide) {
       const bottomEdge = y + height;
       newY = result.snapped;

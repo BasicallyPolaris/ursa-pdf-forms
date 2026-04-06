@@ -1,14 +1,12 @@
+import { formatShortcutParts, type ShortcutId } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { Fragment } from "react";
-import { formatShortcutParts, type ShortcutId } from "@/lib/shortcuts";
 
 const isMacClient =
-  typeof navigator !== "undefined" && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
+  typeof navigator !== "undefined" &&
+  /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
 
-function Kbd({
-  className,
-  ...props
-}: React.ComponentProps<"kbd">) {
+function Kbd({ className, ...props }: React.ComponentProps<"kbd">) {
   return (
     <kbd
       data-slot="kbd"

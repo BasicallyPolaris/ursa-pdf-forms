@@ -1,34 +1,19 @@
-import { useStore } from "zustand";
-import { useTranslation } from "react-i18next";
+import { clampZoom, ZOOM_PRESETS, ZOOM_STEP } from "@/hooks/use-zoom";
 import { fileIO } from "@/lib/file-io";
-import {
-  redo,
-  undo,
-  useEditorStore,
-} from "@/stores/editor-store";
-import {
-  clampZoom,
-  ZOOM_PRESETS,
-  ZOOM_STEP,
-} from "@/hooks/use-zoom";
 import { getZoomEngine } from "@/lib/use-zoom-animation";
+import { redo, undo, useEditorStore } from "@/stores/editor-store";
+import { useTranslation } from "react-i18next";
+import { useStore } from "zustand";
 
-import {
-  FileDown,
-  FolderOpen,
-  Minus,
-  Plus,
-  Redo2,
-  Undo2,
-} from "lucide-react";
+import { ShortcutKbd } from "@/components/ui/kbd";
+import { ToolbarSeparator, ToolButton } from "@/components/ui/tool-button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ToolButton, ToolbarSeparator } from "@/components/ui/tool-button";
-import { ShortcutKbd } from "@/components/ui/kbd";
+import { FileDown, FolderOpen, Minus, Plus, Redo2, Undo2 } from "lucide-react";
 
 function ZoomControls() {
   const { t } = useTranslation();
@@ -96,8 +81,14 @@ function ZoomControls() {
 
 export function AppHeader() {
   const { t } = useTranslation();
-  const hasPast = useStore(useEditorStore.temporal, (s) => s.pastStates.length > 0);
-  const hasFuture = useStore(useEditorStore.temporal, (s) => s.futureStates.length > 0);
+  const hasPast = useStore(
+    useEditorStore.temporal,
+    (s) => s.pastStates.length > 0,
+  );
+  const hasFuture = useStore(
+    useEditorStore.temporal,
+    (s) => s.futureStates.length > 0,
+  );
   const hasPdf = useEditorStore((s) => !!s.pdfBytes);
 
   return (
@@ -105,7 +96,14 @@ export function AppHeader() {
       <header className="grid h-11 grid-cols-[1fr_auto_1fr] items-center gap-1 border-b border-border bg-card px-2 select-none">
         <div className="flex items-center gap-1">
           <Tooltip>
-            <TooltipTrigger render={<ToolButton onClick={() => fileIO.openPdf()} variant="primary" />}>
+            <TooltipTrigger
+              render={
+                <ToolButton
+                  onClick={() => fileIO.openPdf()}
+                  variant="primary"
+                />
+              }
+            >
               <FolderOpen className="h-3.5 w-3.5" />
               <span>{t("header.open")}</span>
             </TooltipTrigger>
@@ -122,7 +120,14 @@ export function AppHeader() {
 
         <div className="flex items-center justify-end gap-1">
           <Tooltip>
-            <TooltipTrigger render={<ToolButton onClick={() => undo()} disabled={!(hasPdf && hasPast)} />}>
+            <TooltipTrigger
+              render={
+                <ToolButton
+                  onClick={() => undo()}
+                  disabled={!(hasPdf && hasPast)}
+                />
+              }
+            >
               <Undo2 className="h-3.5 w-3.5" />
             </TooltipTrigger>
             <TooltipContent>
@@ -133,7 +138,14 @@ export function AppHeader() {
             </TooltipContent>
           </Tooltip>
           <Tooltip>
-            <TooltipTrigger render={<ToolButton onClick={() => redo()} disabled={!(hasPdf && hasFuture)} />}>
+            <TooltipTrigger
+              render={
+                <ToolButton
+                  onClick={() => redo()}
+                  disabled={!(hasPdf && hasFuture)}
+                />
+              }
+            >
               <Redo2 className="h-3.5 w-3.5" />
             </TooltipTrigger>
             <TooltipContent>
@@ -147,7 +159,14 @@ export function AppHeader() {
           <ToolbarSeparator />
 
           <Tooltip>
-            <TooltipTrigger render={<ToolButton onClick={() => fileIO.exportPdf()} variant="primary" />}>
+            <TooltipTrigger
+              render={
+                <ToolButton
+                  onClick={() => fileIO.exportPdf()}
+                  variant="primary"
+                />
+              }
+            >
               <FileDown className="h-3.5 w-3.5" />
               <span>{t("header.export")}</span>
             </TooltipTrigger>

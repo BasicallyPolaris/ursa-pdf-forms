@@ -3,11 +3,11 @@
  * Redraws on committedZoom change (via useLayoutEffect) and on scroll.
  */
 
-import { H_PADDING, PAGE_GAP, TOP_PADDING } from "@/lib/coordinates";
-import { getLayoutContentWidth } from "@/lib/page-layout";
+import { H_PADDING, PAGE_GAP, V_PADDING } from "@/lib/coordinates";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
-import { useEditorStore } from "@/stores/editor-store";
+import { getLayoutContentWidth } from "@/lib/page-layout";
 import { snapToGrid } from "@/lib/snap-engine";
+import { useEditorStore } from "@/stores/editor-store";
 import {
   useCallback,
   useEffect,
@@ -22,8 +22,6 @@ const MAJOR_INTERVAL = 50;
 const MINOR_INTERVAL = 10;
 const SUB_INTERVAL = 5;
 const MIN_VERTICAL_TICK_PX = 2.5;
-
-
 
 // ─── Draw helpers ────────────────────────────────────────────────────────────
 
@@ -140,7 +138,7 @@ function drawVerticalRuler(
   ctx.font = "10px monospace";
   ctx.textBaseline = "bottom";
 
-  let currentY = TOP_PADDING;
+  let currentY = V_PADDING;
   for (const page of pages) {
     const screenHeight = page.height * zoom;
     let lastScreenY = -Infinity;
@@ -400,7 +398,7 @@ export function VerticalRuler({
       const st = scrollEl?.scrollTop ?? 0;
       const rulerTop = rulerEl.getBoundingClientRect().top;
       const relY = clientY - rulerTop + st;
-      let yOff = TOP_PADDING;
+      let yOff = V_PADDING;
       for (const page of pages) {
         const ph = page.height * zoom;
         if (relY >= yOff && relY < yOff + ph)
@@ -434,7 +432,7 @@ export function VerticalRuler({
         const st = scrollEl?.scrollTop ?? 0;
         const zoom = committedZoomRef.current;
         const rulerTop = rulerEl.getBoundingClientRect().top;
-        let yOff = TOP_PADDING;
+        let yOff = V_PADDING;
         for (const page of pages) {
           const gy = yOff + g.position * zoom - st;
           if (Math.abs(e.clientY - rulerTop - gy) < 6) return true;

@@ -1,7 +1,7 @@
+import { H_PADDING, PAGE_GAP, V_PADDING } from "./coordinates";
 import type { PageInfo } from "./pdf-loader";
-import { TOP_PADDING, PAGE_GAP, H_PADDING } from "./coordinates";
 
-export { TOP_PADDING, PAGE_GAP, H_PADDING };
+export { H_PADDING, PAGE_GAP, V_PADDING };
 export type { PageLayout };
 
 interface PageLayout {
@@ -32,12 +32,17 @@ export function computePageLayouts(
 ): Map<number, PageLayout> {
   const layouts = new Map<number, PageLayout>();
   const cw = getLayoutContentWidth(pages, zoom, containerWidth);
-  let currentY = TOP_PADDING;
+  let currentY = V_PADDING;
   for (const page of pages) {
     const screenWidth = page.width * zoom;
     const screenHeight = page.height * zoom;
     const xOffset = Math.max(H_PADDING, (cw - screenWidth) / 2);
-    layouts.set(page.pageNumber, { xOffset, yOffset: currentY, screenWidth, screenHeight });
+    layouts.set(page.pageNumber, {
+      xOffset,
+      yOffset: currentY,
+      screenWidth,
+      screenHeight,
+    });
     currentY += screenHeight + PAGE_GAP;
   }
   return layouts;
@@ -67,8 +72,9 @@ export function getTotalContentHeight(pages: PageInfo[], zoom: number): number {
   if (pages.length === 0) return 0;
   return (
     pages.reduce((acc, p) => acc + p.height * zoom, 0) +
-    TOP_PADDING +
-    PAGE_GAP * (pages.length - 1)
+    V_PADDING +
+    PAGE_GAP * (pages.length - 1) +
+    V_PADDING
   );
 }
 

@@ -1,3 +1,4 @@
+import { ShortcutKbd } from "@/components/ui/kbd";
 import { ToolButton } from "@/components/ui/tool-button";
 import {
   Tooltip,
@@ -5,7 +6,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ShortcutKbd } from "@/components/ui/kbd";
+import type { ShortcutId } from "@/lib/shortcuts";
+import { TOOL_SHORTCUT_MAP } from "@/lib/shortcuts";
 import { useEditorStore } from "@/stores/editor-store";
 import {
   AlignLeft,
@@ -14,11 +16,9 @@ import {
   Square,
   Type,
 } from "lucide-react";
-import { useTranslation } from "react-i18next";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Separator } from "./ui/separator";
-import { TOOL_SHORTCUT_MAP } from "@/lib/shortcuts";
-import type { ShortcutId } from "@/lib/shortcuts";
 
 const TOOL_KEYS = [
   {
@@ -66,7 +66,9 @@ export function FloatingToolbar() {
                 <TooltipContent>
                   <span className="flex items-center gap-2">
                     {t(labelKey)}
-                    <ShortcutKbd shortcutId={TOOL_SHORTCUT_MAP[id] as ShortcutId} />
+                    <ShortcutKbd
+                      shortcutId={TOOL_SHORTCUT_MAP[id] as ShortcutId}
+                    />
                   </span>
                 </TooltipContent>
               </Tooltip>

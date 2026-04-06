@@ -1,7 +1,16 @@
-import { PDFDocument, PDFName, PDFArray, PDFDict, PDFRef, PDFNumber } from "pdf-lib";
+import {
+  PDFArray,
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  PDFNumber,
+  PDFRef,
+} from "pdf-lib";
 import type { FormElement } from "./form-element-model";
 
-export async function extractAcroFormFields(pdfBytes: Uint8Array): Promise<FormElement[]> {
+export async function extractAcroFormFields(
+  pdfBytes: Uint8Array,
+): Promise<FormElement[]> {
   const pdf = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
   const pages = pdf.getPages();
   const elements: FormElement[] = [];
@@ -22,7 +31,15 @@ export async function extractAcroFormFields(pdfBytes: Uint8Array): Promise<FormE
     const fieldDict = resolveDict(ctx, fieldRef);
     if (!fieldDict) continue;
 
-    collectFields(ctx, fieldDict, pages, pageRefToIndex, generateId, elements, null);
+    collectFields(
+      ctx,
+      fieldDict,
+      pages,
+      pageRefToIndex,
+      generateId,
+      elements,
+      null,
+    );
   }
 
   return elements;
@@ -78,7 +95,16 @@ function collectFields(
     if (ft === PDFName.of("Btn")) {
       const radio = isRadioField(fieldDict, ctx);
       if (radio) {
-        collectRadioKids(ctx, fieldDict, kids, pages, pageRefToIndex, generateId, elements, parentName ?? "");
+        collectRadioKids(
+          ctx,
+          fieldDict,
+          kids,
+          pages,
+          pageRefToIndex,
+          generateId,
+          elements,
+          parentName ?? "",
+        );
         return;
       }
     }
@@ -87,7 +113,15 @@ function collectFields(
       const kidRef = kids.get(i);
       const kidDict = resolveDict(ctx, kidRef);
       if (!kidDict) continue;
-      collectFields(ctx, kidDict, pages, pageRefToIndex, generateId, elements, parentName);
+      collectFields(
+        ctx,
+        kidDict,
+        pages,
+        pageRefToIndex,
+        generateId,
+        elements,
+        parentName,
+      );
     }
     return;
   }
@@ -110,7 +144,19 @@ function collectFields(
   if (width <= 0 || height <= 0) return;
 
   if (ft === PDFName.of("Tx")) {
-    elements.push(extractTextField(fieldDict, ctx, generateId(), x, y, width, height, pageNumber, parentPartialName));
+    elements.push(
+      extractTextField(
+        fieldDict,
+        ctx,
+        generateId(),
+        x,
+        y,
+        width,
+        height,
+        pageNumber,
+        parentPartialName,
+      ),
+    );
   } else if (ft === PDFName.of("Btn")) {
     if (isRadioField(fieldDict, ctx)) {
       const groupName = parentPartialName ?? "";
@@ -129,7 +175,18 @@ function collectFields(
       });
     } else {
       const name = getFieldName(fieldDict) ?? parentPartialName ?? "";
-      elements.push(extractCheckboxField(fieldDict, generateId(), x, y, width, height, pageNumber, name));
+      elements.push(
+        extractCheckboxField(
+          fieldDict,
+          generateId(),
+          x,
+          y,
+          width,
+          height,
+          pageNumber,
+          name,
+        ),
+      );
     }
   }
 }
@@ -165,7 +222,8 @@ function collectRadioKids(
 
     if (width <= 0 || height <= 0) continue;
 
-    const exportValue = optValues[i] ?? getExportValue(kidDict) ?? `Option${i + 1}`;
+    const exportValue =
+      optValues[i] ?? getExportValue(kidDict) ?? `Option${i + 1}`;
 
     elements.push({
       type: "radio",
@@ -234,7 +292,8 @@ function extractCheckboxField(
   name: string,
 ): FormElement {
   const asValue = dict.lookup(PDFName.of("AS"));
-  const defaultChecked = asValue instanceof PDFName && asValue !== PDFName.of("Off");
+  const defaultChecked =
+    asValue instanceof PDFName && asValue !== PDFName.of("Off");
 
   return {
     type: "checkbox",
@@ -317,7 +376,11 @@ function parseFontSizeFromDA(da: string): number {
   return 0;
 }
 
-function getInheritableAttr(dict: PDFDict, name: PDFName, ctx: LookupCtx): unknown {
+function getInheritableAttr(
+  dict: PDFDict,
+  name: PDFName,
+  ctx: LookupCtx,
+): unknown {
   let current: PDFDict | null = dict;
   while (current) {
     const val = current.get(name);

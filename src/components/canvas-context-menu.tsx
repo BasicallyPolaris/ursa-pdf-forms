@@ -1,25 +1,25 @@
-import { useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { createPortal } from "react-dom";
-import { useEditorStore } from "@/stores/editor-store";
 import {
-  createTextField,
   createCheckbox,
   createRadioButton,
+  createTextField,
   getUniqueName,
 } from "@/lib/form-element-model";
 import { formatShortcut } from "@/lib/shortcuts";
+import { useEditorStore } from "@/stores/editor-store";
 import {
-  Scissors,
-  Copy,
-  ClipboardPaste,
-  CopyPlus,
-  Trash2,
-  SquareCheck,
-  CircleDot,
-  TextCursorInput,
   AlignLeft,
+  CircleDot,
+  ClipboardPaste,
+  Copy,
+  CopyPlus,
+  Scissors,
+  SquareCheck,
+  TextCursorInput,
+  Trash2,
 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 
 export type MenuContext =
   | { type: "element"; pdfX: number; pdfY: number; pageNumber: number }
@@ -86,7 +86,12 @@ export function CanvasContextMenu({
           label: t("contextMenu.pasteHere"),
           shortcut: formatShortcut("paste"),
           icon: ClipboardPaste,
-          action: () => store.pasteClipboard(context.pageNumber, context.pdfX, context.pdfY),
+          action: () =>
+            store.pasteClipboard(
+              context.pageNumber,
+              context.pdfX,
+              context.pdfY,
+            ),
           disabled: clipboard.length === 0,
         },
         {
@@ -126,7 +131,12 @@ export function CanvasContextMenu({
           label: t("contextMenu.pasteHere"),
           shortcut: formatShortcut("paste"),
           icon: ClipboardPaste,
-          action: () => store.pasteClipboard(context.pageNumber, context.pdfX, context.pdfY),
+          action: () =>
+            store.pasteClipboard(
+              context.pageNumber,
+              context.pdfX,
+              context.pdfY,
+            ),
         });
         result.push({ separator: true });
       }
@@ -169,10 +179,7 @@ export function CanvasContextMenu({
               x: context.pdfX,
               y: context.pdfY,
               pageNumber: context.pageNumber,
-              name: getUniqueName(
-                `checkbox_${elements.length + 1}`,
-                elements,
-              ),
+              name: getUniqueName(`checkbox_${elements.length + 1}`, elements),
             });
             store.addElement(newEl);
             store.selectElements(new Set([newEl.id]));
@@ -224,14 +231,15 @@ export function CanvasContextMenu({
     return [];
   })();
 
-  const actionableEntries = entries.filter((e): e is MenuItem => !("separator" in e));
+  const actionableEntries = entries.filter(
+    (e): e is MenuItem => !("separator" in e),
+  );
 
   useEffect(() => {
     setFocusedIndex(0);
     requestAnimationFrame(() => {
-      const firstItem = menuRef.current?.querySelector<HTMLElement>(
-        "[data-menu-item]",
-      );
+      const firstItem =
+        menuRef.current?.querySelector<HTMLElement>("[data-menu-item]");
       firstItem?.focus();
     });
   }, []);
@@ -259,9 +267,10 @@ export function CanvasContextMenu({
         e.preventDefault();
         setFocusedIndex((i) => {
           const next = (i + 1) % actionableEntries.length;
-          const el = menuRef.current?.querySelectorAll<HTMLElement>(
-            "[data-menu-item]",
-          )[next];
+          const el =
+            menuRef.current?.querySelectorAll<HTMLElement>("[data-menu-item]")[
+              next
+            ];
           el?.focus();
           return next;
         });
@@ -273,9 +282,10 @@ export function CanvasContextMenu({
         setFocusedIndex((i) => {
           const next =
             (i - 1 + actionableEntries.length) % actionableEntries.length;
-          const el = menuRef.current?.querySelectorAll<HTMLElement>(
-            "[data-menu-item]",
-          )[next];
+          const el =
+            menuRef.current?.querySelectorAll<HTMLElement>("[data-menu-item]")[
+              next
+            ];
           el?.focus();
           return next;
         });
@@ -319,7 +329,7 @@ export function CanvasContextMenu({
       ref={menuRef}
       role="menu"
       aria-orientation="vertical"
-      className="dark fixed z-[9999] min-w-40 max-h-[var(--available-height,80vh)] overflow-x-hidden overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-none"
+      className="dark fixed z-9999 min-w-40 max-h-(--available-height,80vh) overflow-x-hidden overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-none"
       style={{ left, top }}
       onMouseDown={(e) => e.stopPropagation()}
     >
@@ -342,9 +352,7 @@ export function CanvasContextMenu({
               "hover:bg-accent hover:text-accent-foreground " +
               "focus:bg-accent focus:text-accent-foreground " +
               "data-[variant=destructive]:text-destructive data-[variant=destructive]:hover:bg-destructive/10 data-[variant=destructive]:hover:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive " +
-              (entry.disabled
-                ? "pointer-events-none opacity-50"
-                : "")
+              (entry.disabled ? "pointer-events-none opacity-50" : "")
             }
             onClick={() => {
               if (!entry.disabled) {

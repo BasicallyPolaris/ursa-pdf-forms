@@ -4,21 +4,21 @@ import { FloatingToolbar } from "@/components/floating-toolbar";
 import { PageSidebar } from "@/components/page-sidebar";
 import { PdfCanvas } from "@/components/pdf-canvas";
 import { PropertiesPanel } from "@/components/properties-panel";
-import { StatusBar } from "@/components/status-bar";
-import { ErrorBoundary } from "@/components/ui/error-boundary";
 import {
   HorizontalRuler,
   RulerCorner,
   VerticalRuler,
 } from "@/components/ruler";
+import { StatusBar } from "@/components/status-bar";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useZoom } from "@/hooks/use-zoom";
+import { fileIO } from "@/lib/file-io";
 import { useEditorStore } from "@/stores/editor-store";
+import { FileDown, FileX } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FileDown } from "lucide-react";
-import { fileIO } from "@/lib/file-io";
 
 function App() {
   useFileDrop();
@@ -29,6 +29,7 @@ function App() {
 
   const { t } = useTranslation();
   const isFileDragOver = useEditorStore((s) => s.isFileDragOver);
+  const isDragFileValid = useEditorStore((s) => s.isDragFileValid);
   const pdfBytes = useEditorStore((s) => s.pdfBytes);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const hRulerRef = useRef<HTMLDivElement>(null);
@@ -61,11 +62,18 @@ function App() {
   }, [handleScroll]);
 
   return (
-    <div className="dark flex h-screen flex-col" onContextMenu={(e) => e.preventDefault()}>
-      <ErrorBoundary><AppHeader /></ErrorBoundary>
+    <div
+      className="dark flex h-screen flex-col"
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <ErrorBoundary>
+        <AppHeader />
+      </ErrorBoundary>
 
       <div className="flex flex-1 overflow-hidden">
-        <ErrorBoundary fallback={<div className="w-14" />}><PageSidebar /></ErrorBoundary>
+        <ErrorBoundary fallback={<div className="w-14" />}>
+          <PageSidebar />
+        </ErrorBoundary>
 
         <main
           data-testid="canvas-area"
@@ -88,11 +96,13 @@ function App() {
                 <div
                   ref={scrollContainerRef}
                   className="relative flex-1 min-w-0 min-h-0 overflow-auto"
-                  style={{ overflowAnchor: 'none' }}
+                  style={{ overflowAnchor: "none" }}
                   data-pdf-scroll-container
                 >
                   <PdfCanvas>
-                    <ErrorBoundary><CanvasOverlay /></ErrorBoundary>
+                    <ErrorBoundary>
+                      <CanvasOverlay />
+                    </ErrorBoundary>
                   </PdfCanvas>
                   <FloatingToolbar />
                 </div>
@@ -100,14 +110,30 @@ function App() {
             </div>
           </div>
           {isFileDragOver && (
-            <div className="absolute inset-0 z-[60] pointer-events-none animate-in fade-in-0 duration-150">
-              <div className="absolute inset-0 bg-background/40" />
-              <div className="absolute inset-3 rounded-lg border-2 border-dashed border-muted-foreground/25" />
-              <div className="flex h-full items-center justify-center">
-                <div className="flex items-center gap-2.5 rounded-md border border-border bg-card px-4 py-2.5">
-                  <FileDown className="h-4 w-4 text-muted-foreground" />
-                  <p className="text-sm font-medium text-foreground">
-                    {pdfBytes ? t("canvas.dropToReplace") : t("canvas.dropToOpen")}
+            <div className="absolute inset-0 z-60 pointer-events-none animate-in fade-in-0 duration-150">
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-[2px]" />
+              <div
+                className={`absolute inset-4 rounded-lg border-2 border-dashed ${isDragFileValid ? "border-foreground/20" : "border-destructive/30"}`}
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center rounded-full border ${isDragFileValid ? "border-border bg-muted/50" : "border-destructive/30 bg-destructive/10"}`}
+                  >
+                    {isDragFileValid ? (
+                      <FileDown className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <FileX className="h-5 w-5 text-destructive" />
+                    )}
+                  </div>
+                  <p
+                    className={`text-sm font-medium ${isDragFileValid ? "text-foreground" : "text-destructive"}`}
+                  >
+                    {isDragFileValid
+                      ? pdfBytes
+                        ? t("canvas.dropToReplace")
+                        : t("canvas.dropToOpen")
+                      : t("canvas.dropInvalidFile")}
                   </p>
                 </div>
               </div>

@@ -1,20 +1,20 @@
-import { useTranslation } from "react-i18next";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogTrigger,
-  DialogClose,
 } from "@/components/ui/dialog";
 import { ShortcutKbd } from "@/components/ui/kbd";
 import {
   getShortcutsByGroup,
-  type ShortcutGroup,
   type ShortcutDef,
+  type ShortcutGroup,
 } from "@/lib/shortcuts";
 import { Keyboard, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const GROUPS: { id: ShortcutGroup; labelKey: string }[] = [
   { id: "file", labelKey: "shortcuts.file" },
@@ -55,13 +55,17 @@ export function ShortcutsDialog() {
                 </h3>
                 <div className="grid gap-1">
                   {getShortcutsByGroup(id)
-                    .filter((s, i, arr) =>
-                      s.id !== "redoAlt" || arr.findIndex((x) => x.i18nKey === s.i18nKey) === i
+                    .filter(
+                      (s, i, arr) =>
+                        s.id !== "redoAlt" ||
+                        arr.findIndex((x) => x.i18nKey === s.i18nKey) === i,
                     )
                     .map((shortcut) => {
                       const isRedo = shortcut.id === "redo";
                       const altShortcut: ShortcutDef | undefined = isRedo
-                        ? getShortcutsByGroup(id).find((s) => s.id === "redoAlt")
+                        ? getShortcutsByGroup(id).find(
+                            (s) => s.id === "redoAlt",
+                          )
                         : undefined;
                       return (
                         <div
@@ -75,7 +79,9 @@ export function ShortcutsDialog() {
                             <ShortcutKbd shortcutId={shortcut.id} />
                             {altShortcut && (
                               <>
-                                <span className="text-muted-foreground/50 text-[10px]">/</span>
+                                <span className="text-muted-foreground/50 text-[10px]">
+                                  /
+                                </span>
                                 <ShortcutKbd shortcutId={altShortcut.id} />
                               </>
                             )}

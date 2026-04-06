@@ -1,12 +1,7 @@
 import i18n from "@/i18n";
 import type { FormElement } from "@/lib/form-element-model";
-import {
-  Type,
-  Square,
-  CircleDot,
-  AlignLeft,
-} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { AlignLeft, CircleDot, Square, Type } from "lucide-react";
 
 export interface ElementStyleConfig {
   labelKey: string;
@@ -70,12 +65,13 @@ const CONFIGS: Record<string, ElementStyleConfig> = {
         : "border border-field-multiline-dim bg-field-multiline-bg",
     dimBorderClass: "border-field-multiline-dim",
     textColorClass: "text-field-multiline",
-    drawPreviewClass: "border-2 border-field-multiline/60 bg-field-multiline-bg",
+    drawPreviewClass:
+      "border-2 border-field-multiline/60 bg-field-multiline-bg",
   },
 };
 
 export function getElementStyleConfig(
-  element: FormElement
+  element: FormElement,
 ): ElementStyleConfig {
   if (element.type === "text" && "multiline" in element && element.multiline) {
     return CONFIGS.multiline;
@@ -84,7 +80,7 @@ export function getElementStyleConfig(
 }
 
 export function getElementStyleConfigByType(
-  type: string
+  type: string,
 ): ElementStyleConfig | undefined {
   return CONFIGS[type];
 }

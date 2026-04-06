@@ -1,8 +1,8 @@
+import { computePageLayouts } from "@/lib/page-layout";
+import { loadPdfDocument, type PdfDocument } from "@/lib/pdf-loader";
+import { useEditorStore } from "@/stores/editor-store";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useEditorStore } from "@/stores/editor-store";
-import { loadPdfDocument, type PdfDocument } from "@/lib/pdf-loader";
-import { computePageLayouts } from "@/lib/page-layout";
 
 const THUMB_ITEM_HEIGHT = 130;
 const THUMB_BUFFER = 8;
@@ -12,22 +12,33 @@ const THUMB_MAX_SCALE = 0.18;
 const MAX_THUMB_CONCURRENT = 4;
 
 interface RenderJobOptions {
-  genRef: React.MutableRefObject<number>;
+  genRef: React.RefObject<number>;
   genValue: number;
   maxConcurrent: number;
   pageNumbers: number[];
   delayMs: number;
-  onPageRendered?: (completed: number, remaining: number, total: number) => void;
+  onPageRendered?: (
+    completed: number,
+    remaining: number,
+    total: number,
+  ) => void;
 }
 
 function renderThumbnails(
   doc: PdfDocument,
   pages: Array<{ pageNumber: number; width: number; height: number }>,
-  bitmapCache: React.MutableRefObject<Map<number, ImageBitmap>>,
-  canvasRefs: React.MutableRefObject<Map<number, HTMLCanvasElement>>,
+  bitmapCache: React.RefObject<Map<number, ImageBitmap>>,
+  canvasRefs: React.RefObject<Map<number, HTMLCanvasElement>>,
   opts: RenderJobOptions,
 ) {
-  const { genRef, genValue, maxConcurrent, pageNumbers, delayMs, onPageRendered } = opts;
+  const {
+    genRef,
+    genValue,
+    maxConcurrent,
+    pageNumbers,
+    delayMs,
+    onPageRendered,
+  } = opts;
   const pending = new Map<number, ReturnType<typeof doc.startRender>>();
   let active = 0;
   let completed = 0;
@@ -220,7 +231,11 @@ export function PageSidebar() {
     }
 
     const { pending, drain } = renderThumbnails(
-      doc, pages, bitmapCache, canvasRefs, {
+      doc,
+      pages,
+      bitmapCache,
+      canvasRefs,
+      {
         genRef: renderGeneration,
         genValue: gen,
         maxConcurrent: MAX_THUMB_CONCURRENT,
@@ -258,14 +273,20 @@ export function PageSidebar() {
     if (pageNumbers.length === 0) return;
 
     const { pending, drain } = renderThumbnails(
-      doc, pages, bitmapCache, canvasRefs, {
+      doc,
+      pages,
+      bitmapCache,
+      canvasRefs,
+      {
         genRef: idleGeneration,
         genValue: gen,
         maxConcurrent: 3,
         pageNumbers,
         delayMs: 50,
         onPageRendered: (completed, remaining, total) => {
-          setPreRenderProgress(remaining > 0 ? { done: completed, total } : null);
+          setPreRenderProgress(
+            remaining > 0 ? { done: completed, total } : null,
+          );
         },
       },
     );
