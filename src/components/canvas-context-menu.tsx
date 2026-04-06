@@ -18,10 +18,10 @@ import {
   Copy,
   CopyPlus,
   List,
-  MousePointerSquare,
   PenLine,
   Scissors,
   SquareCheck,
+  SquareMousePointer,
   TextCursorInput,
   Trash2,
 } from "lucide-react";
@@ -238,7 +238,7 @@ export function CanvasContextMenu({
         },
         {
           label: t("contextMenu.addButton"),
-          icon: MousePointerSquare,
+          icon: SquareMousePointer,
           action: () => {
             const newEl = createButtonField({
               x: context.pdfX,

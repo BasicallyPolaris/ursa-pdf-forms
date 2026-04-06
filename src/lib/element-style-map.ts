@@ -5,10 +5,10 @@ import {
   AlignLeft,
   CircleDot,
   ChevronDown,
-  MousePointerSquare,
   List,
   PenLine,
   Square,
+  SquareMousePointer,
   Type,
 } from "lucide-react";
 
@@ -93,7 +93,7 @@ const CONFIGS: Record<string, ElementStyleConfig> = {
   },
   button: {
     labelKey: "fieldTypes.button",
-    icon: MousePointerSquare,
+    icon: SquareMousePointer,
     colorClass: "text-field-button",
     borderClass: "border-field-button/30",
     borderBgClass: (selected) =>

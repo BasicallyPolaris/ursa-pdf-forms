@@ -15,8 +15,8 @@ import {
   CircleDot,
   List,
   MousePointer2,
-  MousePointerSquare,
   PenLine,
+  SquareMousePointer,
   Square,
   Type,
 } from "lucide-react";
@@ -45,7 +45,7 @@ const TOOL_KEYS = [
   {
     id: "button" as const,
     labelKey: "toolbar.button",
-    icon: MousePointerSquare,
+    icon: SquareMousePointer,
   },
   {
     id: "signature" as const,
