@@ -20,8 +20,7 @@
     "radio": "Optionsfeld",
     "dropdown": "Dropdown",
     "button": "Schaltfläche",
-    "optionlist": "Auswahlliste",
-    "signature": "Signatur"
+    "optionlist": "Auswahlliste"
   },
   "fieldTypes": {
     "textField": "Textfeld",
@@ -30,8 +29,7 @@
     "multiline": "Mehrzeilig",
     "dropdown": "Dropdown",
     "button": "Schaltfläche",
-    "optionlist": "Auswahlliste",
-    "signature": "Signatur"
+    "optionlist": "Auswahlliste"
   },
   "properties": {
     "panelError": "Panel-Fehler",
@@ -43,7 +41,6 @@
     "dropdowns": "Dropdowns",
     "buttons": "Schaltflächen",
     "optionLists": "Auswahllisten",
-    "signatures": "Signaturen",
     "mixedTypes": "Gemischte Typen",
     "page": "Seite {{page}}",
     "pageLabel": "Seite",
@@ -181,7 +178,6 @@
     "toolDropdown": "Dropdown",
     "toolButton": "Schaltfläche",
     "toolOptionList": "Auswahlliste",
-    "toolSignature": "Signatur",
     "zoomIn": "Vergrößern",
     "zoomOut": "Verkleinern",
     "zoomFit": "An Breite anpassen",
@@ -204,7 +200,6 @@
     "addRadio": "Optionsfeld hinzufügen",
     "addDropdown": "Dropdown hinzufügen",
     "addButton": "Schaltfläche hinzufügen",
-    "addOptionList": "Auswahlliste hinzufügen",
-    "addSignature": "Signatur hinzufügen"
+    "addOptionList": "Auswahlliste hinzufügen"
   }
 }

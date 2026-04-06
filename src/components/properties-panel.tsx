@@ -23,12 +23,13 @@ import {
   isDropdownField,
   isButtonField,
   isOptionListField,
-  isSignatureField,
+  heightFromOptions,
   type FormElement,
   type RadioButton,
   type TextField,
 } from "@/lib/form-element-model";
 import { resolveElementPosition } from "@/lib/page-coordinates";
+import { lockCursor, unlockCursor } from "@/lib/cursor";
 import { useEditorStore, type GuideLine } from "@/stores/editor-store";
 import {
   AlignCenterHorizontal,
@@ -40,6 +41,7 @@ import {
   BetweenHorizontalStart,
   BetweenVerticalStart,
   Expand,
+  GripVertical,
   MousePointer2,
   MoveHorizontal,
   MoveVertical,
@@ -661,6 +663,148 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
   );
 }
 
+function DraggableOptionList({
+  options,
+  defaultValue,
+  elementId,
+  onUpdateOption,
+  onRemoveOption,
+  onReorderOptions,
+  onSetDefault,
+}: {
+  options: string[];
+  defaultValue: string;
+  elementId: string;
+  onUpdateOption: (index: number, value: string) => void;
+  onRemoveOption: (index: number) => void;
+  onReorderOptions: (fromIndex: number, toIndex: number) => void;
+  onSetDefault: (value: string) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dragIndexRef = useRef<number | null>(null);
+  const insertIndexRef = useRef<number | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [indicatorY, setIndicatorY] = useState<number | null>(null);
+
+  const getRowRects = useCallback(() => {
+    if (!containerRef.current) return [];
+    const rows = containerRef.current.querySelectorAll<HTMLElement>("[data-opt-row]");
+    return Array.from(rows).map((row) => row.getBoundingClientRect());
+  }, []);
+
+  const computeInsert = useCallback(
+    (pointerY: number): { index: number; y: number } | null => {
+      const rects = getRowRects();
+      if (rects.length === 0) return null;
+      for (let i = 0; i < rects.length; i++) {
+        const mid = rects[i].top + rects[i].height / 2;
+        if (pointerY < mid) {
+          return { index: i, y: rects[i].top - 1 };
+        }
+      }
+      const last = rects[rects.length - 1];
+      return { index: rects.length, y: last.bottom + 1 };
+    },
+    [getRowRects],
+  );
+
+  const handlePointerDown = useCallback(
+    (index: number, e: React.PointerEvent) => {
+      e.preventDefault();
+      dragIndexRef.current = index;
+      insertIndexRef.current = index;
+      setDragIndex(index);
+      setIndicatorY(null);
+
+      const startY = e.clientY;
+      let moved = false;
+
+      const onMove = (ev: PointerEvent) => {
+        const dy = Math.abs(ev.clientY - startY);
+        if (!moved && dy < 4) return;
+        if (!moved) {
+          moved = true;
+          lockCursor("grab");
+        }
+        const result = computeInsert(ev.clientY);
+        if (result) {
+          insertIndexRef.current = result.index;
+          setIndicatorY(result.y);
+        }
+      };
+
+      const onUp = () => {
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", onUp);
+        unlockCursor();
+        const from = dragIndexRef.current;
+        const to = insertIndexRef.current;
+        dragIndexRef.current = null;
+        insertIndexRef.current = null;
+        setDragIndex(null);
+        setIndicatorY(null);
+        if (from !== null && to !== null && from !== to) {
+          onReorderOptions(from, to);
+        }
+      };
+
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
+    },
+    [computeInsert, onReorderOptions],
+  );
+
+  return (
+    <div ref={containerRef} className="relative flex flex-col gap-1.5">
+      {indicatorY !== null && containerRef.current && (
+        <div
+          className="pointer-events-none absolute left-0 right-0 h-0.5 -translate-y-1/2 rounded-full bg-primary"
+          style={{ top: indicatorY - containerRef.current.getBoundingClientRect().top }}
+        />
+      )}
+      {options.map((opt, i) => {
+        const isDragging = dragIndex === i;
+        return (
+          <div
+            key={`${i}-${opt}`}
+            data-opt-row
+            className={`flex items-center gap-1 rounded-sm transition-opacity ${
+              isDragging ? "opacity-25" : ""
+            }`}
+          >
+            <button
+              type="button"
+              className="flex h-6 w-4 shrink-0 cursor-grab items-center justify-center text-muted-foreground/40 hover:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card rounded-sm"
+              onPointerDown={(e) => handlePointerDown(i, e)}
+            >
+              <GripVertical className="h-3 w-3" />
+            </button>
+            <input
+              type="radio"
+              name={`default-${elementId}`}
+              checked={defaultValue === opt}
+              onChange={() => onSetDefault(opt)}
+              className="h-3.5 w-3.5 shrink-0 accent-primary rounded-full ring-offset-1 ring-offset-card outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            />
+            <Input
+              value={opt}
+              onChange={(e) => onUpdateOption(i, e.target.value)}
+              className="h-6 flex-1 text-xs"
+            />
+            <button
+              type="button"
+              onClick={() => onRemoveOption(i)}
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-destructive outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
+            >
+              ×
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function DropdownProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
   const element = useEditorStore((s) =>
@@ -673,6 +817,13 @@ function DropdownProperties({ elementId }: { elementId: string }) {
   const nameField = useDeferredValue(element.name, (v) =>
     updateElement(element.id, { name: v }),
   );
+  const fontSizeField = useDeferredValue(element.fontSize, (v) => {
+    const fs = Number(v);
+    updateElement(element.id, {
+      fontSize: fs,
+      height: heightFromFontSize(fs),
+    });
+  });
 
   const addOption = () => {
     const next = element.options.length + 1;
@@ -693,6 +844,13 @@ function DropdownProperties({ elementId }: { elementId: string }) {
     updateElement(element.id, { options: newOptions });
   };
 
+  const reorderOptions = (fromIndex: number, toIndex: number) => {
+    const newOptions = [...element.options];
+    const [moved] = newOptions.splice(fromIndex, 1);
+    newOptions.splice(toIndex, 0, moved);
+    updateElement(element.id, { options: newOptions });
+  };
+
   return (
     <div className="flex flex-col gap-3">
       <PropertyField label={t("properties.name")}>
@@ -701,42 +859,41 @@ function DropdownProperties({ elementId }: { elementId: string }) {
 
       <Separator />
 
+      <SectionHeader label={t("properties.typography")} />
+
+      <PropertyField label={t("properties.fontSize")}>
+        <NumericInput {...fontSizeField} />
+      </PropertyField>
+
+      <div className="flex items-center justify-between">
+        <Label className="text-[11px] text-muted-foreground">
+          {t("properties.height")}
+        </Label>
+        <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
+          {t("properties.pt", { value: Math.round(element.height) })}
+        </span>
+      </div>
+
+      <Separator />
+
       <SectionHeader label={t("properties.options")} />
 
-      <div className="flex flex-col gap-1.5">
-        {element.options.map((opt, i) => (
-          <div key={i} className="flex items-center gap-1">
-            <input
-              type="radio"
-              name={`default-${element.id}`}
-              checked={element.defaultValue === opt}
-              onChange={() =>
-                updateElement(element.id, { defaultValue: opt })
-              }
-              className="h-3 w-3 accent-primary"
-            />
-            <Input
-              value={opt}
-              onChange={(e) => updateOption(i, e.target.value)}
-              className="h-6 flex-1 text-xs"
-            />
-            <button
-              type="button"
-              onClick={() => removeOption(i)}
-              className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-destructive"
-            >
-              ×
-            </button>
-          </div>
-        ))}
-        <button
-          type="button"
-          onClick={addOption}
-          className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-        >
-          +
-        </button>
-      </div>
+      <DraggableOptionList
+        options={element.options}
+        defaultValue={element.defaultValue}
+        elementId={element.id}
+        onUpdateOption={updateOption}
+        onRemoveOption={removeOption}
+        onReorderOptions={reorderOptions}
+        onSetDefault={(v) => updateElement(element.id, { defaultValue: v })}
+      />
+      <button
+        type="button"
+        onClick={addOption}
+        className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
+      >
+        +
+      </button>
 
       <div className="flex items-center justify-between">
         <Label className="text-[11px] text-muted-foreground">
@@ -806,23 +963,41 @@ function OptionListProperties({ elementId }: { elementId: string }) {
   const nameField = useDeferredValue(element.name, (v) =>
     updateElement(element.id, { name: v }),
   );
+  const fontSizeField = useDeferredValue(element.fontSize, (v) => {
+    const fs = Number(v);
+    updateElement(element.id, {
+      fontSize: fs,
+      height: heightFromOptions(fs, element.options.length),
+    });
+  });
 
   const addOption = () => {
     const next = element.options.length + 1;
+    const newOptions = [...element.options, `Option ${next}`];
     updateElement(element.id, {
-      options: [...element.options, `Option ${next}`],
+      options: newOptions,
+      height: heightFromOptions(element.fontSize, newOptions.length),
     });
   };
 
   const removeOption = (index: number) => {
+    const newOptions = element.options.filter((_, i) => i !== index);
     updateElement(element.id, {
-      options: element.options.filter((_, i) => i !== index),
+      options: newOptions,
+      height: heightFromOptions(element.fontSize, newOptions.length),
     });
   };
 
   const updateOption = (index: number, value: string) => {
     const newOptions = [...element.options];
     newOptions[index] = value;
+    updateElement(element.id, { options: newOptions });
+  };
+
+  const reorderOptions = (fromIndex: number, toIndex: number) => {
+    const newOptions = [...element.options];
+    const [moved] = newOptions.splice(fromIndex, 1);
+    newOptions.splice(toIndex, 0, moved);
     updateElement(element.id, { options: newOptions });
   };
 
@@ -834,42 +1009,41 @@ function OptionListProperties({ elementId }: { elementId: string }) {
 
       <Separator />
 
+      <SectionHeader label={t("properties.typography")} />
+
+      <PropertyField label={t("properties.fontSize")}>
+        <NumericInput {...fontSizeField} />
+      </PropertyField>
+
+      <div className="flex items-center justify-between">
+        <Label className="text-[11px] text-muted-foreground">
+          {t("properties.height")}
+        </Label>
+        <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
+          {t("properties.pt", { value: Math.round(element.height) })}
+        </span>
+      </div>
+
+      <Separator />
+
       <SectionHeader label={t("properties.options")} />
 
-      <div className="flex flex-col gap-1.5">
-        {element.options.map((opt, i) => (
-          <div key={i} className="flex items-center gap-1">
-            <input
-              type="radio"
-              name={`default-${element.id}`}
-              checked={element.defaultValue === opt}
-              onChange={() =>
-                updateElement(element.id, { defaultValue: opt })
-              }
-              className="h-3 w-3 accent-primary"
-            />
-            <Input
-              value={opt}
-              onChange={(e) => updateOption(i, e.target.value)}
-              className="h-6 flex-1 text-xs"
-            />
-            <button
-              type="button"
-              onClick={() => removeOption(i)}
-              className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-destructive"
-            >
-              ×
-            </button>
-          </div>
-        ))}
-        <button
-          type="button"
-          onClick={addOption}
-          className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-        >
-          +
-        </button>
-      </div>
+      <DraggableOptionList
+        options={element.options}
+        defaultValue={element.defaultValue}
+        elementId={element.id}
+        onUpdateOption={updateOption}
+        onRemoveOption={removeOption}
+        onReorderOptions={reorderOptions}
+        onSetDefault={(v) => updateElement(element.id, { defaultValue: v })}
+      />
+      <button
+        type="button"
+        onClick={addOption}
+        className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
+      >
+        +
+      </button>
 
       <div className="flex items-center justify-between">
         <Label className="text-[11px] text-muted-foreground">
@@ -886,27 +1060,7 @@ function OptionListProperties({ elementId }: { elementId: string }) {
   );
 }
 
-function SignatureProperties({ elementId }: { elementId: string }) {
-  const { t } = useTranslation();
-  const element = useEditorStore((s) =>
-    s.elements.find((el) => el.id === elementId),
-  );
-  const updateElement = useEditorStore((s) => s.updateElement);
 
-  if (!element || !isSignatureField(element)) return null;
-
-  const nameField = useDeferredValue(element.name, (v) =>
-    updateElement(element.id, { name: v }),
-  );
-
-  return (
-    <div className="flex flex-col gap-3">
-      <PropertyField label={t("properties.name")}>
-        <Input {...nameField} className="h-7 text-xs" />
-      </PropertyField>
-    </div>
-  );
-}
 
 function SinglePositionProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
@@ -927,7 +1081,10 @@ function SinglePositionProperties({ elementId }: { elementId: string }) {
   const displayH = livePos
     ? Math.round(livePos.height)
     : Math.round(element.height);
-  const isAutoHeight = isTextField(element) && !element.multiline;
+  const isAutoHeight =
+    (isTextField(element) && !element.multiline) ||
+    isDropdownField(element) ||
+    isOptionListField(element);
 
   const xField = useDeferredValue(displayX, (v) => {
     const resolved = resolveElementPosition(
@@ -1092,7 +1249,10 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
   const allSameY = elements.every((el) => el.y === elements[0].y);
   const allSameW = elements.every((el) => el.width === elements[0].width);
   const resizableElements = elements.filter(
-    (el) => !(isTextField(el) && !el.multiline),
+    (el) =>
+      !(isTextField(el) && !el.multiline) &&
+      !isDropdownField(el) &&
+      !isOptionListField(el),
   );
   const allSameH =
     resizableElements.length > 0 &&
@@ -1101,7 +1261,12 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
   const heightDisplayValue = allSameH
     ? Math.round(resizableElements[0].height)
     : "";
-  const hasAutoHeight = elements.some((el) => isTextField(el) && !el.multiline);
+  const hasAutoHeight = elements.some(
+    (el) =>
+      (isTextField(el) && !el.multiline) ||
+      isDropdownField(el) ||
+      isOptionListField(el),
+  );
 
   const xField = useDeferredValue(
     allSameX ? Math.round(elements[0].x) : "",
@@ -1153,7 +1318,12 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
   const hField = useDeferredValue(heightDisplayValue, (v) =>
     batchUpdateElements(
       elements
-        .filter((el) => !(isTextField(el) && !el.multiline))
+        .filter(
+          (el) =>
+            !(isTextField(el) && !el.multiline) &&
+            !isDropdownField(el) &&
+            !isOptionListField(el),
+        )
         .map((el) => ({ id: el.id, changes: { height: Number(v) } })),
     ),
   );
@@ -1497,7 +1667,7 @@ function PropertiesPanelContent() {
     const allSameType = types.size === 1;
     const singleType = allSameType ? [...types][0] : null;
     const config = singleType ? getElementStyleConfigByType(singleType) : null;
-    const hasTypeProps = ["text", "radio", "dropdown", "button", "optionlist", "signature"].includes(singleType ?? "");
+    const hasTypeProps = ["text", "radio", "dropdown", "button", "optionlist"].includes(singleType ?? "");
 
     return (
       <div className="h-full overflow-y-auto">
@@ -1523,7 +1693,6 @@ function PropertiesPanelContent() {
                       dropdown: t("properties.dropdowns"),
                       button: t("properties.buttons"),
                       optionlist: t("properties.optionLists"),
-                      signature: t("properties.signatures"),
                     }[singleType]
                   : t("properties.mixedTypes")}
               </span>
@@ -1608,9 +1777,6 @@ function PropertiesPanelContent() {
         )}
         {isOptionListField(element) && (
           <OptionListProperties elementId={element.id} />
-        )}
-        {isSignatureField(element) && (
-          <SignatureProperties elementId={element.id} />
         )}
         <Separator className="my-3" />
 

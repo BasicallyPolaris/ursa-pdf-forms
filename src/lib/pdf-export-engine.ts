@@ -16,7 +16,6 @@ import type {
   TextField,
   ButtonField,
   OptionListField,
-  SignatureField,
 } from "./form-element-model";
 import { hexToRgb, resolveFontFamily } from "./font-utils";
 
@@ -100,9 +99,6 @@ export async function exportFormElements(
         break;
       case "optionlist":
         addOptionListField(form, page, { ...el, name: safeName }, pageHeight, pdf);
-        break;
-      case "signature":
-        addSignatureField(form, page, { ...el, name: safeName }, pageHeight, pdf);
         break;
     }
   }
@@ -231,6 +227,10 @@ function addDropdownField(
     font,
   });
 
+  if (el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {
+    field.setFontSize(el.fontSize);
+  }
+
   if (el.options.length > 0) {
     field.setOptions(el.options);
   }
@@ -289,6 +289,10 @@ function addOptionListField(
     font,
   });
 
+  if (el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {
+    field.setFontSize(el.fontSize);
+  }
+
   if (el.options.length > 0) {
     field.setOptions(el.options);
   }
@@ -300,45 +304,6 @@ function addOptionListField(
   if (el.required) {
     field.isRequired();
   }
-}
-
-function addSignatureField(
-  _form: ReturnType<PDFDocument["getForm"]>,
-  page: PDFPage,
-  el: SignatureField & { name: string },
-  pageHeight: number,
-  pdfDoc: PDFDocument,
-): void {
-  const pdfY = pageHeight - el.y - el.height;
-
-  const sigFieldDict = pdfDoc.context.obj({
-    Type: "Annot",
-    Subtype: "Widget",
-    FT: "Sig",
-    Rect: [el.x, pdfY, el.x + el.width, pdfY + el.height],
-    T: el.name,
-    V: null,
-    P: page.ref,
-  });
-
-  const sigRef = pdfDoc.context.register(
-    sigFieldDict as unknown as import("pdf-lib").PDFDict,
-  );
-
-  const acroForm = pdfDoc.catalog.lookup(PDFName.of("AcroForm"));
-  if (acroForm instanceof PDFDict) {
-    const fields = acroForm.lookup(PDFName.of("Fields"));
-    if (fields instanceof PDFArray) {
-      fields.push(sigRef);
-    }
-  }
-
-    const annots = page.node.lookup(PDFName.of("Annots"));
-    if (annots instanceof PDFArray) {
-      annots.push(sigRef);
-    } else {
-      page.node.set(PDFName.of("Annots"), pdfDoc.context.obj([sigRef]));
-    }
 }
 
 function stripWidgetAnnotations(pdf: PDFDocument): void {

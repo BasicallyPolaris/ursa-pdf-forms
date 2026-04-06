@@ -1,24 +1,24 @@
-import { create } from "zustand";
-import { temporal } from "zundo";
-import { type FormElement, getUniqueName } from "@/lib/form-element-model";
-import type { PageInfo } from "@/lib/pdf-loader";
 import {
-  alignLeft,
-  alignRight,
-  alignTop,
   alignBottom,
   alignCenterH,
   alignCenterV,
-  distributeH,
-  distributeV,
+  alignLeft,
+  alignRight,
+  alignTop,
   centerOnPage,
   centerOnPageH,
   centerOnPageV,
-  matchWidthToWidest,
-  matchWidthToNarrowest,
-  matchHeightToTallest,
+  distributeH,
+  distributeV,
   matchHeightToShortest,
+  matchHeightToTallest,
+  matchWidthToNarrowest,
+  matchWidthToWidest,
 } from "@/lib/alignment";
+import { type FormElement, getUniqueName } from "@/lib/form-element-model";
+import type { PageInfo } from "@/lib/pdf-loader";
+import { temporal } from "zundo";
+import { create } from "zustand";
 
 function applyPositionUpdates(
   elements: FormElement[],
@@ -31,14 +31,22 @@ function applyPositionUpdates(
   });
 }
 
-function mergeElement(el: FormElement, updates: Partial<FormElement>): FormElement {
+function mergeElement(
+  el: FormElement,
+  updates: Partial<FormElement>,
+): FormElement {
   return { ...el, ...updates } as FormElement;
 }
 
 function cloneElementsWithNewIds(
   sources: FormElement[],
   existing: FormElement[],
-  opts: { targetPage?: number; targetX?: number; targetY?: number; offsetIfSamePage: number },
+  opts: {
+    targetPage?: number;
+    targetX?: number;
+    targetY?: number;
+    offsetIfSamePage: number;
+  },
 ): { cloned: FormElement[]; newIds: Set<string> } {
   const cloned: FormElement[] = [];
   const newIds = new Set<string>();
@@ -47,9 +55,14 @@ function cloneElementsWithNewIds(
   const offY = opts.targetY !== undefined ? opts.targetY - baseEl.y : 0;
 
   for (const el of sources) {
-    const samePage = opts.targetPage === undefined || opts.targetPage === el.pageNumber;
-    const newX = samePage ? el.x + (offX || opts.offsetIfSamePage) : el.x + (offX || 0);
-    const newY = samePage ? el.y + (offY || opts.offsetIfSamePage) : el.y + (offY || 0);
+    const samePage =
+      opts.targetPage === undefined || opts.targetPage === el.pageNumber;
+    const newX = samePage
+      ? el.x + (offX || opts.offsetIfSamePage)
+      : el.x + (offX || 0);
+    const newY = samePage
+      ? el.y + (offY || opts.offsetIfSamePage)
+      : el.y + (offY || 0);
     const clone = structuredClone(el);
     const newEl = mergeElement(clone, {
       id: generatePastedId(),
@@ -79,8 +92,14 @@ const PDF_RESET_STATE = {
   clipboard: [] as FormElement[],
   guides: [] as GuideLine[],
   selectedGuideId: null as string | null,
-  previewGuide: null as { orientation: "horizontal" | "vertical"; position: number } | null,
-  dragLivePositions: new Map<string, { x: number; y: number; width: number; height: number }>(),
+  previewGuide: null as {
+    orientation: "horizontal" | "vertical";
+    position: number;
+  } | null,
+  dragLivePositions: new Map<
+    string,
+    { x: number; y: number; width: number; height: number }
+  >(),
   activeTool: "select" as EditorState["activeTool"],
 };
 
@@ -104,14 +123,21 @@ export interface GuideLine {
   position: number;
 }
 
-interface EditorState {
+export interface EditorState {
   pdfFileName: string | null;
   pdfBytes: Uint8Array | null;
   renderPdfBytes: Uint8Array | null;
   pages: PageInfo[];
   zoom: number;
-  activeTool: "select" | "input" | "textarea" | "checkbox" | "radio" | "dropdown" | "button" | "optionlist" | "signature";
-
+  activeTool:
+    | "select"
+    | "input"
+    | "textarea"
+    | "checkbox"
+    | "radio"
+    | "dropdown"
+    | "button"
+    | "optionlist";
   elements: FormElement[];
   selectedIds: Set<string>;
   clipboard: FormElement[];
@@ -262,7 +288,8 @@ export const useEditorStore = create<EditorState>()(
             elements: s.elements.map((el) => {
               const u = map.get(el.id);
               if (!u) return el;
-              return u.pageNumber !== undefined && u.pageNumber !== el.pageNumber
+              return u.pageNumber !== undefined &&
+                u.pageNumber !== el.pageNumber
                 ? mergeElement(el, { x: u.x, y: u.y, pageNumber: u.pageNumber })
                 : { ...el, x: u.x, y: u.y };
             }),
@@ -323,12 +350,16 @@ export const useEditorStore = create<EditorState>()(
         _mutationVersion++;
         set((s) => {
           if (s.clipboard.length === 0) return s;
-          const { cloned, newIds } = cloneElementsWithNewIds(s.clipboard, s.elements, {
-            targetPage,
-            targetX,
-            targetY,
-            offsetIfSamePage: PASTE_OFFSET,
-          });
+          const { cloned, newIds } = cloneElementsWithNewIds(
+            s.clipboard,
+            s.elements,
+            {
+              targetPage,
+              targetX,
+              targetY,
+              offsetIfSamePage: PASTE_OFFSET,
+            },
+          );
           return {
             elements: [...s.elements, ...cloned],
             selectedIds: newIds,
@@ -354,10 +385,14 @@ export const useEditorStore = create<EditorState>()(
         set((s) => {
           const selected = s.elements.filter((el) => s.selectedIds.has(el.id));
           if (selected.length === 0) return s;
-          const { cloned, newIds } = cloneElementsWithNewIds(selected, s.elements, {
-            targetPage,
-            offsetIfSamePage: PASTE_OFFSET,
-          });
+          const { cloned, newIds } = cloneElementsWithNewIds(
+            selected,
+            s.elements,
+            {
+              targetPage,
+              offsetIfSamePage: PASTE_OFFSET,
+            },
+          );
           return {
             elements: [...s.elements, ...cloned],
             selectedIds: newIds,
@@ -418,12 +453,24 @@ export const useEditorStore = create<EditorState>()(
         if (state.selectedIds.size < 2) return;
         let updates: Array<{ id: string; x: number; y: number }> = [];
         switch (type) {
-          case "left": updates = alignLeft(state.elements, state.selectedIds); break;
-          case "right": updates = alignRight(state.elements, state.selectedIds); break;
-          case "top": updates = alignTop(state.elements, state.selectedIds); break;
-          case "bottom": updates = alignBottom(state.elements, state.selectedIds); break;
-          case "centerH": updates = alignCenterH(state.elements, state.selectedIds); break;
-          case "centerV": updates = alignCenterV(state.elements, state.selectedIds); break;
+          case "left":
+            updates = alignLeft(state.elements, state.selectedIds);
+            break;
+          case "right":
+            updates = alignRight(state.elements, state.selectedIds);
+            break;
+          case "top":
+            updates = alignTop(state.elements, state.selectedIds);
+            break;
+          case "bottom":
+            updates = alignBottom(state.elements, state.selectedIds);
+            break;
+          case "centerH":
+            updates = alignCenterH(state.elements, state.selectedIds);
+            break;
+          case "centerV":
+            updates = alignCenterV(state.elements, state.selectedIds);
+            break;
         }
         if (updates.length > 0) {
           _mutationVersion++;
@@ -448,7 +495,12 @@ export const useEditorStore = create<EditorState>()(
         const state = get();
         if (state.selectedIds.size === 0 || state.pages.length === 0) return;
         const page = state.pages[0];
-        const updates = centerOnPage(state.elements, state.selectedIds, page.width, page.height);
+        const updates = centerOnPage(
+          state.elements,
+          state.selectedIds,
+          page.width,
+          page.height,
+        );
         if (updates.length > 0) {
           _mutationVersion++;
           set((s) => ({ elements: applyPositionUpdates(s.elements, updates) }));
@@ -459,7 +511,11 @@ export const useEditorStore = create<EditorState>()(
         const state = get();
         if (state.selectedIds.size === 0 || state.pages.length === 0) return;
         const page = state.pages[0];
-        const updates = centerOnPageH(state.elements, state.selectedIds, page.width);
+        const updates = centerOnPageH(
+          state.elements,
+          state.selectedIds,
+          page.width,
+        );
         if (updates.length > 0) {
           _mutationVersion++;
           set((s) => ({ elements: applyPositionUpdates(s.elements, updates) }));
@@ -470,7 +526,11 @@ export const useEditorStore = create<EditorState>()(
         const state = get();
         if (state.selectedIds.size === 0 || state.pages.length === 0) return;
         const page = state.pages[0];
-        const updates = centerOnPageV(state.elements, state.selectedIds, page.height);
+        const updates = centerOnPageV(
+          state.elements,
+          state.selectedIds,
+          page.height,
+        );
         if (updates.length > 0) {
           _mutationVersion++;
           set((s) => ({ elements: applyPositionUpdates(s.elements, updates) }));
@@ -484,12 +544,21 @@ export const useEditorStore = create<EditorState>()(
       matchElementSize: (type) => {
         const state = get();
         if (state.selectedIds.size < 2) return;
-        let updates: Array<{ id: string; width?: number; height?: number }> = [];
+        let updates: Array<{ id: string; width?: number; height?: number }> =
+          [];
         switch (type) {
-          case "widthWidest": updates = matchWidthToWidest(state.elements, state.selectedIds); break;
-          case "widthNarrowest": updates = matchWidthToNarrowest(state.elements, state.selectedIds); break;
-          case "heightTallest": updates = matchHeightToTallest(state.elements, state.selectedIds); break;
-          case "heightShortest": updates = matchHeightToShortest(state.elements, state.selectedIds); break;
+          case "widthWidest":
+            updates = matchWidthToWidest(state.elements, state.selectedIds);
+            break;
+          case "widthNarrowest":
+            updates = matchWidthToNarrowest(state.elements, state.selectedIds);
+            break;
+          case "heightTallest":
+            updates = matchHeightToTallest(state.elements, state.selectedIds);
+            break;
+          case "heightShortest":
+            updates = matchHeightToShortest(state.elements, state.selectedIds);
+            break;
         }
         if (updates.length > 0) {
           _mutationVersion++;
@@ -504,7 +573,9 @@ export const useEditorStore = create<EditorState>()(
               return {
                 ...el,
                 ...(u.width !== undefined ? { width: u.width } : {}),
-                ...(u.height !== undefined && !heightLocked ? { height: u.height } : {}),
+                ...(u.height !== undefined && !heightLocked
+                  ? { height: u.height }
+                  : {}),
               };
             }),
           }));

@@ -90,16 +90,6 @@ export interface OptionListField {
   required: boolean;
 }
 
-export interface SignatureField {
-  type: "signature";
-  id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  pageNumber: number;
-  name: string;
-}
 
 export type FormElement =
   | TextField
@@ -107,8 +97,7 @@ export type FormElement =
   | RadioButton
   | DropdownField
   | ButtonField
-  | OptionListField
-  | SignatureField;
+  | OptionListField;
 
 let nextId = 1;
 function generateId(): string {
@@ -118,6 +107,14 @@ function generateId(): string {
 export function heightFromFontSize(fontSize: number): number {
   const safe = Number.isFinite(fontSize) && fontSize > 0 ? fontSize : 12;
   return Math.round(safe * 1.2 * 2) / 2;
+}
+
+export function heightFromOptions(fontSize: number, optionCount: number): number {
+  const safe = Number.isFinite(fontSize) && fontSize > 0 ? fontSize : 12;
+  const count = Number.isFinite(optionCount) && optionCount > 0 ? optionCount : 2;
+  const lineHeight = safe * 1.4;
+  const padding = safe * 0.4;
+  return Math.round((lineHeight * count + padding * 2) * 2) / 2;
 }
 
 function safePositive(value: number | undefined, fallback: number): number {
@@ -341,18 +338,20 @@ interface OptionListFieldOptions {
 }
 
 export function createOptionListField(opts: OptionListFieldOptions): OptionListField {
+  const fontSize = opts.fontSize ?? 12;
+  const options = opts.options ?? ["Option 1", "Option 2"];
   return {
     type: "optionlist",
     id: generateId(),
     x: opts.x,
     y: opts.y,
     width: safePositive(opts.width, 150),
-    height: safePositive(opts.height, 80),
+    height: safePositive(opts.height, heightFromOptions(fontSize, options.length)),
     pageNumber: opts.pageNumber,
     name: opts.name ?? "",
-    options: opts.options ?? ["Option 1", "Option 2"],
+    options,
     defaultValue: opts.defaultValue ?? "",
-    fontSize: opts.fontSize ?? 12,
+    fontSize,
     required: opts.required ?? false,
   };
 }
@@ -361,31 +360,6 @@ export function isOptionListField(el: FormElement): el is OptionListField {
   return el.type === "optionlist";
 }
 
-interface SignatureFieldOptions {
-  x: number;
-  y: number;
-  pageNumber: number;
-  name?: string;
-  width?: number;
-  height?: number;
-}
-
-export function createSignatureField(opts: SignatureFieldOptions): SignatureField {
-  return {
-    type: "signature",
-    id: generateId(),
-    x: opts.x,
-    y: opts.y,
-    width: safePositive(opts.width, 150),
-    height: safePositive(opts.height, 40),
-    pageNumber: opts.pageNumber,
-    name: opts.name ?? "",
-  };
-}
-
-export function isSignatureField(el: FormElement): el is SignatureField {
-  return el.type === "signature";
-}
 
 export function sanitizeNumericValue(value: unknown): number | undefined {
   if (value === undefined || value === null || value === "") return undefined;

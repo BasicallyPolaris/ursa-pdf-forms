@@ -15,7 +15,6 @@ import {
   CircleDot,
   List,
   MousePointer2,
-  PenLine,
   SquareMousePointer,
   Square,
   Type,
@@ -46,11 +45,6 @@ const TOOL_KEYS = [
     id: "button" as const,
     labelKey: "toolbar.button",
     icon: SquareMousePointer,
-  },
-  {
-    id: "signature" as const,
-    labelKey: "toolbar.signature",
-    icon: PenLine,
   },
 ];
 

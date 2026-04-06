@@ -19,7 +19,6 @@ export type ShortcutId =
   | "toolDropdown"
   | "toolButton"
   | "toolOptionList"
-  | "toolSignature"
   | "zoomIn"
   | "zoomOut"
   | "zoomFit"
@@ -138,13 +137,6 @@ export const SHORTCUTS: ShortcutDef[] = [
     key: "o",
   },
   {
-    id: "toolSignature",
-    i18nKey: "shortcuts.toolSignature",
-    group: "tools",
-    shift: true,
-    key: "s",
-  },
-  {
     id: "zoomIn",
     i18nKey: "shortcuts.zoomIn",
     group: "view",
@@ -221,5 +213,4 @@ export const TOOL_SHORTCUT_MAP: Record<string, ShortcutId> = {
   dropdown: "toolDropdown",
   button: "toolButton",
   optionlist: "toolOptionList",
-  signature: "toolSignature",
 };

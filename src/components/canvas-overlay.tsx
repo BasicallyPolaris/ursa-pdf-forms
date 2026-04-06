@@ -25,7 +25,6 @@ import {
   createCheckbox,
   createRadioButton,
   createButtonField,
-  createSignatureField,
   type FormElement,
   getElementName,
 } from "@/lib/form-element-model";
@@ -281,13 +280,6 @@ export function CanvasOverlay() {
             pageNumber,
             name: `button_${elements.length + 1}`,
           });
-        } else if (activeTool === "signature") {
-          newEl = createSignatureField({
-            x: pdf.x,
-            y: pdf.y,
-            pageNumber,
-            name: `signature_${elements.length + 1}`,
-          });
         } else {
           return;
         }
@@ -381,7 +373,7 @@ export function CanvasOverlay() {
         return;
       }
 
-      if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
         e.preventDefault();
         const currentLayouts = getPageLayouts();
         if (currentLayouts.size === 0) return;
@@ -515,7 +507,10 @@ export function CanvasOverlay() {
   if (!pdfBytes) return null;
 
   const totalContentHeight = getTotalContentHeight(pages, zoom);
-  const isInputEl = (el: FormElement) => el.type === "text" && !el.multiline;
+  const isInputEl = (el: FormElement) =>
+    (el.type === "text" && !el.multiline) ||
+    el.type === "dropdown" ||
+    el.type === "optionlist";
 
   const snapTargetIds = new Set<string>(
     activeGuides
@@ -869,21 +864,6 @@ export function CanvasOverlay() {
               <line x1="3" y1="4" x2="9" y2="4" stroke="currentColor" strokeWidth="1" />
               <line x1="3" y1="6" x2="9" y2="6" stroke="currentColor" strokeWidth="1" />
               <line x1="3" y1="8" x2="9" y2="8" stroke="currentColor" strokeWidth="1" />
-            </svg>
-          )}
-          {el.type === "signature" && (
-            <svg
-              viewBox="0 0 16 10"
-              className={`h-3/5 w-4/5 ${getElementStyleConfig(el).colorClass}`}
-            >
-              <path
-                d="M1 7C2 5 4 3 6 5C8 7 8 3 10 2C12 1 13 4 15 4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1"
-                strokeLinecap="round"
-              />
-              <line x1="1" y1="9" x2="15" y2="9" stroke="currentColor" strokeWidth="0.5" opacity="0.5" />
             </svg>
           )}
           <span

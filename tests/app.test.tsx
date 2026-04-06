@@ -57,7 +57,6 @@ vi.mock("react-i18next", () => ({
         "toolbar.dropdown": "Dropdown",
         "toolbar.button": "Button",
         "toolbar.optionlist": "Option List",
-        "toolbar.signature": "Signature",
         "fieldTypes.textField": "Text Field",
         "fieldTypes.checkbox": "Checkbox",
         "fieldTypes.radioButton": "Radio Button",

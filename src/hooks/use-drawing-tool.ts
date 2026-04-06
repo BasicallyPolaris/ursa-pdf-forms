@@ -8,6 +8,7 @@ import {
   createDropdownField,
   createOptionListField,
   heightFromFontSize,
+  heightFromOptions,
   type FormElement,
 } from "@/lib/form-element-model";
 import {
@@ -169,6 +170,14 @@ export function useDrawingTool(deps: {
             name: `dropdown_${state.elements.length + 1}`,
             width: pdfWidth,
           });
+        } else if (activeTool === "optionlist") {
+          newEl = createOptionListField({
+            x: pdfTopLeft.x,
+            y: pdfTopLeft.y,
+            pageNumber: start.pageNumber,
+            name: `optionlist_${state.elements.length + 1}`,
+            width: pdfWidth,
+          });
         } else {
           newEl = createTextField({
             x: pdfTopLeft.x,
@@ -189,26 +198,15 @@ export function useDrawingTool(deps: {
           const pdfWidth = width / deps.zoom;
           const pdfHeight = height / deps.zoom;
 
-          if (activeTool === "optionlist") {
-            newEl = createOptionListField({
-              x: pdfTopLeft.x,
-              y: pdfTopLeft.y,
-              pageNumber: start.pageNumber,
-              name: `optionlist_${state.elements.length + 1}`,
-              width: pdfWidth,
-              height: pdfHeight,
-            });
-          } else {
-            newEl = createTextField({
-              x: pdfTopLeft.x,
-              y: pdfTopLeft.y,
-              pageNumber: start.pageNumber,
-              name: `text_${state.elements.length + 1}`,
-              multiline: true,
-              width: pdfWidth,
-              height: pdfHeight,
-            });
-          }
+          newEl = createTextField({
+            x: pdfTopLeft.x,
+            y: pdfTopLeft.y,
+            pageNumber: start.pageNumber,
+            name: `text_${state.elements.length + 1}`,
+            multiline: true,
+            width: pdfWidth,
+            height: pdfHeight,
+          });
         }
       }
 
@@ -232,9 +230,14 @@ export function useDrawingTool(deps: {
 
       if (HORIZONTAL_DRAW_TOOLS.has(activeTool)) {
         const fontSize = 12;
-        const autoHeight = heightFromFontSize(fontSize) * deps.zoom;
         const start = drawStartRef.current;
         const startY = start ? start.y : top;
+        let autoHeight: number;
+        if (activeTool === "optionlist") {
+          autoHeight = heightFromOptions(fontSize, 2) * deps.zoom;
+        } else {
+          autoHeight = heightFromFontSize(fontSize) * deps.zoom;
+        }
         return { left, top: startY, width, height: autoHeight };
       }
       return { left, top, width, height };

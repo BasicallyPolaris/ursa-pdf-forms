@@ -6,7 +6,6 @@ import {
   CircleDot,
   ChevronDown,
   List,
-  PenLine,
   Square,
   SquareMousePointer,
   Type,
@@ -118,20 +117,6 @@ const CONFIGS: Record<string, ElementStyleConfig> = {
     textColorClass: "text-field-optionlist",
     drawPreviewClass:
       "border-2 border-field-optionlist/60 bg-field-optionlist-bg",
-  },
-  signature: {
-    labelKey: "fieldTypes.signature",
-    icon: PenLine,
-    colorClass: "text-field-signature",
-    borderClass: "border-field-signature/30",
-    borderBgClass: (selected) =>
-      selected
-        ? "border-2 border-field-signature bg-field-signature-bg"
-        : "border border-field-signature-dim bg-field-signature-bg",
-    dimBorderClass: "border-field-signature-dim",
-    textColorClass: "text-field-signature",
-    drawPreviewClass:
-      "border-2 border-field-signature/60 bg-field-signature-bg",
   },
 };
 

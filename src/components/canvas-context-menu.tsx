@@ -5,7 +5,6 @@ import {
   createDropdownField,
   createButtonField,
   createOptionListField,
-  createSignatureField,
   getUniqueName,
 } from "@/lib/form-element-model";
 import { formatShortcut } from "@/lib/shortcuts";
@@ -18,7 +17,6 @@ import {
   Copy,
   CopyPlus,
   List,
-  PenLine,
   Scissors,
   SquareCheck,
   SquareMousePointer,
@@ -245,20 +243,6 @@ export function CanvasContextMenu({
               y: context.pdfY,
               pageNumber: context.pageNumber,
               name: getUniqueName(`button_${elements.length + 1}`, elements),
-            });
-            store.addElement(newEl);
-            store.selectElements(new Set([newEl.id]));
-          },
-        },
-        {
-          label: t("contextMenu.addSignature"),
-          icon: PenLine,
-          action: () => {
-            const newEl = createSignatureField({
-              x: context.pdfX,
-              y: context.pdfY,
-              pageNumber: context.pageNumber,
-              name: getUniqueName(`signature_${elements.length + 1}`, elements),
             });
             store.addElement(newEl);
             store.selectElements(new Set([newEl.id]));

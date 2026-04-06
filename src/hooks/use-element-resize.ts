@@ -54,7 +54,10 @@ export function useElementResize(config: ElementResizeConfig) {
       position: { x: number; y: number },
       resizeEvent: MouseEvent,
     ) => {
-      const isSingleInput = el.type === "text" && !el.multiline;
+      const isSingleInput =
+        (el.type === "text" && !el.multiline) ||
+        el.type === "dropdown" ||
+        el.type === "optionlist";
       resizeHappenedRef.current = true;
       lockCursor(isSingleInput ? "ew" : "nwse");
       resizingId.current = el.id;

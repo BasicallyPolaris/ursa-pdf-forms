@@ -20,8 +20,7 @@
     "radio": "Radio",
     "dropdown": "Dropdown",
     "button": "Button",
-    "optionlist": "Option List",
-    "signature": "Signature"
+    "optionlist": "Option List"
   },
   "fieldTypes": {
     "textField": "Text Field",
@@ -30,8 +29,7 @@
     "multiline": "Multiline",
     "dropdown": "Dropdown",
     "button": "Button",
-    "optionlist": "Option List",
-    "signature": "Signature"
+    "optionlist": "Option List"
   },
   "properties": {
     "panelError": "Panel error",
@@ -43,7 +41,6 @@
     "dropdowns": "Dropdowns",
     "buttons": "Buttons",
     "optionLists": "Option Lists",
-    "signatures": "Signatures",
     "mixedTypes": "Mixed types",
     "page": "Page {{page}}",
     "pageLabel": "Page",
@@ -150,7 +147,6 @@
     "toolDropdown": "Dropdown",
     "toolButton": "Button",
     "toolOptionList": "Option List",
-    "toolSignature": "Signature",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "zoomFit": "Fit to width",
@@ -173,8 +169,7 @@
     "addRadio": "Add Radio Button",
     "addDropdown": "Add Dropdown",
     "addButton": "Add Button",
-    "addOptionList": "Add Option List",
-    "addSignature": "Add Signature"
+    "addOptionList": "Add Option List"
   },
   "sidebar": {
     "pages": "Pages"
