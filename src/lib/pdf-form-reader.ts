@@ -7,6 +7,7 @@ import {
   PDFRef,
 } from "pdf-lib";
 import type { FormElement } from "./form-element-model";
+import { rgbToHex } from "./font-utils";
 
 export async function extractAcroFormFields(
   pdfBytes: Uint8Array,
@@ -481,10 +482,13 @@ function extractOptionListField(
   const defaultValue = tryAsString(v) ?? "";
   const da = getInheritableAttr(dict, PDFName.of("DA"), ctx);
   const daStr = tryAsString(da) ?? "";
-  const fontSize = parseFontSizeFromDA(daStr);
+  const { fontFamily, fontWeight, textColor, fontSize } =
+    parseTypographyFromDA(daStr);
   const flags = getInheritableAttr(dict, PDFName.of("Ff"), ctx);
   const flagNum = flags instanceof PDFNumber ? flags.asNumber() : 0;
   const required = (flagNum & (1 << 1)) !== 0;
+  const { backgroundColor, borderColor } = parseAppearanceColors(dict, ctx);
+  const borderWidth = parseBorderWidth(dict, ctx);
 
   return {
     type: "optionlist",
@@ -497,14 +501,14 @@ function extractOptionListField(
     name,
     options,
     defaultValue,
-    fontSize: fontSize > 0 ? fontSize : 12,
+    fontSize,
     required,
-    fontFamily: "Helvetica",
-    fontWeight: "regular" as const,
-    textColor: "#000000",
-    backgroundColor: null,
-    borderColor: null,
-    borderWidth: 1,
+    fontFamily,
+    fontWeight,
+    textColor,
+    backgroundColor,
+    borderColor,
+    borderWidth,
   };
 }
 
@@ -609,6 +613,109 @@ function parseFontSizeFromDA(da: string): number {
     if (Number.isFinite(size) && size > 0) return size;
   }
   return 0;
+}
+
+function parseTextColorFromDA(da: string): string {
+  const match = da.match(/([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+rg/);
+  if (match) {
+    const r = parseFloat(match[1]);
+    const g = parseFloat(match[2]);
+    const b = parseFloat(match[3]);
+    if (Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)) {
+      return rgbToHex(r, g, b);
+    }
+  }
+  return "#000000";
+}
+
+function parseFontNameFromDA(da: string): {
+  fontFamily: string;
+  fontWeight: "regular" | "bold" | "italic" | "bold-italic";
+} {
+  const match = da.match(/\/([^\s]+)\s+\d+\s+Tf/);
+  if (!match) return { fontFamily: "Helvetica", fontWeight: "regular" };
+  const rawName = match[1];
+  return mapPdfFontName(rawName);
+}
+
+function mapPdfFontName(
+  name: string,
+): { fontFamily: string; fontWeight: "regular" | "bold" | "italic" | "bold-italic" } {
+  if (name.endsWith("-BoldOblique") || name.endsWith("-BoldItalic")) {
+    const base = name.replace(/-BoldOblique$|-BoldItalic$/, "");
+    return { fontFamily: base, fontWeight: "bold-italic" };
+  }
+  if (name.endsWith("-Bold")) {
+    const base = name.replace(/-Bold$/, "");
+    return { fontFamily: base, fontWeight: "bold" };
+  }
+  if (name.endsWith("-Oblique") || name.endsWith("-Italic")) {
+    const base = name.replace(/-Oblique$|-Italic$/, "");
+    return { fontFamily: base, fontWeight: "italic" };
+  }
+  return { fontFamily: name, fontWeight: "regular" };
+}
+
+interface AppearanceColors {
+  backgroundColor: string | null;
+  borderColor: string | null;
+}
+
+export function parseAppearanceColors(dict: PDFDict, ctx: LookupCtx): AppearanceColors {
+  const mk = getInheritableAttr(dict, PDFName.of("MK"), ctx);
+  if (!(mk instanceof PDFDict)) return { backgroundColor: null, borderColor: null };
+
+  const bg = parseColorArray(mk.lookup(PDFName.of("BG")));
+  const bc = parseColorArray(mk.lookup(PDFName.of("BC")));
+
+  return {
+    backgroundColor: bg,
+    borderColor: bc,
+  };
+}
+
+function parseColorArray(val: unknown): string | null {
+  if (!(val instanceof PDFArray)) return null;
+  if (val.size() < 3) return null;
+  const r = val.lookup(0);
+  const g = val.lookup(1);
+  const b = val.lookup(2);
+  if (
+    r instanceof PDFNumber &&
+    g instanceof PDFNumber &&
+    b instanceof PDFNumber
+  ) {
+    return rgbToHex(r.asNumber(), g.asNumber(), b.asNumber());
+  }
+  return null;
+}
+
+export function parseBorderWidth(dict: PDFDict, ctx: LookupCtx): number {
+  const bs = getInheritableAttr(dict, PDFName.of("BS"), ctx);
+  if (bs instanceof PDFDict) {
+    const w = bs.get(PDFName.of("W"));
+    if (w instanceof PDFNumber) return w.asNumber();
+  }
+  return 1;
+}
+
+interface ParsedTypography {
+  fontFamily: string;
+  fontWeight: "regular" | "bold" | "italic" | "bold-italic";
+  textColor: string;
+  fontSize: number;
+}
+
+export function parseTypographyFromDA(daStr: string): ParsedTypography {
+  const { fontFamily, fontWeight } = parseFontNameFromDA(daStr);
+  const fontSize = parseFontSizeFromDA(daStr);
+  const textColor = parseTextColorFromDA(daStr);
+  return {
+    fontFamily,
+    fontWeight,
+    textColor,
+    fontSize: fontSize > 0 ? fontSize : 12,
+  };
 }
 
 function getInheritableAttr(

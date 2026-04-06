@@ -365,24 +365,21 @@ function AppearanceSection({ element, onUpdate }: { element: TypographyField; on
       <SectionHeader label={t("properties.appearance")} />
       <PropertyField label={t("properties.backgroundColor")}>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className={`flex h-7 w-7 items-center justify-center rounded border text-[8px] ${
-              !element.backgroundColor
-                ? "border-ring/50 bg-accent text-accent-foreground"
-                : "border-input text-muted-foreground hover:bg-accent"
-            }`}
-            onClick={() => onUpdate({ backgroundColor: null })}
-          >
-            ✕
-          </button>
           <input
             type="color"
-            className="h-7 w-7 cursor-pointer rounded border border-input bg-transparent"
+            className="h-7 w-7 shrink-0 cursor-pointer rounded border border-input bg-transparent"
             value={element.backgroundColor ?? "#ffffff"}
             onChange={(e) => onUpdate({ backgroundColor: e.target.value })}
-            disabled={!element.backgroundColor}
           />
+          {element.backgroundColor && (
+            <button
+              type="button"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              onClick={() => onUpdate({ backgroundColor: null })}
+            >
+              ✕
+            </button>
+          )}
           <span className="text-[10px] font-mono text-muted-foreground">
             {element.backgroundColor ?? t("properties.none")}
           </span>
@@ -390,20 +387,9 @@ function AppearanceSection({ element, onUpdate }: { element: TypographyField; on
       </PropertyField>
       <PropertyField label={t("properties.borderColor")}>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className={`flex h-7 w-7 items-center justify-center rounded border text-[8px] ${
-              !element.borderColor
-                ? "border-ring/50 bg-accent text-accent-foreground"
-                : "border-input text-muted-foreground hover:bg-accent"
-            }`}
-            onClick={() => onUpdate({ borderColor: null, borderWidth: 0 })}
-          >
-            ✕
-          </button>
           <input
             type="color"
-            className="h-7 w-7 cursor-pointer rounded border border-input bg-transparent"
+            className="h-7 w-7 shrink-0 cursor-pointer rounded border border-input bg-transparent"
             value={element.borderColor ?? "#000000"}
             onChange={(e) =>
               onUpdate({
@@ -411,8 +397,16 @@ function AppearanceSection({ element, onUpdate }: { element: TypographyField; on
                 borderWidth: element.borderWidth || 1,
               })
             }
-            disabled={!element.borderColor}
           />
+          {element.borderColor && (
+            <button
+              type="button"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              onClick={() => onUpdate({ borderColor: null, borderWidth: 0 })}
+            >
+              ✕
+            </button>
+          )}
           <span className="text-[10px] font-mono text-muted-foreground">
             {element.borderColor ?? t("properties.none")}
           </span>
@@ -1760,7 +1754,7 @@ function PropertiesPanelContent() {
 
     return (
       <div className="h-full overflow-y-auto">
-        <div className="p-3">
+        <div className="flex flex-col gap-3 p-3">
           <div className="mb-3 flex items-center gap-2">
             {config && (
               <span
@@ -1787,7 +1781,7 @@ function PropertiesPanelContent() {
               </span>
             </div>
           </div>
-          <Separator className="mb-3" />
+          <Separator />
 
           {(() => {
             const typoEls = selectedElements.filter(elementHasTypography);
@@ -1808,11 +1802,11 @@ function PropertiesPanelContent() {
               elements={selectedElements.filter(isRadioButton)}
             />
           )}
-          {hasTypeProps && <Separator className="my-3" />}
+          {hasTypeProps && <Separator />}
 
           <MultiPositionProperties elements={selectedElements} />
 
-          <Separator className="my-3" />
+          <Separator />
 
           <AlignmentSection />
         </div>
