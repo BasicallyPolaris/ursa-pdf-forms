@@ -519,6 +519,10 @@ function addDropdownField(
   if (el.required) {
     field.isRequired();
   }
+
+  if (el.editable) {
+    field.enableEditing();
+  }
 }
 
 function addButtonField(

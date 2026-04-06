@@ -1434,7 +1434,7 @@ function MultiCheckboxProperties({ elements }: { elements: Checkbox[] }) {
       <Separator />
       <SectionHeader label={t("properties.fillStyle")} />
       <div className="flex gap-1">
-        {RADIO_FILL_STYLES.map((style) => (
+        {CHECKBOX_FILL_STYLES.map((style) => (
           <button
             key={style}
             type="button"
