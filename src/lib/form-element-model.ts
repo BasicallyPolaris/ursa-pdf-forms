@@ -20,8 +20,6 @@ export interface TextField {
   borderWidth: number;
 }
 
-export type FillStyle = "circle" | "checkmark" | "cross" | "star" | "diamond";
-
 export interface Checkbox {
   type: "checkbox";
   id: string;
@@ -32,7 +30,6 @@ export interface Checkbox {
   pageNumber: number;
   name: string;
   defaultChecked: boolean;
-  fillStyle: FillStyle;
 }
 
 export interface RadioButton {
@@ -46,7 +43,6 @@ export interface RadioButton {
   groupName: string;
   value: string;
   label: string;
-  fillStyle: FillStyle;
 }
 
 export interface DropdownField {
@@ -231,7 +227,6 @@ interface CheckboxOptions {
   defaultChecked?: boolean;
   width?: number;
   height?: number;
-  fillStyle?: FillStyle;
 }
 
 export function createCheckbox(opts: CheckboxOptions): Checkbox {
@@ -245,7 +240,6 @@ export function createCheckbox(opts: CheckboxOptions): Checkbox {
     pageNumber: opts.pageNumber,
     name: opts.name ?? "",
     defaultChecked: opts.defaultChecked ?? false,
-    fillStyle: opts.fillStyle ?? "checkmark",
   };
 }
 
@@ -280,7 +274,6 @@ export function createRadioButton(opts: RadioButtonOptions): RadioButton {
     groupName: opts.groupName ?? "",
     value: opts.value ?? "",
     label: opts.label ?? "",
-    fillStyle: "circle",
   };
 }
 

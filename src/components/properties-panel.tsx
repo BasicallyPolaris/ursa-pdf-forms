@@ -579,71 +579,11 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
         />
       </div>
 
-      <Separator />
-
-      <SectionHeader label={t("properties.fillStyle")} />
-
-      <div className="flex gap-1">
-        {CHECKBOX_FILL_STYLES.map((style) => (
-          <button
-            key={style}
-            type="button"
-            className={`flex h-7 w-7 items-center justify-center rounded transition-colors ${
-              element.fillStyle === style
-                ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
-                : "text-muted-foreground hover:bg-accent"
-            }`}
-            onClick={() => updateElement(element.id, { fillStyle: style })}
-            title={style}
-          >
-            <FillStylePreview style={style} />
-          </button>
-        ))}
-      </div>
     </div>
   );
 }
 
-const CHECKBOX_FILL_STYLES: Checkbox["fillStyle"][] = [
-  "checkmark",
-  "circle",
-  "cross",
-  "star",
-  "diamond",
-];
 
-const RADIO_FILL_STYLES: RadioButton["fillStyle"][] = [
-  "circle",
-  "checkmark",
-  "cross",
-  "star",
-  "diamond",
-];
-
-function FillStylePreview({ style }: { style: Checkbox["fillStyle"] }) {
-  const paths: Record<Checkbox["fillStyle"], React.ReactNode> = {
-    circle: (
-      <circle cx="5" cy="5" r="3.5" fill="none" stroke="currentColor" strokeWidth="1" />
-    ),
-    checkmark: (
-      <path d="M2 5 L4.5 7.5 L8 2.5" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-    ),
-    cross: (
-      <path d="M2 2 L8 8 M8 2 L2 8" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-    ),
-    star: (
-      <path d="M5 1 L6.2 3.8 L9 4 L6.8 6 L7.5 9 L5 7.5 L2.5 9 L3.2 6 L1 4 L3.8 3.8 Z" fill="none" stroke="currentColor" strokeWidth="0.8" strokeLinejoin="round" />
-    ),
-    diamond: (
-      <path d="M5 1.5 L8.5 5 L5 8.5 L1.5 5 Z" fill="none" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" />
-    ),
-  };
-  return (
-    <svg viewBox="0 0 10 10" className="h-3.5 w-3.5">
-      {paths[style]}
-    </svg>
-  );
-}
 
 function RadioButtonProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
@@ -679,27 +619,6 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
         <Input {...labelField} className="h-7 text-xs" />
       </PropertyField>
 
-      <Separator />
-
-      <SectionHeader label={t("properties.fillStyle")} />
-
-      <div className="flex gap-1">
-        {RADIO_FILL_STYLES.map((style) => (
-          <button
-            key={style}
-            type="button"
-            className={`flex h-7 w-7 items-center justify-center rounded transition-colors ${
-              element.fillStyle === style
-                ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
-                : "text-muted-foreground hover:bg-accent"
-            }`}
-            onClick={() => updateElement(element.id, { fillStyle: style })}
-            title={style}
-          >
-            <FillStylePreview style={style} />
-          </button>
-        ))}
-      </div>
     </div>
   );
 }
@@ -1411,10 +1330,6 @@ function MultiCheckboxProperties({ elements }: { elements: Checkbox[] }) {
   const allSameChecked = elements.every(
     (el) => el.defaultChecked === elements[0].defaultChecked,
   );
-  const allSameFillStyle = elements.every(
-    (el) => el.fillStyle === elements[0].fillStyle,
-  );
-
   return (
     <>
       <div className="flex items-center justify-between">
@@ -1430,30 +1345,6 @@ function MultiCheckboxProperties({ elements }: { elements: Checkbox[] }) {
           }
         />
       </div>
-
-      <Separator />
-      <SectionHeader label={t("properties.fillStyle")} />
-      <div className="flex gap-1">
-        {CHECKBOX_FILL_STYLES.map((style) => (
-          <button
-            key={style}
-            type="button"
-            className={`flex h-7 w-7 items-center justify-center rounded transition-colors ${
-              (allSameFillStyle ? elements[0].fillStyle : null) === style
-                ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
-                : "text-muted-foreground hover:bg-accent"
-            }`}
-            onClick={() =>
-              batchUpdateElements(
-                elements.map((el) => ({ id: el.id, changes: { fillStyle: style } })),
-              )
-            }
-            title={style}
-          >
-            <FillStylePreview style={style} />
-          </button>
-        ))}
-      </div>
     </>
   );
 }
@@ -1467,10 +1358,6 @@ function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
   const allSameGroup = elements.every(
     (el) => el.groupName === elements[0].groupName,
   );
-  const allSameFillStyle = elements.every(
-    (el) => el.fillStyle === elements[0].fillStyle,
-  );
-
   const groupNameField = useDeferredValue(
     allSameGroup ? elements[0].groupName : "",
     (v) => {
@@ -1492,29 +1379,6 @@ function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
         />
       </PropertyField>
 
-      <Separator />
-      <SectionHeader label={t("properties.fillStyle")} />
-      <div className="flex gap-1">
-        {RADIO_FILL_STYLES.map((style) => (
-          <button
-            key={style}
-            type="button"
-            className={`flex h-7 w-7 items-center justify-center rounded transition-colors ${
-              (allSameFillStyle ? elements[0].fillStyle : null) === style
-                ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
-                : "text-muted-foreground hover:bg-accent"
-            }`}
-            onClick={() =>
-              batchUpdateElements(
-                elements.map((el) => ({ id: el.id, changes: { fillStyle: style } })),
-              )
-            }
-            title={style}
-          >
-            <FillStylePreview style={style} />
-          </button>
-        ))}
-      </div>
     </>
   );
 }
