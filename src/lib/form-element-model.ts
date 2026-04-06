@@ -231,6 +231,7 @@ interface CheckboxOptions {
   defaultChecked?: boolean;
   width?: number;
   height?: number;
+  fillStyle?: FillStyle;
 }
 
 export function createCheckbox(opts: CheckboxOptions): Checkbox {
@@ -244,6 +245,7 @@ export function createCheckbox(opts: CheckboxOptions): Checkbox {
     pageNumber: opts.pageNumber,
     name: opts.name ?? "",
     defaultChecked: opts.defaultChecked ?? false,
+    fillStyle: opts.fillStyle ?? "checkmark",
   };
 }
 

@@ -490,6 +490,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
+      <SectionHeader label={t("properties.general")} />
       <PropertyField label={t("properties.name")}>
         <Input {...nameField} className="h-7 text-xs" />
       </PropertyField>
@@ -497,23 +498,6 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
       <PropertyField label={t("properties.defaultValue")}>
         <Input {...defaultValueField} className="h-7 text-xs" />
       </PropertyField>
-
-      <Separator />
-      <TypographySection
-        element={element}
-        onUpdate={(updates) => updateElement(element.id, updates)}
-      />
-
-      {!element.multiline && (
-        <div className="flex items-center justify-between">
-          <Label className="text-[11px] text-muted-foreground">
-            {t("properties.height")}
-          </Label>
-          <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
-            {t("properties.pt", { value: Math.round(element.height) })}
-          </span>
-        </div>
-      )}
 
       <div className="flex items-center justify-between">
         <Label className="text-[11px] text-muted-foreground">
@@ -533,6 +517,23 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
           placeholder={t("properties.noLimit")}
         />
       </PropertyField>
+
+      <Separator />
+      <TypographySection
+        element={element}
+        onUpdate={(updates) => updateElement(element.id, updates)}
+      />
+
+      {!element.multiline && (
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px] text-muted-foreground">
+            {t("properties.height")}
+          </Label>
+          <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
+            {t("properties.pt", { value: Math.round(element.height) })}
+          </span>
+        </div>
+      )}
 
       <Separator />
       <AppearanceSection
@@ -558,6 +559,7 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
+      <SectionHeader label={t("properties.general")} />
       <PropertyField label={t("properties.name")}>
         <Input {...nameField} className="h-7 text-xs" />
       </PropertyField>
@@ -631,6 +633,7 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
+      <SectionHeader label={t("properties.general")} />
       <PropertyField label={t("properties.groupName")}>
         <Input {...groupNameField} className="h-7 text-xs" />
       </PropertyField>
@@ -851,11 +854,24 @@ function DropdownProperties({ elementId }: { elementId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
+      <SectionHeader label={t("properties.general")} />
       <PropertyField label={t("properties.name")}>
         <Input {...nameField} className="h-7 text-xs" />
       </PropertyField>
-      <Separator />
 
+      <div className="flex items-center justify-between">
+        <Label className="text-[11px] text-muted-foreground">
+          {t("properties.required")}
+        </Label>
+        <Switch
+          checked={element.required}
+          onCheckedChange={(checked) =>
+            updateElement(element.id, { required: checked })
+          }
+        />
+      </div>
+
+      <Separator />
       <TypographySection
         element={element}
         onUpdate={(updates) => updateElement(element.id, updates)}
@@ -871,7 +887,6 @@ function DropdownProperties({ elementId }: { elementId: string }) {
       </div>
 
       <Separator />
-
       <SectionHeader label={t("properties.options")} />
 
       <DraggableOptionList
@@ -903,19 +918,7 @@ function DropdownProperties({ elementId }: { elementId: string }) {
         />
       </div>
 
-      <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-muted-foreground">
-          {t("properties.required")}
-        </Label>
-        <Switch
-          checked={element.required}
-          onCheckedChange={(checked) =>
-            updateElement(element.id, { required: checked })
-          }
-        />
-      </div>
       <Separator />
-
       <AppearanceSection
         element={element}
         onUpdate={(updates) => updateElement(element.id, updates)}
@@ -942,15 +945,16 @@ function ButtonProperties({ elementId }: { elementId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
+      <SectionHeader label={t("properties.general")} />
       <PropertyField label={t("properties.name")}>
         <Input {...nameField} className="h-7 text-xs" />
       </PropertyField>
 
       <PropertyField label={t("properties.label")}>
         <Input {...labelField} className="h-7 text-xs" />
-      <Separator />
       </PropertyField>
 
+      <Separator />
       <TypographySection
         element={element}
         onUpdate={(updates) => updateElement(element.id, updates)}
@@ -1010,11 +1014,24 @@ function OptionListProperties({ elementId }: { elementId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
+      <SectionHeader label={t("properties.general")} />
       <PropertyField label={t("properties.name")}>
-      <Separator />
         <Input {...nameField} className="h-7 text-xs" />
       </PropertyField>
 
+      <div className="flex items-center justify-between">
+        <Label className="text-[11px] text-muted-foreground">
+          {t("properties.required")}
+        </Label>
+        <Switch
+          checked={element.required}
+          onCheckedChange={(checked) =>
+            updateElement(element.id, { required: checked })
+          }
+        />
+      </div>
+
+      <Separator />
       <TypographySection
         element={element}
         onUpdate={(updates) => updateElement(element.id, updates)}
@@ -1030,7 +1047,6 @@ function OptionListProperties({ elementId }: { elementId: string }) {
       </div>
 
       <Separator />
-
       <SectionHeader label={t("properties.options")} />
 
       <DraggableOptionList
@@ -1049,18 +1065,6 @@ function OptionListProperties({ elementId }: { elementId: string }) {
       >
         +
       </button>
-
-      <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-muted-foreground">
-          {t("properties.required")}
-        </Label>
-        <Switch
-          checked={element.required}
-          onCheckedChange={(checked) =>
-            updateElement(element.id, { required: checked })
-          }
-        />
-      </div>
 
       <Separator />
       <AppearanceSection
@@ -1265,6 +1269,28 @@ function MultiAppearanceSection({ elements }: { elements: ElementWithTypography[
         )
       }
     />
+  );
+}
+
+function MultiNameField({ elements }: { elements: { name: string; id: string }[] }) {
+  const { t } = useTranslation();
+  const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
+  const allSame = elements.every((el) => el.name === elements[0].name);
+  const nameField = useDeferredValue(
+    allSame ? elements[0].name : "",
+    (v) =>
+      batchUpdateElements(
+        elements.map((el) => ({ id: el.id, changes: { name: v } })),
+      ),
+  );
+  return (
+    <PropertyField label={t("properties.name")}>
+      <Input
+        {...nameField}
+        placeholder={allSame ? undefined : t("properties.mixed")}
+        className="h-7 text-xs"
+      />
+    </PropertyField>
   );
 }
 
@@ -1784,6 +1810,28 @@ function PropertiesPanelContent() {
           <Separator />
 
           {(() => {
+            const namedEls = selectedElements.filter(
+              (el): el is FormElement & { name: string } => "name" in el,
+            );
+            const requiredEls = selectedElements.filter(
+              (el): el is FormElement & { required: boolean } => "required" in el,
+            );
+            return namedEls.length > 0 || requiredEls.length > 0 ? (
+              <>
+                <SectionHeader label={t("properties.general")} />
+                {namedEls.length > 0 && <MultiNameField elements={namedEls} />}
+                {requiredEls.length > 0 && <MultiRequiredSwitch elements={requiredEls} />}
+              </>
+            ) : null;
+          })()}
+
+          {singleType === "radio" && (
+            <MultiRadioProperties
+              elements={selectedElements.filter(isRadioButton)}
+            />
+          )}
+
+          {(() => {
             const typoEls = selectedElements.filter(elementHasTypography);
             return typoEls.length > 0 ? (
               <>
@@ -1794,16 +1842,7 @@ function PropertiesPanelContent() {
               </>
             ) : null;
           })()}
-          {singleType === "text" && (
-            <MultiRequiredSwitch
-              elements={selectedElements.filter(isTextField)}
-            />
-          )}
-          {singleType === "radio" && (
-            <MultiRadioProperties
-              elements={selectedElements.filter(isRadioButton)}
-            />
-          )}
+
           <Separator />
 
           <MultiPositionProperties elements={selectedElements} />

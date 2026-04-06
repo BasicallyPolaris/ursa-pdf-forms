@@ -98,7 +98,8 @@
     "deleteGuide": "Delete guide",
     "pt": "{{value}}pt",
     "widthShort": "W",
-    "heightShort": "H"
+    "heightShort": "H",
+    "general": "General"
   },
   "status": {
     "clickToSelect": "Click to select",

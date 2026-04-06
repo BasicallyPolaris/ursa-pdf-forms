@@ -98,7 +98,8 @@
     "deleteGuide": "Hilfslinie löschen",
     "pt": "{{value}} pt",
     "widthShort": "B",
-    "heightShort": "H"
+    "heightShort": "H",
+    "general": "Allgemein"
   },
   "status": {
     "clickToSelect": "Klicken zum Auswählen",

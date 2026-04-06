@@ -363,6 +363,7 @@ function extractCheckboxField(
     pageNumber,
     name,
     defaultChecked,
+    fillStyle: "checkmark" as const,
   };
 }
 
