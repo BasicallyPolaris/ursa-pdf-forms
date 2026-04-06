@@ -364,6 +364,49 @@ describe("extractAcroFormFields", () => {
     expect(pageNumbers).toEqual([1, 4]);
   });
 
+  it("preserves multiline flag after round-trip", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      createTextField({
+        x: 72,
+        y: 600,
+        pageNumber: 1,
+        name: "single",
+        multiline: false,
+        width: 200,
+        height: 20,
+      }),
+      createTextField({
+        x: 72,
+        y: 500,
+        pageNumber: 1,
+        name: "multi",
+        multiline: true,
+        width: 200,
+        height: 60,
+      }),
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(2);
+    const single = extracted.find(
+      (el) => el.type === "text" && el.name === "single",
+    );
+    const multi = extracted.find(
+      (el) => el.type === "text" && el.name === "multi",
+    );
+    expect(single).toBeDefined();
+    expect(multi).toBeDefined();
+    if (single?.type === "text") {
+      expect(single.multiline).toBe(false);
+    }
+    if (multi?.type === "text") {
+      expect(multi.multiline).toBe(true);
+    }
+  });
+
   it("extracts fields when /P is only on parent dict", async () => {
     const basePdf = await createPdfWithPages(1);
     const elements: FormElement[] = [

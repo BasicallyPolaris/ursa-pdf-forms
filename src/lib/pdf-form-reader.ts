@@ -261,8 +261,8 @@ function extractTextField(
   const fontSize = parseFontSizeFromDA(daStr);
   const flags = getInheritableAttr(dict, PDFName.of("Ff"), ctx);
   const flagNum = flags instanceof PDFNumber ? flags.asNumber() : 0;
-  const multiline = (flagNum & (1 << 13)) !== 0;
-  const required = (flagNum & (1 << 2)) !== 0;
+  const multiline = (flagNum & (1 << 12)) !== 0;
+  const required = (flagNum & (1 << 1)) !== 0;
   const maxLen = getInheritableAttr(dict, PDFName.of("MaxLen"), ctx);
   const maxLength = maxLen instanceof PDFNumber ? maxLen.asNumber() : undefined;
 
