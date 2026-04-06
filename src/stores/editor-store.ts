@@ -211,6 +211,49 @@ export interface EditorState {
   setDragFileValid: (valid: boolean) => void;
 }
 
+function guidesEqual(a: GuideLine[], b: GuideLine[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] === b[i]) continue;
+    if (
+      a[i].id !== b[i].id ||
+      a[i].orientation !== b[i].orientation ||
+      a[i].position !== b[i].position
+    )
+      return false;
+  }
+  return true;
+}
+
+function elementsEqual(a: FormElement[], b: FormElement[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const ae = a[i];
+    const be = b[i];
+    if (ae === be) continue;
+    if (ae.id !== be.id) return false;
+    const keysA = Object.keys(ae) as (keyof FormElement)[];
+    const keysB = Object.keys(be) as (keyof FormElement)[];
+    if (keysA.length !== keysB.length) return false;
+    for (const k of keysA) {
+      const va = ae[k];
+      const vb = be[k];
+      if (va === vb) continue;
+      if (Array.isArray(va) && Array.isArray(vb)) {
+        if (va.length !== vb.length) return false;
+        for (let j = 0; j < va.length; j++) {
+          if (va[j] !== vb[j]) return false;
+        }
+        continue;
+      }
+      return false;
+    }
+  }
+  return true;
+}
+
 export const useEditorStore = create<EditorState>()(
   temporal(
     (set, get) => ({
@@ -272,17 +315,35 @@ export const useEditorStore = create<EditorState>()(
       },
 
       updateElement: (id, updates) => {
-        _mutationVersion++;
-        set((s) => ({
-          elements: s.elements.map((el) =>
-            el.id === id ? mergeElement(el, updates) : el,
-          ),
-        }));
+        set((s) => {
+          const el = s.elements.find((e) => e.id === id);
+          if (!el) return s;
+          const changed = (Object.keys(updates) as (keyof FormElement)[]).some(
+            (k) => el[k] !== updates[k],
+          );
+          if (!changed) return s;
+          _mutationVersion++;
+          return {
+            elements: s.elements.map((e) =>
+              e.id === id ? mergeElement(el, updates) : e,
+            ),
+          };
+        });
       },
 
       moveElements: (updates) => {
-        _mutationVersion++;
         set((s) => {
+          const changed = updates.some((u) => {
+            const el = s.elements.find((e) => e.id === u.id);
+            if (!el) return false;
+            return (
+              el.x !== u.x ||
+              el.y !== u.y ||
+              (u.pageNumber !== undefined && u.pageNumber !== el.pageNumber)
+            );
+          });
+          if (!changed) return s;
+          _mutationVersion++;
           const map = new Map(updates.map((u) => [u.id, u]));
           return {
             elements: s.elements.map((el) => {
@@ -298,13 +359,17 @@ export const useEditorStore = create<EditorState>()(
       },
 
       removeElements: (ids) => {
-        _mutationVersion++;
-        set((s) => ({
-          elements: s.elements.filter((el) => !ids.includes(el.id)),
-          selectedIds: new Set(
-            [...s.selectedIds].filter((id) => !ids.includes(id)),
-          ),
-        }));
+        set((s) => {
+          const remaining = s.elements.filter((el) => !ids.includes(el.id));
+          if (remaining.length === s.elements.length) return s;
+          _mutationVersion++;
+          return {
+            elements: remaining,
+            selectedIds: new Set(
+              [...s.selectedIds].filter((id) => !ids.includes(id)),
+            ),
+          };
+        });
       },
 
       selectElements: (ids) => set({ selectedIds: ids, selectedGuideId: null }),
@@ -411,32 +476,50 @@ export const useEditorStore = create<EditorState>()(
       },
 
       removeGuide: (id) => {
-        _mutationVersion++;
-        set((s) => ({
-          guides: s.guides.filter((g) => g.id !== id),
-          selectedGuideId: s.selectedGuideId === id ? null : s.selectedGuideId,
-        }));
+        set((s) => {
+          const remaining = s.guides.filter((g) => g.id !== id);
+          if (remaining.length === s.guides.length) return s;
+          _mutationVersion++;
+          return {
+            guides: remaining,
+            selectedGuideId:
+              s.selectedGuideId === id ? null : s.selectedGuideId,
+          };
+        });
       },
 
       updateGuidePosition: (id, position) => {
-        _mutationVersion++;
-        set((s) => ({
-          guides: s.guides.map((g) => (g.id === id ? { ...g, position } : g)),
-        }));
+        set((s) => {
+          const guide = s.guides.find((g) => g.id === id);
+          if (!guide || guide.position === position) return s;
+          _mutationVersion++;
+          return {
+            guides: s.guides.map((g) =>
+              g.id === id ? { ...g, position } : g,
+            ),
+          };
+        });
       },
 
       batchUpdateElements: (
         updates: Array<{ id: string; changes: Partial<FormElement> }>,
       ) => {
-        _mutationVersion++;
         set((s) => {
           const map = new Map(updates.map((u) => [u.id, u.changes]));
-          return {
-            elements: s.elements.map((el) => {
-              const changes = map.get(el.id);
-              return changes ? mergeElement(el, changes) : el;
-            }),
-          };
+          let anyChanged = false;
+          const newElements = s.elements.map((el) => {
+            const changes = map.get(el.id);
+            if (!changes) return el;
+            const changed = (Object.keys(changes) as (keyof FormElement)[]).some(
+              (k) => el[k] !== changes[k],
+            );
+            if (!changed) return el;
+            anyChanged = true;
+            return mergeElement(el, changes);
+          });
+          if (!anyChanged) return s;
+          _mutationVersion++;
+          return { elements: newElements };
         });
       },
 
@@ -589,8 +672,8 @@ export const useEditorStore = create<EditorState>()(
         guides: state.guides,
       }),
       equality: (pastState, currentState) =>
-        pastState.elements === currentState.elements &&
-        pastState.guides === currentState.guides,
+        elementsEqual(pastState.elements, currentState.elements) &&
+        guidesEqual(pastState.guides, currentState.guides),
     },
   ),
 );
