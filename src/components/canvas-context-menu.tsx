@@ -313,6 +313,7 @@ export function CanvasContextMenu({
 
       if (e.key === "ArrowDown") {
         e.preventDefault();
+        e.stopPropagation();
         setFocusedIndex((i) => {
           const next = (i + 1) % actionableEntries.length;
           const el =
@@ -327,6 +328,7 @@ export function CanvasContextMenu({
 
       if (e.key === "ArrowUp") {
         e.preventDefault();
+        e.stopPropagation();
         setFocusedIndex((i) => {
           const next =
             (i - 1 + actionableEntries.length) % actionableEntries.length;
