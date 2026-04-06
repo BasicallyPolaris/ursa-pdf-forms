@@ -5,9 +5,28 @@ import {
   PDFName,
   PDFPage,
   PDFRef,
+  PDFOperator,
   rgb,
   StandardFonts,
+  degrees,
+  drawCheckBox,
+  drawRadioButton,
+  drawCheckMark,
+  drawEllipse,
+  drawRectangle,
+  pushGraphicsState,
+  popGraphicsState,
+  moveTo,
+  lineTo,
+  closePath,
+  fill,
+  stroke,
+  setFillingColor,
+  setStrokingColor,
+  setLineWidth,
 } from "pdf-lib";
+import type { PDFCheckBox, PDFRadioGroup } from "pdf-lib";
+import type { Color } from "pdf-lib";
 
 const RESOLVED_FONT_TO_ENUM_KEY: Record<string, keyof typeof StandardFonts> = {
   Helvetica: "Helvetica",
@@ -30,6 +49,7 @@ function embedStandardFont(pdfDoc: PDFDocument, resolvedName: string) {
   const key = RESOLVED_FONT_TO_ENUM_KEY[resolvedName] ?? "Helvetica";
   return pdfDoc.embedStandardFont(StandardFonts[key]);
 }
+
 import type {
   Checkbox,
   DropdownField,
@@ -38,6 +58,7 @@ import type {
   TextField,
   ButtonField,
   OptionListField,
+  FillStyle,
 } from "./form-element-model";
 import { hexToRgb, resolveFontFamily } from "./font-utils";
 
@@ -62,6 +83,215 @@ function dedupeFieldName(
   let i = 2;
   while (usedNames.has(`${name}_${i}`)) i++;
   return `${name}_${i}`;
+}
+
+function drawFillMark(
+  fillStyle: FillStyle,
+  cx: number,
+  cy: number,
+  size: number,
+  markColor: Color,
+): PDFOperator[] {
+  const half = size / 2;
+  switch (fillStyle) {
+    case "checkmark":
+      return drawCheckMark({
+        x: cx,
+        y: cy,
+        size: half,
+        thickness: Math.max(0.5, size * 0.08),
+        color: markColor,
+      });
+    case "circle":
+      return drawEllipse({
+        x: cx,
+        y: cy,
+        xScale: half * 0.5,
+        yScale: half * 0.5,
+        color: markColor,
+        borderColor: undefined,
+        borderWidth: 0,
+      });
+    case "cross": {
+      const arm = half * 0.65;
+      return [
+        pushGraphicsState(),
+        setStrokingColor(markColor),
+        setLineWidth(Math.max(0.5, size * 0.08)),
+        moveTo(cx - arm, cy - arm),
+        lineTo(cx + arm, cy + arm),
+        moveTo(cx + arm, cy - arm),
+        lineTo(cx - arm, cy + arm),
+        stroke(),
+        popGraphicsState(),
+      ];
+    }
+    case "diamond": {
+      const d = half * 0.6;
+      return [
+        pushGraphicsState(),
+        setFillingColor(markColor),
+        moveTo(cx, cy + d),
+        lineTo(cx + d, cy),
+        lineTo(cx, cy - d),
+        lineTo(cx - d, cy),
+        closePath(),
+        fill(),
+        popGraphicsState(),
+      ];
+    }
+    case "star": {
+      const outer = half * 0.7;
+      const inner = half * 0.3;
+      const ops: PDFOperator[] = [
+        pushGraphicsState(),
+        setFillingColor(markColor),
+        moveTo(cx, cy + outer),
+      ];
+      for (let i = 0; i < 5; i++) {
+        const innerAngle = Math.PI / 2 + ((2 * i + 1) * Math.PI) / 5;
+        const outerAngle = Math.PI / 2 + ((2 * i + 2) * Math.PI) / 5;
+        ops.push(
+          lineTo(cx + inner * Math.cos(innerAngle), cy + inner * Math.sin(innerAngle)),
+          lineTo(cx + outer * Math.cos(outerAngle), cy + outer * Math.sin(outerAngle)),
+        );
+      }
+      ops.push(closePath(), fill(), popGraphicsState());
+      return ops;
+    }
+    default:
+      return drawCheckMark({
+        x: cx,
+        y: cy,
+        size: half,
+        thickness: Math.max(0.5, size * 0.08),
+        color: markColor,
+      });
+  }
+}
+
+interface WidgetLike {
+  getRectangle: () => { width: number; height: number };
+  getAppearanceCharacteristics: () => {
+    getBackgroundColor: () => number[] | undefined;
+    getBorderColor: () => number[] | undefined;
+  } | null;
+  getBorderStyle: () => { getWidth: () => number } | null;
+}
+
+function readWidgetStyle(widget: WidgetLike) {
+  const rectangle = widget.getRectangle();
+  const ap = widget.getAppearanceCharacteristics();
+  const bs = widget.getBorderStyle();
+  const borderWidth = bs?.getWidth() ?? 0;
+  const width = rectangle.width;
+  const height = rectangle.height;
+  const black = rgb(0, 0, 0);
+  const rawBorder = ap?.getBorderColor();
+  const borderColor = rawBorder
+    ? rgb(rawBorder[0] / 255, rawBorder[1] / 255, rawBorder[2] / 255)
+    : black;
+  const rawBg = ap?.getBackgroundColor();
+  const backgroundColor = rawBg
+    ? rgb(rawBg[0] / 255, rawBg[1] / 255, rawBg[2] / 255)
+    : undefined;
+  const downBackgroundColor = rawBg
+    ? rgb((rawBg[0] / 255) * 0.8, (rawBg[1] / 255) * 0.8, (rawBg[2] / 255) * 0.8)
+    : undefined;
+  return { width, height, borderWidth, borderColor, backgroundColor, downBackgroundColor, markColor: black };
+}
+
+function rectBox(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  borderWidth: number,
+  color: Color | undefined,
+  borderColor: Color,
+) {
+  return drawRectangle({
+    x, y, width: w, height: h,
+    borderWidth,
+    color,
+    borderColor,
+    rotate: degrees(0),
+    xSkew: degrees(0),
+    ySkew: degrees(0),
+  });
+}
+
+function makeCheckBoxAppearanceProvider(fillStyle: FillStyle) {
+  return (_field: PDFCheckBox, widget: WidgetLike) => {
+    const s = readWidgetStyle(widget);
+    const x = s.borderWidth / 2;
+    const y = s.borderWidth / 2;
+    const w = s.width - s.borderWidth;
+    const h = s.height - s.borderWidth;
+    const markCx = x + w / 2;
+    const markCy = y + h / 2;
+    const markSize = Math.min(w, h) * 0.5;
+
+    if (fillStyle === "checkmark") {
+      const opts = { x, y, width: w, height: h, borderWidth: s.borderWidth, borderColor: s.borderColor, color: s.backgroundColor, thickness: Math.max(0.5, Math.min(w, h) * 0.08), markColor: s.markColor };
+      return {
+        normal: {
+          on: [...drawCheckBox({ ...opts, filled: true })],
+          off: [...drawCheckBox({ ...opts, filled: false })],
+        },
+        down: {
+          on: [...drawCheckBox({ ...opts, color: s.downBackgroundColor, filled: true })],
+          off: [...drawCheckBox({ ...opts, color: s.downBackgroundColor, filled: false })],
+        },
+      };
+    }
+
+    return {
+      normal: {
+        on: [pushGraphicsState(), ...rectBox(x, y, w, h, s.borderWidth, s.backgroundColor, s.borderColor), ...drawFillMark(fillStyle, markCx, markCy, markSize, s.markColor), popGraphicsState()],
+        off: [pushGraphicsState(), ...rectBox(x, y, w, h, s.borderWidth, s.backgroundColor, s.borderColor), popGraphicsState()],
+      },
+      down: {
+        on: [pushGraphicsState(), ...rectBox(x, y, w, h, s.borderWidth, s.downBackgroundColor, s.borderColor), ...drawFillMark(fillStyle, markCx, markCy, markSize, s.markColor), popGraphicsState()],
+        off: [pushGraphicsState(), ...rectBox(x, y, w, h, s.borderWidth, s.downBackgroundColor, s.borderColor), popGraphicsState()],
+      },
+    };
+  };
+}
+
+function makeRadioGroupAppearanceProvider(fillStyle: FillStyle) {
+  return (_field: PDFRadioGroup, widget: WidgetLike) => {
+    const s = readWidgetStyle(widget);
+    const cx = s.width / 2;
+    const cy = s.height / 2;
+    const outerScale = Math.min(s.width, s.height) / 2;
+    const markSize = Math.min(s.width, s.height) * 0.5;
+
+    if (fillStyle === "circle") {
+      const opts = { x: cx, y: cy, width: s.width - s.borderWidth, height: s.height - s.borderWidth, borderWidth: s.borderWidth, borderColor: s.borderColor, color: s.backgroundColor, dotColor: s.markColor };
+      return {
+        normal: {
+          on: [...drawRadioButton({ ...opts, filled: true })],
+          off: [...drawRadioButton({ ...opts, filled: false })],
+        },
+        down: {
+          on: [...drawRadioButton({ ...opts, color: s.downBackgroundColor, filled: true })],
+          off: [...drawRadioButton({ ...opts, color: s.downBackgroundColor, filled: false })],
+        },
+      };
+    }
+
+    return {
+      normal: {
+        on: [pushGraphicsState(), ...drawEllipse({ x: cx, y: cy, xScale: outerScale, yScale: outerScale, color: s.backgroundColor, borderColor: s.borderColor, borderWidth: s.borderWidth }), ...drawFillMark(fillStyle, cx, cy, markSize, s.markColor), popGraphicsState()],
+        off: [pushGraphicsState(), ...drawEllipse({ x: cx, y: cy, xScale: outerScale, yScale: outerScale, color: s.backgroundColor, borderColor: s.borderColor, borderWidth: s.borderWidth }), popGraphicsState()],
+      },
+      down: {
+        on: [pushGraphicsState(), ...drawEllipse({ x: cx, y: cy, xScale: outerScale, yScale: outerScale, color: s.downBackgroundColor, borderColor: s.borderColor, borderWidth: s.borderWidth }), ...drawFillMark(fillStyle, cx, cy, markSize, s.markColor), popGraphicsState()],
+        off: [pushGraphicsState(), ...drawEllipse({ x: cx, y: cy, xScale: outerScale, yScale: outerScale, color: s.downBackgroundColor, borderColor: s.borderColor, borderWidth: s.borderWidth }), popGraphicsState()],
+      },
+    };
+  };
 }
 
 export async function exportFormElements(
@@ -135,6 +365,7 @@ export async function exportFormElements(
 
   for (const [groupName, radios] of groups) {
     const radioGroup = form.createRadioGroup(groupName);
+
     for (const el of radios) {
       if (el.pageNumber < 1 || el.pageNumber > pageCount) continue;
       const page = pdf.getPage(el.pageNumber - 1);
@@ -146,6 +377,14 @@ export async function exportFormElements(
         width: el.width,
         height: el.height,
       });
+    }
+
+    const nonCircleStyle = radios.find((r) => r.fillStyle !== "circle")?.fillStyle;
+    if (nonCircleStyle) {
+      const provider = makeRadioGroupAppearanceProvider(nonCircleStyle);
+      radioGroup.updateAppearances(
+        provider as Parameters<typeof radioGroup.updateAppearances>[0],
+      );
     }
   }
 
@@ -203,6 +442,8 @@ function addTextField(
   ) {
     field.setMaxLength(el.maxLength);
   }
+
+  field.updateAppearances(font);
 }
 
 function addCheckboxField(
@@ -224,6 +465,13 @@ function addCheckboxField(
 
   if (el.defaultChecked) {
     field.check();
+  }
+
+  if (el.fillStyle !== "checkmark") {
+    const provider = makeCheckBoxAppearanceProvider(el.fillStyle);
+    field.updateAppearances(
+      provider as Parameters<typeof field.updateAppearances>[0],
+    );
   }
 }
 

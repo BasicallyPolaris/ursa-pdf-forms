@@ -25,8 +25,11 @@ import {
   isOptionListField,
   heightFromOptions,
   type FormElement,
+  type Checkbox,
   type RadioButton,
   type TextField,
+  type DropdownField,
+  type ButtonField,
 } from "@/lib/form-element-model";
 import { resolveElementPosition } from "@/lib/page-coordinates";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
@@ -575,9 +578,39 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
           }
         />
       </div>
+
+      <Separator />
+
+      <SectionHeader label={t("properties.fillStyle")} />
+
+      <div className="flex gap-1">
+        {CHECKBOX_FILL_STYLES.map((style) => (
+          <button
+            key={style}
+            type="button"
+            className={`flex h-7 w-7 items-center justify-center rounded transition-colors ${
+              element.fillStyle === style
+                ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
+                : "text-muted-foreground hover:bg-accent"
+            }`}
+            onClick={() => updateElement(element.id, { fillStyle: style })}
+            title={style}
+          >
+            <FillStylePreview style={style} />
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
+
+const CHECKBOX_FILL_STYLES: Checkbox["fillStyle"][] = [
+  "checkmark",
+  "circle",
+  "cross",
+  "star",
+  "diamond",
+];
 
 const RADIO_FILL_STYLES: RadioButton["fillStyle"][] = [
   "circle",
@@ -587,8 +620,8 @@ const RADIO_FILL_STYLES: RadioButton["fillStyle"][] = [
   "diamond",
 ];
 
-function FillStylePreview({ style }: { style: RadioButton["fillStyle"] }) {
-  const paths: Record<RadioButton["fillStyle"], React.ReactNode> = {
+function FillStylePreview({ style }: { style: Checkbox["fillStyle"] }) {
+  const paths: Record<Checkbox["fillStyle"], React.ReactNode> = {
     circle: (
       <circle cx="5" cy="5" r="3.5" fill="none" stroke="currentColor" strokeWidth="1" />
     ),
@@ -1316,6 +1349,115 @@ function MultiRequiredSwitch({ elements }: { elements: { required: boolean; id: 
   );
 }
 
+function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
+  const { t } = useTranslation();
+  const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
+
+  if (elements.length === 0) return null;
+
+  const allSameDefaultValue = elements.every(
+    (el) => el.defaultValue === elements[0].defaultValue,
+  );
+  const allSameMaxLength = elements.every(
+    (el) => el.maxLength === elements[0].maxLength,
+  );
+
+  const defaultValueField = useDeferredValue(
+    allSameDefaultValue ? elements[0].defaultValue : "",
+    (v) =>
+      batchUpdateElements(
+        elements.map((el) => ({ id: el.id, changes: { defaultValue: v } })),
+      ),
+  );
+
+  const maxLengthField = useDeferredValue(
+    allSameMaxLength ? (elements[0].maxLength ?? "") : "",
+    (v) =>
+      batchUpdateElements(
+        elements.map((el) => ({
+          id: el.id,
+          changes: { maxLength: v ? Number(v) : undefined },
+        })),
+      ),
+  );
+
+  const mixed = t("properties.mixed");
+
+  return (
+    <>
+      <PropertyField label={t("properties.defaultValue")}>
+        <Input
+          {...defaultValueField}
+          placeholder={allSameDefaultValue ? undefined : mixed}
+          className="h-7 text-xs"
+        />
+      </PropertyField>
+      <PropertyField label={t("properties.maxLength")}>
+        <NumericInput
+          {...maxLengthField}
+          placeholder={allSameMaxLength ? t("properties.noLimit") : mixed}
+        />
+      </PropertyField>
+    </>
+  );
+}
+
+function MultiCheckboxProperties({ elements }: { elements: Checkbox[] }) {
+  const { t } = useTranslation();
+  const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
+
+  if (elements.length === 0) return null;
+
+  const allSameChecked = elements.every(
+    (el) => el.defaultChecked === elements[0].defaultChecked,
+  );
+  const allSameFillStyle = elements.every(
+    (el) => el.fillStyle === elements[0].fillStyle,
+  );
+
+  return (
+    <>
+      <div className="flex items-center justify-between">
+        <Label className="text-[11px] text-muted-foreground">
+          {t("properties.defaultChecked")}
+        </Label>
+        <Switch
+          checked={allSameChecked ? elements[0].defaultChecked : false}
+          onCheckedChange={(checked) =>
+            batchUpdateElements(
+              elements.map((el) => ({ id: el.id, changes: { defaultChecked: checked } })),
+            )
+          }
+        />
+      </div>
+
+      <Separator />
+      <SectionHeader label={t("properties.fillStyle")} />
+      <div className="flex gap-1">
+        {RADIO_FILL_STYLES.map((style) => (
+          <button
+            key={style}
+            type="button"
+            className={`flex h-7 w-7 items-center justify-center rounded transition-colors ${
+              (allSameFillStyle ? elements[0].fillStyle : null) === style
+                ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
+                : "text-muted-foreground hover:bg-accent"
+            }`}
+            onClick={() =>
+              batchUpdateElements(
+                elements.map((el) => ({ id: el.id, changes: { fillStyle: style } })),
+              )
+            }
+            title={style}
+          >
+            <FillStylePreview style={style} />
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
   const { t } = useTranslation();
   const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
@@ -1324,6 +1466,9 @@ function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
 
   const allSameGroup = elements.every(
     (el) => el.groupName === elements[0].groupName,
+  );
+  const allSameFillStyle = elements.every(
+    (el) => el.fillStyle === elements[0].fillStyle,
   );
 
   const groupNameField = useDeferredValue(
@@ -1335,16 +1480,98 @@ function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
     },
   );
 
+  const mixed = t("properties.mixed");
+
   return (
-    <div className="flex flex-col gap-3">
+    <>
       <PropertyField label={t("properties.groupName")}>
         <Input
           {...groupNameField}
-          placeholder={allSameGroup ? undefined : t("properties.mixed")}
+          placeholder={allSameGroup ? undefined : mixed}
           className="h-7 text-xs"
         />
       </PropertyField>
+
+      <Separator />
+      <SectionHeader label={t("properties.fillStyle")} />
+      <div className="flex gap-1">
+        {RADIO_FILL_STYLES.map((style) => (
+          <button
+            key={style}
+            type="button"
+            className={`flex h-7 w-7 items-center justify-center rounded transition-colors ${
+              (allSameFillStyle ? elements[0].fillStyle : null) === style
+                ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
+                : "text-muted-foreground hover:bg-accent"
+            }`}
+            onClick={() =>
+              batchUpdateElements(
+                elements.map((el) => ({ id: el.id, changes: { fillStyle: style } })),
+              )
+            }
+            title={style}
+          >
+            <FillStylePreview style={style} />
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function MultiDropdownProperties({ elements }: { elements: DropdownField[] }) {
+  const { t } = useTranslation();
+  const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
+
+  if (elements.length === 0) return null;
+
+  const allSameEditable = elements.every(
+    (el) => el.editable === elements[0].editable,
+  );
+
+  return (
+    <div className="flex items-center justify-between">
+      <Label className="text-[11px] text-muted-foreground">
+        {t("properties.editable")}
+      </Label>
+      <Switch
+        checked={allSameEditable ? elements[0].editable : false}
+        onCheckedChange={(checked) =>
+          batchUpdateElements(
+            elements.map((el) => ({ id: el.id, changes: { editable: checked } })),
+          )
+        }
+      />
     </div>
+  );
+}
+
+function MultiButtonProperties({ elements }: { elements: ButtonField[] }) {
+  const { t } = useTranslation();
+  const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
+
+  if (elements.length === 0) return null;
+
+  const allSameLabel = elements.every(
+    (el) => el.label === elements[0].label,
+  );
+
+  const labelField = useDeferredValue(
+    allSameLabel ? elements[0].label : "",
+    (v) =>
+      batchUpdateElements(
+        elements.map((el) => ({ id: el.id, changes: { label: v } })),
+      ),
+  );
+
+  return (
+    <PropertyField label={t("properties.label")}>
+      <Input
+        {...labelField}
+        placeholder={allSameLabel ? undefined : t("properties.mixed")}
+        className="h-7 text-xs"
+      />
+    </PropertyField>
   );
 }
 
@@ -1825,9 +2052,29 @@ function PropertiesPanelContent() {
             ) : null;
           })()}
 
+          {singleType === "text" && (
+            <MultiTextFieldProperties
+              elements={selectedElements.filter(isTextField)}
+            />
+          )}
+          {singleType === "checkbox" && (
+            <MultiCheckboxProperties
+              elements={selectedElements.filter(isCheckbox)}
+            />
+          )}
           {singleType === "radio" && (
             <MultiRadioProperties
               elements={selectedElements.filter(isRadioButton)}
+            />
+          )}
+          {singleType === "dropdown" && (
+            <MultiDropdownProperties
+              elements={selectedElements.filter(isDropdownField)}
+            />
+          )}
+          {singleType === "button" && (
+            <MultiButtonProperties
+              elements={selectedElements.filter(isButtonField)}
             />
           )}
 
