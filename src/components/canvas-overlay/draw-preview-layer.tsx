@@ -1,4 +1,3 @@
-import { HORIZONTAL_DRAW_TOOLS } from "./shared-constants";
 import { getElementStyleConfigByType } from "@/lib/element-style-map";
 
 interface DrawPreviewLayerProps {

@@ -43,6 +43,7 @@ export interface RadioButton {
   groupName: string;
   value: string;
   label: string;
+  fillStyle: "circle" | "checkmark" | "cross" | "star" | "diamond";
 }
 
 export interface DropdownField {
@@ -250,6 +251,7 @@ export function createRadioButton(opts: RadioButtonOptions): RadioButton {
     groupName: opts.groupName ?? "",
     value: opts.value ?? "",
     label: opts.label ?? "",
+    fillStyle: "circle",
   };
 }
 

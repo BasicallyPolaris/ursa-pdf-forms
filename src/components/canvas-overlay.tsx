@@ -24,9 +24,7 @@ import { getElementStyleConfig } from "@/lib/element-style-map";
 import {
   createCheckbox,
   createRadioButton,
-  createDropdownField,
   createButtonField,
-  createOptionListField,
   createSignatureField,
   type FormElement,
   getElementName,
@@ -691,15 +689,96 @@ export function CanvasOverlay() {
               viewBox="0 0 10 10"
               className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`}
             >
-              <circle
-                cx="5"
-                cy="5"
-                r="3.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1"
-              />
-              <circle cx="5" cy="5" r="1.5" fill="currentColor" />
+              {el.fillStyle === "circle" && (
+                <>
+                  <circle
+                    cx="5"
+                    cy="5"
+                    r="3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                  />
+                  <circle cx="5" cy="5" r="1.5" fill="currentColor" />
+                </>
+              )}
+              {el.fillStyle === "checkmark" && (
+                <>
+                  <circle
+                    cx="5"
+                    cy="5"
+                    r="3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                  />
+                  <path
+                    d="M2.5 5 L4.5 7 L7.5 3"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </>
+              )}
+              {el.fillStyle === "cross" && (
+                <>
+                  <circle
+                    cx="5"
+                    cy="5"
+                    r="3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                  />
+                  <path
+                    d="M3 3 L7 7 M7 3 L3 7"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                  />
+                </>
+              )}
+              {el.fillStyle === "star" && (
+                <>
+                  <circle
+                    cx="5"
+                    cy="5"
+                    r="3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                  />
+                  <path
+                    d="M5 2 L5.8 4.2 L8 4.3 L6.3 5.7 L6.8 8 L5 6.8 L3.2 8 L3.7 5.7 L2 4.3 L4.2 4.2 Z"
+                    fill="currentColor"
+                    stroke="currentColor"
+                    strokeWidth="0.3"
+                    strokeLinejoin="round"
+                  />
+                </>
+              )}
+              {el.fillStyle === "diamond" && (
+                <>
+                  <circle
+                    cx="5"
+                    cy="5"
+                    r="3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                  />
+                  <path
+                    d="M5 2 L7.5 5 L5 8 L2.5 5 Z"
+                    fill="currentColor"
+                    stroke="currentColor"
+                    strokeWidth="0.5"
+                    strokeLinejoin="round"
+                  />
+                </>
+              )}
             </svg>
           )}
           {el.type === "text" && el.multiline && !el.defaultValue && (

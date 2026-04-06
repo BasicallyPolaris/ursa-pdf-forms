@@ -172,6 +172,7 @@ function collectFields(
         groupName,
         value: exportValue,
         label: "",
+        fillStyle: "circle" as const,
       });
     } else {
       const name = getFieldName(fieldDict) ?? parentPartialName ?? "";
@@ -236,6 +237,7 @@ function collectRadioKids(
       groupName,
       value: exportValue,
       label: "",
+      fillStyle: "circle" as const,
     });
   }
 }

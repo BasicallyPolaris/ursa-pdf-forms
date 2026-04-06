@@ -325,7 +325,7 @@ function addSignatureField(
     sigFieldDict as unknown as import("pdf-lib").PDFDict,
   );
 
-  const acroForm = pdf.catalog.lookup(PDFName.of("AcroForm"));
+  const acroForm = pdfDoc.catalog.lookup(PDFName.of("AcroForm"));
   if (acroForm instanceof PDFDict) {
     const fields = acroForm.lookup(PDFName.of("Fields"));
     if (fields instanceof PDFArray) {
@@ -333,12 +333,12 @@ function addSignatureField(
     }
   }
 
-  const annots = page.node.lookup(PDFName.of("Annots"));
-  if (annots instanceof PDFArray) {
-    annots.push(sigRef);
-  } else {
-    page.node.set(PDFName.of("Annots"), pdfDoc.context.obj([sigRef]));
-  }
+    const annots = page.node.lookup(PDFName.of("Annots"));
+    if (annots instanceof PDFArray) {
+      annots.push(sigRef);
+    } else {
+      page.node.set(PDFName.of("Annots"), pdfDoc.context.obj([sigRef]));
+    }
 }
 
 function stripWidgetAnnotations(pdf: PDFDocument): void {

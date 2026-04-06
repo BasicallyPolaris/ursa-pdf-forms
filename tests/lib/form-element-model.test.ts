@@ -94,32 +94,32 @@ describe("getUniqueName", () => {
 
   it("increments trailing number on collision", () => {
     const existing = [
-      { type: "text" as const, id: "a", x: 0, y: 0, width: 10, height: 10, pageNumber: 1, name: "text_1", defaultValue: "", fontSize: 12, multiline: false, required: false, maxLength: undefined },
+      createTextField({ x: 0, y: 0, pageNumber: 1, name: "text_1" }),
     ];
     expect(getUniqueName("text_1", existing)).toBe("text_2");
   });
 
   it("skips to next available number", () => {
     const existing = [
-      { type: "text" as const, id: "a", x: 0, y: 0, width: 10, height: 10, pageNumber: 1, name: "text_1", defaultValue: "", fontSize: 12, multiline: false, required: false, maxLength: undefined },
-      { type: "text" as const, id: "b", x: 0, y: 0, width: 10, height: 10, pageNumber: 1, name: "text_2", defaultValue: "", fontSize: 12, multiline: false, required: false, maxLength: undefined },
-      { type: "text" as const, id: "c", x: 0, y: 0, width: 10, height: 10, pageNumber: 1, name: "text_3", defaultValue: "", fontSize: 12, multiline: false, required: false, maxLength: undefined },
+      createTextField({ x: 0, y: 0, pageNumber: 1, name: "text_1" }),
+      createTextField({ x: 0, y: 0, pageNumber: 1, name: "text_2" }),
+      createTextField({ x: 0, y: 0, pageNumber: 1, name: "text_3" }),
     ];
     expect(getUniqueName("text_1", existing)).toBe("text_4");
   });
 
   it("appends _2 when name has no trailing number", () => {
     const existing = [
-      { type: "text" as const, id: "a", x: 0, y: 0, width: 10, height: 10, pageNumber: 1, name: "firstName", defaultValue: "", fontSize: 12, multiline: false, required: false, maxLength: undefined },
+      createTextField({ x: 0, y: 0, pageNumber: 1, name: "firstName" }),
     ];
     expect(getUniqueName("firstName", existing)).toBe("firstName_2");
   });
 
   it("skips _3 when _2 also exists", () => {
     const existing = [
-      { type: "text" as const, id: "a", x: 0, y: 0, width: 10, height: 10, pageNumber: 1, name: "field", defaultValue: "", fontSize: 12, multiline: false, required: false, maxLength: undefined },
-      { type: "text" as const, id: "b", x: 0, y: 0, width: 10, height: 10, pageNumber: 1, name: "field_2", defaultValue: "", fontSize: 12, multiline: false, required: false, maxLength: undefined },
-      { type: "text" as const, id: "c", x: 0, y: 0, width: 10, height: 10, pageNumber: 1, name: "field_3", defaultValue: "", fontSize: 12, multiline: false, required: false, maxLength: undefined },
+      createTextField({ x: 0, y: 0, pageNumber: 1, name: "field" }),
+      createTextField({ x: 0, y: 0, pageNumber: 1, name: "field_2" }),
+      createTextField({ x: 0, y: 0, pageNumber: 1, name: "field_3" }),
     ];
     expect(getUniqueName("field", existing)).toBe("field_4");
   });

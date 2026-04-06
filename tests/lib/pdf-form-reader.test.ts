@@ -5,8 +5,6 @@ import {
   PDFArray,
   PDFDict,
   PDFRef,
-  PDFNumber,
-  PDFHexString,
 } from "pdf-lib";
 import { extractAcroFormFields } from "@/lib/pdf-form-reader";
 import { exportFormElements } from "@/lib/pdf-export-engine";
@@ -330,8 +328,8 @@ describe("extractAcroFormFields", () => {
       ignoreEncryption: true,
     });
     const ctx = reloaded.context;
-    const pagesTree = reloaded.catalog.lookup(PDFName.of("Pages"));
-    const kids = pagesTree.lookup(PDFName.of("Kids"));
+    const pagesTree = reloaded.catalog.lookup(PDFName.of("Pages")) as PDFDict;
+    const kids = pagesTree.lookup(PDFName.of("Kids")) as PDFArray;
 
     const intermediateKids = PDFArray.withContext(ctx);
     intermediateKids.push(kids.get(0));
@@ -356,6 +354,7 @@ describe("extractAcroFormFields", () => {
     newTopKids.push(kids.get(2));
     newTopKids.push(kids.get(3));
     pagesTree.set(PDFName.of("Kids"), newTopKids);
+    pagesTree.set(PDFName.of("Count"), ctx.obj(4));
 
     const modifiedPdf = await reloaded.save();
 
@@ -383,7 +382,7 @@ describe("extractAcroFormFields", () => {
       ignoreEncryption: true,
     });
     const ctx = reloaded.context;
-    const pagesTree = reloaded.catalog.lookup(PDFName.of("Pages"));
+    const pagesTree = reloaded.catalog.lookup(PDFName.of("Pages")) as PDFDict;
     const pageRef = (pagesTree.lookup(PDFName.of("Kids")) as PDFArray).get(0) as PDFRef;
 
     const acroForm = reloaded.catalog.lookup(PDFName.of("AcroForm")) as PDFDict;
