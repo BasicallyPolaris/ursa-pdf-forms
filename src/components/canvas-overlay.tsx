@@ -44,6 +44,15 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  AlignLeft,
+  CircleDot,
+  List,
+  Square,
+  SquareChevronDown,
+  SquareMousePointer,
+  Type,
+} from "lucide-react";
 import { Rnd } from "react-rnd";
 
 export function CanvasOverlay() {
@@ -665,162 +674,16 @@ export function CanvasOverlay() {
           }}
         >
           {el.type === "checkbox" && (
-            <svg
-              viewBox="0 0 10 10"
-              className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`}
-            >
-              <path
-                d="M2 5L4 7L8 3"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <Square className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`} strokeWidth={2} />
           )}
           {el.type === "radio" && (
-            <svg
-              viewBox="0 0 10 10"
-              className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`}
-            >
-              {el.fillStyle === "circle" && (
-                <>
-                  <circle
-                    cx="5"
-                    cy="5"
-                    r="3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1"
-                  />
-                  <circle cx="5" cy="5" r="1.5" fill="currentColor" />
-                </>
-              )}
-              {el.fillStyle === "checkmark" && (
-                <>
-                  <circle
-                    cx="5"
-                    cy="5"
-                    r="3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1"
-                  />
-                  <path
-                    d="M2.5 5 L4.5 7 L7.5 3"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </>
-              )}
-              {el.fillStyle === "cross" && (
-                <>
-                  <circle
-                    cx="5"
-                    cy="5"
-                    r="3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1"
-                  />
-                  <path
-                    d="M3 3 L7 7 M7 3 L3 7"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.2"
-                    strokeLinecap="round"
-                  />
-                </>
-              )}
-              {el.fillStyle === "star" && (
-                <>
-                  <circle
-                    cx="5"
-                    cy="5"
-                    r="3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1"
-                  />
-                  <path
-                    d="M5 2 L5.8 4.2 L8 4.3 L6.3 5.7 L6.8 8 L5 6.8 L3.2 8 L3.7 5.7 L2 4.3 L4.2 4.2 Z"
-                    fill="currentColor"
-                    stroke="currentColor"
-                    strokeWidth="0.3"
-                    strokeLinejoin="round"
-                  />
-                </>
-              )}
-              {el.fillStyle === "diamond" && (
-                <>
-                  <circle
-                    cx="5"
-                    cy="5"
-                    r="3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1"
-                  />
-                  <path
-                    d="M5 2 L7.5 5 L5 8 L2.5 5 Z"
-                    fill="currentColor"
-                    stroke="currentColor"
-                    strokeWidth="0.5"
-                    strokeLinejoin="round"
-                  />
-                </>
-              )}
-            </svg>
+            <CircleDot className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`} strokeWidth={2} />
           )}
           {el.type === "text" && el.multiline && !el.defaultValue && (
-            <svg
-              viewBox="0 0 12 12"
-              className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass} opacity-50`}
-            >
-              <line
-                x1="2"
-                y1="3"
-                x2="10"
-                y2="3"
-                stroke="currentColor"
-                strokeWidth="1"
-              />
-              <line
-                x1="2"
-                y1="6"
-                x2="10"
-                y2="6"
-                stroke="currentColor"
-                strokeWidth="1"
-              />
-              <line
-                x1="2"
-                y1="9"
-                x2="7"
-                y2="9"
-                stroke="currentColor"
-                strokeWidth="1"
-              />
-            </svg>
+            <AlignLeft className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass} opacity-50`} strokeWidth={2} />
           )}
           {el.type === "text" && !el.multiline && !el.defaultValue && (
-            <svg
-              viewBox="0 0 12 4"
-              className={`h-1/4 w-3/5 ${getElementStyleConfig(el).colorClass} opacity-40`}
-            >
-              <line
-                x1="1"
-                y1="2"
-                x2="11"
-                y2="2"
-                stroke="currentColor"
-                strokeWidth="0.8"
-              />
-            </svg>
+            <Type className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass} opacity-50`} strokeWidth={2} />
           )}
           {el.type === "text" && el.defaultValue && (
             <span
@@ -839,32 +702,28 @@ export function CanvasOverlay() {
             </span>
           )}
           {el.type === "dropdown" && (
-            <svg
-              viewBox="0 0 12 12"
-              className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`}
-            >
-              <rect x="1" y="1" width="10" height="10" rx="1" fill="none" stroke="currentColor" strokeWidth="1" />
-              <path d="M4 5L6 7L8 5" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <SquareChevronDown className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`} strokeWidth={2} />
           )}
-          {el.type === "button" && (
-            <svg
-              viewBox="0 0 12 8"
-              className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`}
+          {el.type === "button" && !el.label && (
+            <SquareMousePointer className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`} strokeWidth={2} />
+          )}
+          {el.type === "button" && el.label && (
+            <span
+              className="pointer-events-none truncate px-0.5"
+              style={{
+                fontSize: `${Math.max(8, el.fontSize * zoom * 0.6)}px`,
+                color: el.textColor ?? "currentColor",
+                fontFamily: fontFamilyToCss(el.fontFamily),
+                fontWeight: fontWeightToCss(el.fontWeight),
+                fontStyle: fontStyleToCss(el.fontWeight),
+                opacity: 0.7,
+              }}
             >
-              <rect x="1" y="1" width="10" height="6" rx="1" fill="none" stroke="currentColor" strokeWidth="1" />
-            </svg>
+              {el.label}
+            </span>
           )}
           {el.type === "optionlist" && (
-            <svg
-              viewBox="0 0 12 12"
-              className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`}
-            >
-              <rect x="1" y="1" width="10" height="10" rx="1" fill="none" stroke="currentColor" strokeWidth="1" />
-              <line x1="3" y1="4" x2="9" y2="4" stroke="currentColor" strokeWidth="1" />
-              <line x1="3" y1="6" x2="9" y2="6" stroke="currentColor" strokeWidth="1" />
-              <line x1="3" y1="8" x2="9" y2="8" stroke="currentColor" strokeWidth="1" />
-            </svg>
+            <List className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`} strokeWidth={2} />
           )}
           <span
             className={`absolute -top-4 left-0 max-w-20 truncate overflow-hidden text-[10px] select-none ${getElementStyleConfig(el).textColorClass}`}

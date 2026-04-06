@@ -60,6 +60,12 @@ export interface DropdownField {
   fontSize: number;
   required: boolean;
   editable: boolean;
+  fontFamily: string;
+  fontWeight: "regular" | "bold" | "italic" | "bold-italic";
+  textColor: string;
+  backgroundColor: string | null;
+  borderColor: string | null;
+  borderWidth: number;
 }
 
 export interface ButtonField {
@@ -73,6 +79,12 @@ export interface ButtonField {
   name: string;
   label: string;
   fontSize: number;
+  fontFamily: string;
+  fontWeight: "regular" | "bold" | "italic" | "bold-italic";
+  textColor: string;
+  backgroundColor: string | null;
+  borderColor: string | null;
+  borderWidth: number;
 }
 
 export interface OptionListField {
@@ -88,8 +100,23 @@ export interface OptionListField {
   defaultValue: string;
   fontSize: number;
   required: boolean;
+  fontFamily: string;
+  fontWeight: "regular" | "bold" | "italic" | "bold-italic";
+  textColor: string;
+  backgroundColor: string | null;
+  borderColor: string | null;
+  borderWidth: number;
 }
 
+
+export type HasTypography = {
+  fontFamily: string;
+  fontWeight: "regular" | "bold" | "italic" | "bold-italic";
+  textColor: string;
+  backgroundColor: string | null;
+  borderColor: string | null;
+  borderWidth: number;
+};
 
 export type FormElement =
   | TextField
@@ -286,6 +313,12 @@ export function createDropdownField(opts: DropdownFieldOptions): DropdownField {
     fontSize,
     required: opts.required ?? false,
     editable: opts.editable ?? false,
+    fontFamily: "Helvetica",
+    fontWeight: "regular" as const,
+    textColor: "#000000",
+    backgroundColor: null,
+    borderColor: null,
+    borderWidth: 1,
   };
 }
 
@@ -317,6 +350,12 @@ export function createButtonField(opts: ButtonFieldOptions): ButtonField {
     name: opts.name ?? "",
     label: opts.label ?? "Button",
     fontSize,
+    fontFamily: "Helvetica",
+    fontWeight: "regular" as const,
+    textColor: "#000000",
+    backgroundColor: null,
+    borderColor: null,
+    borderWidth: 1,
   };
 }
 
@@ -353,6 +392,12 @@ export function createOptionListField(opts: OptionListFieldOptions): OptionListF
     defaultValue: opts.defaultValue ?? "",
     fontSize,
     required: opts.required ?? false,
+    fontFamily: "Helvetica",
+    fontWeight: "regular" as const,
+    textColor: "#000000",
+    backgroundColor: null,
+    borderColor: null,
+    borderWidth: 1,
   };
 }
 

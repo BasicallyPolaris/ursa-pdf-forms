@@ -11,10 +11,10 @@ import { TOOL_SHORTCUT_MAP } from "@/lib/shortcuts";
 import { useEditorStore } from "@/stores/editor-store";
 import {
   AlignLeft,
-  ChevronDown,
   CircleDot,
   List,
   MousePointer2,
+  SquareChevronDown,
   SquareMousePointer,
   Square,
   Type,
@@ -37,7 +37,7 @@ const TOOL_KEYS = [
   {
     id: "dropdown" as const,
     labelKey: "toolbar.dropdown",
-    icon: ChevronDown,
+    icon: SquareChevronDown,
     separate: true,
   },
   { id: "optionlist" as const, labelKey: "toolbar.optionlist", icon: List },

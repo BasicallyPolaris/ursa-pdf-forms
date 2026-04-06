@@ -217,7 +217,14 @@ function addDropdownField(
   const field = form.createDropdown(el.name);
   const pdfY = pageHeight - el.y - el.height;
 
-  const font = pdfDoc.embedStandardFont(StandardFonts.Helvetica);
+  const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
+  const font = pdfDoc.embedStandardFont(
+    StandardFonts[resolvedFont as keyof typeof StandardFonts] ?? StandardFonts.Helvetica,
+  );
+
+  const textColor = el.textColor ? hexToRgb(el.textColor) : undefined;
+  const backgroundColor = el.backgroundColor ? hexToRgb(el.backgroundColor) : undefined;
+  const borderColor = el.borderColor ? hexToRgb(el.borderColor) : undefined;
 
   field.addToPage(page, {
     x: el.x,
@@ -225,6 +232,10 @@ function addDropdownField(
     width: el.width,
     height: el.height,
     font,
+    textColor: textColor ? rgb(textColor.r, textColor.g, textColor.b) : undefined,
+    backgroundColor: backgroundColor ? rgb(backgroundColor.r, backgroundColor.g, backgroundColor.b) : undefined,
+    borderColor: borderColor ? rgb(borderColor.r, borderColor.g, borderColor.b) : undefined,
+    borderWidth: el.borderWidth > 0 ? el.borderWidth : undefined,
   });
 
   if (el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {
@@ -254,7 +265,14 @@ function addButtonField(
   const field = form.createButton(el.name);
   const pdfY = pageHeight - el.y - el.height;
 
-  const font = pdfDoc.embedStandardFont(StandardFonts.Helvetica);
+  const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
+  const font = pdfDoc.embedStandardFont(
+    StandardFonts[resolvedFont as keyof typeof StandardFonts] ?? StandardFonts.Helvetica,
+  );
+
+  const textColor = el.textColor ? hexToRgb(el.textColor) : undefined;
+  const backgroundColor = el.backgroundColor ? hexToRgb(el.backgroundColor) : undefined;
+  const borderColor = el.borderColor ? hexToRgb(el.borderColor) : undefined;
 
   field.addToPage(el.label, page, {
     x: el.x,
@@ -262,11 +280,15 @@ function addButtonField(
     width: el.width,
     height: el.height,
     font,
-    textColor: rgb(0, 0, 0),
-    backgroundColor: rgb(0.9, 0.9, 0.9),
-    borderColor: rgb(0.5, 0.5, 0.5),
-    borderWidth: 1,
+    textColor: textColor ? rgb(textColor.r, textColor.g, textColor.b) : rgb(0, 0, 0),
+    backgroundColor: backgroundColor ? rgb(backgroundColor.r, backgroundColor.g, backgroundColor.b) : rgb(0.9, 0.9, 0.9),
+    borderColor: borderColor ? rgb(borderColor.r, borderColor.g, borderColor.b) : rgb(0.5, 0.5, 0.5),
+    borderWidth: el.borderWidth > 0 ? el.borderWidth : 1,
   });
+
+  if (el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {
+    field.setFontSize(el.fontSize);
+  }
 }
 
 function addOptionListField(
@@ -279,7 +301,14 @@ function addOptionListField(
   const field = form.createOptionList(el.name);
   const pdfY = pageHeight - el.y - el.height;
 
-  const font = pdfDoc.embedStandardFont(StandardFonts.Helvetica);
+  const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
+  const font = pdfDoc.embedStandardFont(
+    StandardFonts[resolvedFont as keyof typeof StandardFonts] ?? StandardFonts.Helvetica,
+  );
+
+  const textColor = el.textColor ? hexToRgb(el.textColor) : undefined;
+  const backgroundColor = el.backgroundColor ? hexToRgb(el.backgroundColor) : undefined;
+  const borderColor = el.borderColor ? hexToRgb(el.borderColor) : undefined;
 
   field.addToPage(page, {
     x: el.x,
@@ -287,6 +316,10 @@ function addOptionListField(
     width: el.width,
     height: el.height,
     font,
+    textColor: textColor ? rgb(textColor.r, textColor.g, textColor.b) : undefined,
+    backgroundColor: backgroundColor ? rgb(backgroundColor.r, backgroundColor.g, backgroundColor.b) : undefined,
+    borderColor: borderColor ? rgb(borderColor.r, borderColor.g, borderColor.b) : undefined,
+    borderWidth: el.borderWidth > 0 ? el.borderWidth : undefined,
   });
 
   if (el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {

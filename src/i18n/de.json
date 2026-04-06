@@ -96,7 +96,9 @@
     "guide": "{{orientation}}-Hilfslinie",
     "positionLabel": "{{axis}}-Position",
     "deleteGuide": "Hilfslinie löschen",
-    "pt": "{{value}} pt"
+    "pt": "{{value}} pt",
+    "widthShort": "B",
+    "heightShort": "H"
   },
   "status": {
     "clickToSelect": "Klicken zum Auswählen",
