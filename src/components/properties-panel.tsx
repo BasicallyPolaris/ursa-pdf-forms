@@ -191,6 +191,8 @@ function CollapsibleSection({
     <div>
       <button
         type="button"
+        aria-expanded={open}
+        aria-label={`${label} section`}
         onClick={() => {
           setOpen((prev) => {
             if (prev) collapsedSections.add(label);
@@ -247,6 +249,7 @@ function PageSelector({
   if (!editing) {
     return (
       <button
+        aria-label={t("properties.editPageNumber")}
         className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         onClick={() => {
           setText(String(pageNumber));
@@ -309,9 +312,10 @@ function FontFamilySelect({ value, onChange }: { value: string; onChange: (v: st
   return (
     <PropertyField label={t("properties.fontFamily")}>
       <select
-        className="h-7 w-full rounded-md border border-input bg-accent px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring/50"
+        className="h-7 w-full rounded-md border border-input bg-accent px-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        aria-label={t("properties.fontFamily")}
       >
         {BASE_FONT_FAMILIES.map((f) => (
           <option key={f.value} value={f.value}>
@@ -328,7 +332,8 @@ function BoldItalicButtons({ fontWeight, onChange }: { fontWeight: string; onCha
     <div className="flex gap-0.5">
       <button
         type="button"
-        className={`flex h-6 w-6 items-center justify-center rounded text-[10px] font-bold transition-colors ${
+        aria-label="Bold"
+        className={`flex h-6 w-6 items-center justify-center rounded text-[10px] font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
           fontWeight === "bold" || fontWeight === "bold-italic"
           ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
           : "text-muted-foreground hover:bg-accent"
@@ -349,7 +354,8 @@ function BoldItalicButtons({ fontWeight, onChange }: { fontWeight: string; onCha
       </button>
       <button
         type="button"
-        className={`flex h-6 w-6 items-center justify-center rounded text-[10px] italic transition-colors ${
+        aria-label="Italic"
+        className={`flex h-6 w-6 items-center justify-center rounded text-[10px] italic transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
           fontWeight === "italic" || fontWeight === "bold-italic"
           ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
           : "text-muted-foreground hover:bg-accent"
@@ -379,7 +385,8 @@ function TextColorPicker({ value, onChange }: { value: string; onChange: (v: str
       <div className="flex items-center gap-2">
         <input
           type="color"
-          className="h-7 w-7 cursor-pointer rounded border border-input bg-transparent"
+          aria-label={t("properties.textColor")}
+          className="h-7 w-7 cursor-pointer rounded border border-input bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           value={value}
           onChange={(e) => onChange(e.target.value)}
         />
@@ -399,14 +406,16 @@ function AppearanceSection({ element, onUpdate }: { element: TypographyField; on
         <div className="flex items-center gap-2">
           <input
             type="color"
-            className="h-7 w-7 shrink-0 cursor-pointer rounded border border-input bg-transparent"
+            aria-label={t("properties.backgroundColor")}
+            className="h-7 w-7 shrink-0 cursor-pointer rounded border border-input bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             value={element.backgroundColor ?? "#ffffff"}
             onChange={(e) => onUpdate({ backgroundColor: e.target.value })}
           />
           {element.backgroundColor && (
             <button
               type="button"
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              aria-label={t("properties.clearBackgroundColor")}
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               onClick={() => onUpdate({ backgroundColor: null })}
             >
               ✕
@@ -421,7 +430,8 @@ function AppearanceSection({ element, onUpdate }: { element: TypographyField; on
         <div className="flex items-center gap-2">
           <input
             type="color"
-            className="h-7 w-7 shrink-0 cursor-pointer rounded border border-input bg-transparent"
+            aria-label={t("properties.borderColor")}
+            className="h-7 w-7 shrink-0 cursor-pointer rounded border border-input bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             value={element.borderColor ?? "#000000"}
             onChange={(e) =>
               onUpdate({
@@ -433,7 +443,8 @@ function AppearanceSection({ element, onUpdate }: { element: TypographyField; on
           {element.borderColor && (
             <button
               type="button"
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              aria-label={t("properties.clearBorderColor")}
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               onClick={() => onUpdate({ borderColor: null, borderWidth: 0 })}
             >
               ✕
@@ -449,12 +460,13 @@ function AppearanceSection({ element, onUpdate }: { element: TypographyField; on
           <div className="flex items-center gap-2">
             <input
               type="range"
+              aria-label={t("properties.borderWidth")}
               min={0}
               max={5}
               step={0.5}
               value={element.borderWidth}
               onChange={(e) => onUpdate({ borderWidth: Number(e.target.value) })}
-              className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-accent"
+              className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-accent outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             />
             <span className="w-6 text-right text-[10px] font-mono tabular-nums text-muted-foreground">
               {element.borderWidth}
@@ -767,6 +779,7 @@ function DraggableOptionList({
           >
             <button
               type="button"
+              aria-label={`Drag option ${i + 1}`}
               className="flex h-6 w-4 shrink-0 cursor-grab items-center justify-center text-muted-foreground/40 hover:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card rounded-sm"
               onPointerDown={(e) => handlePointerDown(i, e)}
             >
@@ -775,6 +788,7 @@ function DraggableOptionList({
             <input
               type="radio"
               name={`default-${elementId}`}
+              aria-label={`Set option ${i + 1} as default`}
               checked={defaultValue === opt}
               onChange={() => onSetDefault(opt)}
               className="h-3.5 w-3.5 shrink-0 accent-primary rounded-full ring-offset-1 ring-offset-card outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
@@ -786,6 +800,7 @@ function DraggableOptionList({
             />
             <button
               type="button"
+              aria-label={`Remove option ${i + 1}`}
               onClick={() => onRemoveOption(i)}
               className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-destructive outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
             >
@@ -886,6 +901,7 @@ function DropdownProperties({ elementId }: { elementId: string }) {
         />
         <button
           type="button"
+          aria-label={t("properties.addOption")}
           onClick={addOption}
           className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
         >
@@ -1055,6 +1071,7 @@ function OptionListProperties({ elementId }: { elementId: string }) {
         />
         <button
           type="button"
+          aria-label={t("properties.addOption")}
           onClick={addOption}
           className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
         >
@@ -1830,30 +1847,30 @@ function GuideProperties({ guideId }: { guideId: string }) {
   const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
   const updateGuidePosition = useEditorStore((s) => s.updateGuidePosition);
   const removeGuide = useEditorStore((s) => s.removeGuide);
+  const pages = useEditorStore((s) => s.pages);
 
-  if (!guide) return null;
-
+  const isHorizontal = guide?.orientation === "horizontal";
   const isLiveDragging =
+    guide &&
     selectedGuideId === guideId &&
     previewGuide !== null &&
     previewGuide.orientation === guide.orientation;
-  const livePosition = isLiveDragging ? previewGuide.position : guide.position;
+  const livePosition = isLiveDragging ? previewGuide!.position : (guide?.position ?? 0);
+  const maxPos = isHorizontal
+    ? (pages[0]?.height ?? Infinity)
+    : (pages[0]?.width ?? Infinity);
 
-  const isHorizontal = guide.orientation === "horizontal";
+  const posField = useDeferredValue(Math.round(livePosition), (v) => {
+    if (guide) updateGuidePosition(guide.id, Math.max(0, Math.min(Number(v), maxPos)));
+  });
+
+  if (!guide) return null;
+
   const Icon = isHorizontal ? MoveHorizontal : MoveVertical;
   const orientationLabel = isHorizontal
     ? t("properties.horizontal")
     : t("properties.vertical");
   const posLabel = isHorizontal ? "Y" : "X";
-
-  const pages = useEditorStore((s) => s.pages);
-  const maxPos = isHorizontal
-    ? (pages[0]?.height ?? Infinity)
-    : (pages[0]?.width ?? Infinity);
-
-  const posField = useDeferredValue(Math.round(livePosition), (v) =>
-    updateGuidePosition(guide.id, Math.max(0, Math.min(Number(v), maxPos))),
-  );
 
   return (
     <div className="flex flex-col gap-3">

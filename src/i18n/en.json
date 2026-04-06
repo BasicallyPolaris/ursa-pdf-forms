@@ -98,7 +98,11 @@
     "pt": "{{value}}pt",
     "widthShort": "W",
     "heightShort": "H",
-    "general": "General"
+    "general": "General",
+    "clearBackgroundColor": "Clear background color",
+    "clearBorderColor": "Clear border color",
+    "editPageNumber": "Edit page number",
+    "addOption": "Add option"
   },
   "status": {
     "clickToSelect": "Click to select",

@@ -98,7 +98,11 @@
     "pt": "{{value}} pt",
     "widthShort": "B",
     "heightShort": "H",
-    "general": "Allgemein"
+    "general": "Allgemein",
+    "clearBackgroundColor": "Hintergrundfarbe entfernen",
+    "clearBorderColor": "Rahmenfarbe entfernen",
+    "editPageNumber": "Seitennummer bearbeiten",
+    "addOption": "Option hinzufügen"
   },
   "status": {
     "clickToSelect": "Klicken zum Auswählen",
