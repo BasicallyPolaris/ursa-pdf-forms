@@ -57,18 +57,26 @@ export function useDrawingTool(deps: {
       pdfX: number,
       pdfY: number,
       modifiers: { shiftKey: boolean; ctrlKey: boolean },
+      elementHeight?: number,
     ) => {
       const snapCtx = deps.buildSnapContext(new Set(), pageNumber, modifiers);
       let startX = screenX;
       let startY = screenY;
       if (snapCtx.hasAnySnap) {
-        const snap = snapPosition(pdfX, pdfY, 0, 0, snapCtx);
+        const snap = snapPosition(pdfX, pdfY, 0, elementHeight ?? 0, snapCtx);
         const snapped = {
           x: pdfX * deps.zoom + pageX + (snap.x - pdfX) * deps.zoom,
           y: pdfY * deps.zoom + pageY + (snap.y - pdfY) * deps.zoom,
         };
         startX = snapped.x;
         startY = snapped.y;
+        if (snap.guides.length > 0) {
+          deps.setActiveGuides(
+            snapCtx.snapToGrid
+              ? snap.guides.filter((g) => g.type !== "grid")
+              : snap.guides,
+          );
+        }
       }
       drawStartRef.current = {
         x: startX,
@@ -88,6 +96,7 @@ export function useDrawingTool(deps: {
       currentX: number,
       currentY: number,
       modifiers: { shiftKey: boolean; ctrlKey: boolean },
+      isHorizontalTool?: boolean,
     ) => {
       if (!drawStartRef.current) return;
       isDrawingRef.current = true;
@@ -116,11 +125,14 @@ export function useDrawingTool(deps: {
             (snap.y - pdfCurrent.y) * deps.zoom,
         };
         snappedCurrentX = snappedScreen.x;
-        snappedCurrentY = snappedScreen.y;
+        snappedCurrentY = isHorizontalTool ? start.y : snappedScreen.y;
+        const guides = snapCtx.snapToGrid
+          ? snap.guides.filter((g) => g.type !== "grid")
+          : snap.guides;
         deps.setActiveGuides(
-          snapCtx.snapToGrid
-            ? snap.guides.filter((g) => g.type !== "grid")
-            : snap.guides,
+          isHorizontalTool
+            ? guides.filter((g) => g.orientation === "vertical")
+            : guides,
         );
       } else {
         deps.setActiveGuides([]);
@@ -129,7 +141,7 @@ export function useDrawingTool(deps: {
         startX: start.x,
         startY: start.y,
         currentX: snappedCurrentX,
-        currentY: snappedCurrentY,
+        currentY: isHorizontalTool ? start.y : snappedCurrentY,
       });
     },
     [deps],

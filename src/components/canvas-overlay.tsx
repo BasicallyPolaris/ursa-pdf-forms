@@ -25,6 +25,8 @@ import {
   createCheckbox,
   createRadioButton,
   createButtonField,
+  heightFromFontSize,
+  heightFromOptions,
   type FormElement,
   getElementName,
 } from "@/lib/form-element-model";
@@ -314,6 +316,11 @@ export function CanvasOverlay() {
           pdf.x,
           pdf.y,
           { shiftKey: e.shiftKey, ctrlKey: e.ctrlKey || e.metaKey },
+          HORIZONTAL_DRAW_TOOLS.has(activeTool)
+            ? activeTool === "optionlist"
+              ? heightFromOptions(12, 2)
+              : heightFromFontSize(12)
+            : undefined,
         );
       }
     },
@@ -341,7 +348,7 @@ export function CanvasOverlay() {
       };
 
       if (drawing.drawStartRef.current) {
-        drawing.updateDraw(currentX, currentY, modifiers);
+        drawing.updateDraw(currentX, currentY, modifiers, HORIZONTAL_DRAW_TOOLS.has(activeTool));
         return;
       }
 
@@ -808,6 +815,7 @@ export function CanvasOverlay() {
         overlayWidth={overlayWidth}
         totalContentHeight={totalContentHeight}
         overlayRef={overlayRef}
+        activeTool={activeTool}
         selectGuide={selectGuide}
         updateGuidePosition={updateGuidePosition}
         setPreviewGuide={setPreviewGuide}
