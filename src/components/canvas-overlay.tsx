@@ -17,6 +17,7 @@ import { useVisiblePages } from "@/contexts/visible-pages";
 import { useDrawingTool } from "@/hooks/use-drawing-tool";
 import { useElementDrag } from "@/hooks/use-element-drag";
 import { useElementResize } from "@/hooks/use-element-resize";
+import { useMultiResize } from "@/hooks/use-multi-resize";
 import { useMarqueeSelection } from "@/hooks/use-marquee-selection";
 import { pdfToScreen, screenToPdf } from "@/lib/coordinates";
 import { fontFamilyToCss, fontWeightToCss, fontStyleToCss } from "@/lib/font-utils";
@@ -34,6 +35,7 @@ import { computeBoundingRect } from "@/lib/geometry";
 import {
   computePageLayouts,
   findPageAtScreenPoint,
+  getVisiblePageNumbers,
   getTotalContentHeight,
 } from "@/lib/page-layout";
 import type { SnapContext } from "@/lib/snap-engine";
@@ -150,16 +152,64 @@ export function CanvasOverlay() {
     ): SnapContext => {
       const page = pages.find((p) => p.pageNumber === pageNumber);
       const freeMovement = modifiers.ctrlKey;
-      const pageElements = elementsByPage.get(pageNumber) ?? [];
+      const currentLayout = layouts.get(pageNumber);
+
+      const crossPageElements: Array<{
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        id?: string;
+      }> = [];
+
+      const scrollEl = document.querySelector<HTMLElement>(
+        "[data-pdf-scroll-container]",
+      );
+      const snapVisible =
+        scrollEl && pages.length > 0
+          ? getVisiblePageNumbers(
+              layouts,
+              scrollEl.scrollTop,
+              scrollEl.clientHeight,
+              0,
+            )
+          : new Set([pageNumber]);
+
+      for (const visPageNum of snapVisible) {
+        const pageEls = elementsByPage.get(visPageNum) ?? [];
+        const filtered =
+          excludedIds.size > 0
+            ? pageEls.filter((el) => !excludedIds.has(el.id))
+            : pageEls;
+
+        if (visPageNum === pageNumber || !currentLayout) {
+          crossPageElements.push(...filtered);
+        } else {
+          const otherLayout = layouts.get(visPageNum);
+          if (!otherLayout) {
+            crossPageElements.push(...filtered);
+            continue;
+          }
+          const dx = (otherLayout.xOffset - currentLayout.xOffset) / zoom;
+          const dy = (otherLayout.yOffset - currentLayout.yOffset) / zoom;
+          for (const el of filtered) {
+            crossPageElements.push({
+              id: el.id,
+              x: el.x + dx,
+              y: el.y + dy,
+              width: el.width,
+              height: el.height,
+            });
+          }
+        }
+      }
+
       return {
         gridSize,
         snapThreshold: 5,
         pageWidth: page?.width ?? 612,
         pageHeight: page?.height ?? 792,
-        otherElements:
-          excludedIds.size > 0
-            ? pageElements.filter((el) => !excludedIds.has(el.id))
-            : pageElements,
+        otherElements: crossPageElements,
         rulerGuides: rulerGuideSnapData,
         snapToGrid: modifiers.shiftKey && !freeMovement,
         snapToPageEdges: !freeMovement,
@@ -168,7 +218,7 @@ export function CanvasOverlay() {
         hasAnySnap: !freeMovement,
       };
     },
-    [elementsByPage, pages, gridSize, rulerGuideSnapData],
+    [elementsByPage, pages, gridSize, rulerGuideSnapData, layouts, zoom],
   );
 
   const resolveTargetPage = useCallback(
@@ -231,6 +281,18 @@ export function CanvasOverlay() {
     [zoom, layouts, buildSnapContext, setDragLivePositions],
   );
   const resize = useElementResize(resizeConfig);
+
+  const multiResizeConfig = useMemo(
+    () => ({
+      zoom,
+      layouts,
+      buildSnapContext,
+      setActiveGuides,
+      setDragLivePositions,
+    }),
+    [zoom, layouts, buildSnapContext, setActiveGuides, setDragLivePositions],
+  );
+  const multiResize = useMultiResize(multiResizeConfig);
 
   // --- Canvas mouse handlers ---
 
@@ -553,6 +615,7 @@ export function CanvasOverlay() {
 
     const isSingleInput = isInputEl(el);
     const isSmallElement = screenWidth < 40 || screenHeight < 40;
+    const isMultiSelected = selectedIds.size >= 2 && isSelected;
 
     const smallHandleOverride = isSmallElement
       ? {
@@ -612,18 +675,20 @@ export function CanvasOverlay() {
         minWidth={10}
         minHeight={10}
         enableResizing={
-          isSingleInput
-            ? {
-                left: true,
-                right: true,
-                topLeft: false,
-                topRight: false,
-                bottomLeft: false,
-                bottomRight: false,
-                top: false,
-                bottom: false,
-              }
-            : undefined
+          isMultiSelected
+            ? false
+            : isSingleInput
+              ? {
+                  left: true,
+                  right: true,
+                  topLeft: false,
+                  topRight: false,
+                  bottomLeft: false,
+                  bottomRight: false,
+                  top: false,
+                  bottom: false,
+                }
+              : undefined
         }
         resizeHandleStyles={smallHandleOverride}
         onDragStart={(e) => {
@@ -765,6 +830,7 @@ export function CanvasOverlay() {
       screenY: number;
       screenWidth: number;
       screenHeight: number;
+      pageNumber: number;
     }> = [];
     for (const [page, items] of byPage) {
       if (items.length < 2) continue;
@@ -785,6 +851,7 @@ export function CanvasOverlay() {
         screenY: topLeft.y,
         screenWidth: bottomRight.x - topLeft.x,
         screenHeight: bottomRight.y - topLeft.y,
+        pageNumber: page,
       });
     }
     return rects;
@@ -804,6 +871,10 @@ export function CanvasOverlay() {
       <BoundingBoxOverlay
         boundingBoxes={boundingBoxes}
         dragOffset={drag.dragOffset}
+        isMultiResizing={multiResize.isActive.current}
+        onResizeStart={multiResize.handleResizeStart}
+        onResize={multiResize.handleResize}
+        onResizeStop={multiResize.handleResizeStop}
       />
       <GuideLinesLayer
         guides={guides}
