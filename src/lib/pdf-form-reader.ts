@@ -278,6 +278,12 @@ function extractTextField(
     multiline,
     required,
     maxLength,
+    textColor: "#000000",
+    fontFamily: "Helvetica",
+    fontWeight: "regular" as const,
+    backgroundColor: null,
+    borderColor: null,
+    borderWidth: 1,
   };
 }
 

@@ -5,6 +5,8 @@ import {
   PDFName,
   PDFPage,
   PDFRef,
+  rgb,
+  StandardFonts,
 } from "pdf-lib";
 import type {
   Checkbox,
@@ -12,6 +14,7 @@ import type {
   RadioButton,
   TextField,
 } from "./form-element-model";
+import { hexToRgb, resolveFontFamily } from "./font-utils";
 
 export class ExportValidationError extends Error {
   errors: string[];
@@ -80,7 +83,7 @@ export async function exportFormElements(
 
     switch (el.type) {
       case "text":
-        addTextField(form, page, { ...el, name: safeName }, pageHeight);
+        addTextField(form, page, { ...el, name: safeName }, pageHeight, pdf);
         break;
       case "checkbox":
         addCheckboxField(form, page, { ...el, name: safeName }, pageHeight);
@@ -120,16 +123,31 @@ function addTextField(
   page: PDFPage,
   el: TextField,
   pageHeight: number,
+  pdfDoc: PDFDocument,
 ): void {
   const field = form.createTextField(el.name);
 
   const pdfY = pageHeight - el.y - el.height;
+
+  const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
+  const font = pdfDoc.embedStandardFont(
+    StandardFonts[resolvedFont as keyof typeof StandardFonts] ?? StandardFonts.Helvetica,
+  );
+
+  const textColor = el.textColor ? hexToRgb(el.textColor) : undefined;
+  const backgroundColor = el.backgroundColor ? hexToRgb(el.backgroundColor) : undefined;
+  const borderColor = el.borderColor ? hexToRgb(el.borderColor) : undefined;
 
   field.addToPage(page, {
     x: el.x,
     y: pdfY,
     width: el.width,
     height: el.height,
+    font,
+    textColor: textColor ? rgb(textColor.r, textColor.g, textColor.b) : undefined,
+    backgroundColor: backgroundColor ? rgb(backgroundColor.r, backgroundColor.g, backgroundColor.b) : undefined,
+    borderColor: borderColor ? rgb(borderColor.r, borderColor.g, borderColor.b) : undefined,
+    borderWidth: el.borderWidth > 0 ? el.borderWidth : undefined,
   });
 
   if (el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {

@@ -12,6 +12,12 @@ export interface TextField {
   multiline: boolean;
   required: boolean;
   maxLength: number | undefined;
+  textColor: string;
+  fontFamily: string;
+  fontWeight: "regular" | "bold" | "italic" | "bold-italic";
+  backgroundColor: string | null;
+  borderColor: string | null;
+  borderWidth: number;
 }
 
 export interface Checkbox {
@@ -39,7 +45,10 @@ export interface RadioButton {
   label: string;
 }
 
-export type FormElement = TextField | Checkbox | RadioButton;
+export type FormElement =
+  | TextField
+  | Checkbox
+  | RadioButton;
 
 let nextId = 1;
 function generateId(): string {
@@ -118,6 +127,12 @@ export function createTextField(opts: TextFieldOptions): TextField {
     multiline,
     required: opts.required ?? false,
     maxLength: opts.maxLength,
+    textColor: "#000000",
+    fontFamily: "Helvetica",
+    fontWeight: "regular" as const,
+    backgroundColor: null,
+    borderColor: null,
+    borderWidth: 1,
   };
 }
 

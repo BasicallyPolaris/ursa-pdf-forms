@@ -17,13 +17,21 @@
     "input": "Eingabefeld",
     "textarea": "Textbereich",
     "checkbox": "Kontrollkästchen",
-    "radio": "Optionsfeld"
+    "radio": "Optionsfeld",
+    "dropdown": "Dropdown",
+    "button": "Schaltfläche",
+    "optionlist": "Auswahlliste",
+    "signature": "Signatur"
   },
   "fieldTypes": {
     "textField": "Textfeld",
     "checkbox": "Kontrollkästchen",
     "radioButton": "Optionsfeld",
-    "multiline": "Mehrzeilig"
+    "multiline": "Mehrzeilig",
+    "dropdown": "Dropdown",
+    "button": "Schaltfläche",
+    "optionlist": "Auswahlliste",
+    "signature": "Signatur"
   },
   "properties": {
     "panelError": "Panel-Fehler",
@@ -32,12 +40,26 @@
     "textFields": "Textfelder",
     "checkboxes": "Kontrollkästchen",
     "radioButtons": "Optionsfelder",
+    "dropdowns": "Dropdowns",
+    "buttons": "Schaltflächen",
+    "optionLists": "Auswahllisten",
+    "signatures": "Signaturen",
     "mixedTypes": "Gemischte Typen",
     "page": "Seite {{page}}",
     "pageLabel": "Seite",
     "name": "Name",
     "defaultValue": "Standardwert",
     "typography": "Typografie",
+    "fontFamily": "Schriftfamilie",
+    "textColor": "Textfarbe",
+    "appearance": "Erscheinungsbild",
+    "backgroundColor": "Hintergrund",
+    "borderColor": "Rahmenfarbe",
+    "borderWidth": "Rahmenbreite",
+    "none": "Keine",
+    "options": "Optionen",
+    "editable": "Bearbeitbar",
+    "fillStyle": "Füllstil",
     "fontSize": "Schriftgröße",
     "height": "Höhe",
     "required": "Pflichtfeld",
@@ -156,6 +178,10 @@
     "toolTextarea": "Mehrzeiliger Text",
     "toolCheckbox": "Kontrollkästchen",
     "toolRadio": "Optionsfeld",
+    "toolDropdown": "Dropdown",
+    "toolButton": "Schaltfläche",
+    "toolOptionList": "Auswahlliste",
+    "toolSignature": "Signatur",
     "zoomIn": "Vergrößern",
     "zoomOut": "Verkleinern",
     "zoomFit": "An Breite anpassen",
@@ -175,6 +201,10 @@
     "addTextField": "Textfeld hinzufügen",
     "addTextarea": "Textbereich hinzufügen",
     "addCheckbox": "Kontrollkästchen hinzufügen",
-    "addRadio": "Optionsfeld hinzufügen"
+    "addRadio": "Optionsfeld hinzufügen",
+    "addDropdown": "Dropdown hinzufügen",
+    "addButton": "Schaltfläche hinzufügen",
+    "addOptionList": "Auswahlliste hinzufügen",
+    "addSignature": "Signatur hinzufügen"
   }
 }

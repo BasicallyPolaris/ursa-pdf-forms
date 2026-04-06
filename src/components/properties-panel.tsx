@@ -26,6 +26,7 @@ import {
 } from "@/lib/form-element-model";
 import { resolveElementPosition } from "@/lib/page-coordinates";
 import { useEditorStore, type GuideLine } from "@/stores/editor-store";
+import { STANDARD_FONTS } from "@/lib/font-utils";
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -47,6 +48,44 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+
+const STANDARD_FONT_GROUPS = [
+  {
+    label: "Helvetica",
+    fonts: [
+      { value: "Helvetica", label: "Regular" },
+      { value: "Helvetica-Bold", label: "Bold" },
+      { value: "Helvetica-Oblique", label: "Italic" },
+      { value: "Helvetica-BoldOblique", label: "Bold Italic" },
+    ],
+  },
+  {
+    label: "Courier",
+    fonts: [
+      { value: "Courier", label: "Regular" },
+      { value: "Courier-Bold", label: "Bold" },
+      { value: "Courier-Oblique", label: "Italic" },
+      { value: "Courier-BoldOblique", label: "Bold Italic" },
+    ],
+  },
+  {
+    label: "Times",
+    fonts: [
+      { value: "Times-Roman", label: "Roman" },
+      { value: "Times-Bold", label: "Bold" },
+      { value: "Times-Italic", label: "Italic" },
+      { value: "Times-BoldItalic", label: "Bold Italic" },
+    ],
+  },
+  {
+    label: "Symbol",
+    fonts: [{ value: "Symbol", label: "Symbol" }],
+  },
+  {
+    label: "Zapf Dingbats",
+    fonts: [{ value: "ZapfDingbats", label: "Zapf Dingbats" }],
+  },
+];
 
 function useDeferredValue(
   storeValue: string | number,
@@ -283,8 +322,92 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
 
       <SectionHeader label={t("properties.typography")} />
 
-      <PropertyField label={t("properties.fontSize")}>
-        <NumericInput {...fontSizeField} />
+      <PropertyField label={t("properties.fontFamily")}>
+        <select
+          className="h-7 w-full rounded-md border border-input bg-accent px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring/50"
+          value={element.fontFamily}
+          onChange={(e) =>
+            updateElement(element.id, { fontFamily: e.target.value })
+          }
+        >
+          {STANDARD_FONT_GROUPS.map((group) => (
+            <optgroup key={group.label} label={group.label}>
+              {group.fonts.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </PropertyField>
+
+      <div className="flex items-center gap-2">
+        <PropertyField label={t("properties.fontSize")}>
+          <NumericInput {...fontSizeField} />
+        </PropertyField>
+        <div className="flex flex-col gap-1.5 pt-4">
+          <div className="flex gap-0.5">
+            <button
+              type="button"
+              className={`flex h-6 w-6 items-center justify-center rounded text-[10px] font-bold transition-colors ${
+                element.fontWeight === "bold" || element.fontWeight === "bold-italic"
+                  ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
+                  : "text-muted-foreground hover:bg-accent"
+              }`}
+              onClick={() => {
+                const next =
+                  element.fontWeight === "bold"
+                    ? "regular"
+                    : element.fontWeight === "bold-italic"
+                      ? "italic"
+                      : element.fontWeight === "italic"
+                        ? "bold-italic"
+                        : "bold";
+                updateElement(element.id, { fontWeight: next });
+              }}
+            >
+              B
+            </button>
+            <button
+              type="button"
+              className={`flex h-6 w-6 items-center justify-center rounded text-[10px] italic transition-colors ${
+                element.fontWeight === "italic" || element.fontWeight === "bold-italic"
+                  ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
+                  : "text-muted-foreground hover:bg-accent"
+              }`}
+              onClick={() => {
+                const next =
+                  element.fontWeight === "italic"
+                    ? "regular"
+                    : element.fontWeight === "bold-italic"
+                      ? "bold"
+                      : element.fontWeight === "bold"
+                        ? "bold-italic"
+                        : "italic";
+                updateElement(element.id, { fontWeight: next });
+              }}
+            >
+              I
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <PropertyField label={t("properties.textColor")}>
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            className="h-7 w-7 cursor-pointer rounded border border-input bg-transparent"
+            value={element.textColor}
+            onChange={(e) =>
+              updateElement(element.id, { textColor: e.target.value })
+            }
+          />
+          <span className="text-[10px] font-mono text-muted-foreground">
+            {element.textColor}
+          </span>
+        </div>
       </PropertyField>
 
       {!element.multiline && (
@@ -316,6 +439,96 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
           placeholder={t("properties.noLimit")}
         />
       </PropertyField>
+
+      <Separator />
+
+      <SectionHeader label={t("properties.appearance")} />
+
+      <PropertyField label={t("properties.backgroundColor")}>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className={`flex h-7 w-7 items-center justify-center rounded border text-[8px] ${
+              !element.backgroundColor
+                ? "border-ring/50 bg-accent text-accent-foreground"
+                : "border-input text-muted-foreground hover:bg-accent"
+            }`}
+            onClick={() =>
+              updateElement(element.id, { backgroundColor: null })
+            }
+          >
+            ✕
+          </button>
+          <input
+            type="color"
+            className="h-7 w-7 cursor-pointer rounded border border-input bg-transparent"
+            value={element.backgroundColor ?? "#ffffff"}
+            onChange={(e) =>
+              updateElement(element.id, { backgroundColor: e.target.value })
+            }
+            disabled={!element.backgroundColor}
+          />
+          <span className="text-[10px] font-mono text-muted-foreground">
+            {element.backgroundColor ?? t("properties.none")}
+          </span>
+        </div>
+      </PropertyField>
+
+      <PropertyField label={t("properties.borderColor")}>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className={`flex h-7 w-7 items-center justify-center rounded border text-[8px] ${
+              !element.borderColor
+                ? "border-ring/50 bg-accent text-accent-foreground"
+                : "border-input text-muted-foreground hover:bg-accent"
+            }`}
+            onClick={() =>
+              updateElement(element.id, { borderColor: null, borderWidth: 0 })
+            }
+          >
+            ✕
+          </button>
+          <input
+            type="color"
+            className="h-7 w-7 cursor-pointer rounded border border-input bg-transparent"
+            value={element.borderColor ?? "#000000"}
+            onChange={(e) =>
+              updateElement(element.id, {
+                borderColor: e.target.value,
+                borderWidth: element.borderWidth || 1,
+              })
+            }
+            disabled={!element.borderColor}
+          />
+          <span className="text-[10px] font-mono text-muted-foreground">
+            {element.borderColor ?? t("properties.none")}
+          </span>
+        </div>
+      </PropertyField>
+
+      {element.borderColor && (
+        <PropertyField label={t("properties.borderWidth")}>
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min={0}
+              max={5}
+              step={0.5}
+              value={element.borderWidth}
+              onChange={(e) =>
+                updateElement(element.id, {
+                  borderWidth: Number(e.target.value),
+                })
+              }
+              className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-accent"
+            />
+            <span className="w-6 text-right text-[10px] font-mono tabular-nums text-muted-foreground">
+              {element.borderWidth}
+            </span>
+          </div>
+        </PropertyField>
+      )}
     </div>
   );
 }

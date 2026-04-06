@@ -19,6 +19,7 @@ import { useElementDrag } from "@/hooks/use-element-drag";
 import { useElementResize } from "@/hooks/use-element-resize";
 import { useMarqueeSelection } from "@/hooks/use-marquee-selection";
 import { pdfToScreen, screenToPdf } from "@/lib/coordinates";
+import { fontFamilyToCss, fontWeightToCss, fontStyleToCss } from "@/lib/font-utils";
 import { getElementStyleConfig } from "@/lib/element-style-map";
 import {
   createCheckbox,
@@ -681,7 +682,7 @@ export function CanvasOverlay() {
               <circle cx="5" cy="5" r="1.5" fill="currentColor" />
             </svg>
           )}
-          {el.type === "text" && el.multiline && (
+          {el.type === "text" && el.multiline && !el.defaultValue && (
             <svg
               viewBox="0 0 12 12"
               className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass} opacity-50`}
@@ -711,6 +712,37 @@ export function CanvasOverlay() {
                 strokeWidth="1"
               />
             </svg>
+          )}
+          {el.type === "text" && !el.multiline && !el.defaultValue && (
+            <svg
+              viewBox="0 0 12 4"
+              className={`h-1/4 w-3/5 ${getElementStyleConfig(el).colorClass} opacity-40`}
+            >
+              <line
+                x1="1"
+                y1="2"
+                x2="11"
+                y2="2"
+                stroke="currentColor"
+                strokeWidth="0.8"
+              />
+            </svg>
+          )}
+          {el.type === "text" && el.defaultValue && (
+            <span
+              className="pointer-events-none truncate px-0.5"
+              style={{
+                fontSize: `${Math.max(8, el.fontSize * zoom * 0.6)}px`,
+                color: el.textColor ?? "currentColor",
+                fontFamily: fontFamilyToCss(el.fontFamily),
+                fontWeight: fontWeightToCss(el.fontWeight),
+                fontStyle: fontStyleToCss(el.fontWeight),
+                opacity: 0.5,
+                lineHeight: el.multiline ? "1.2" : undefined,
+              }}
+            >
+              {el.defaultValue}
+            </span>
           )}
           <span
             className={`absolute -top-4 left-0 max-w-20 truncate overflow-hidden text-[10px] select-none ${getElementStyleConfig(el).textColorClass}`}
