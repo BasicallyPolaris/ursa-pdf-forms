@@ -207,7 +207,7 @@ function stripWidgetAnnotations(pdf: PDFDocument): void {
 export async function stripAcroFormFromPdf(
   pdfBytes: Uint8Array,
 ): Promise<Uint8Array> {
-  const pdf = await PDFDocument.load(pdfBytes);
+  const pdf = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
   const existingForm = pdf.catalog.lookup(PDFName.of("AcroForm"));
   if (!existingForm) return pdfBytes;
   pdf.catalog.delete(PDFName.of("AcroForm"));

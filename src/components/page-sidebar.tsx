@@ -1,5 +1,5 @@
 import { computePageLayouts } from "@/lib/page-layout";
-import { loadPdfDocument, type PdfDocument } from "@/lib/pdf-loader";
+import { createPdfDocument, type PdfDocument } from "@/lib/pdf-loader";
 import { useEditorStore } from "@/stores/editor-store";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -148,16 +148,21 @@ export function PageSidebar() {
 
     if (!pdfBytes) return;
     let cancelled = false;
-    loadPdfDocument(pdfBytes)
-      .then((doc) => {
+    let doc: PdfDocument | null = null;
+    createPdfDocument(pdfBytes)
+      .then((d) => {
         if (!cancelled) {
-          docRef.current = doc;
+          doc = d;
+          docRef.current = d;
           setDocReady((n) => n + 1);
+        } else {
+          d.destroy();
         }
       })
       .catch(() => {});
     return () => {
       cancelled = true;
+      doc?.destroy();
     };
   }, [pdfBytes]);
 

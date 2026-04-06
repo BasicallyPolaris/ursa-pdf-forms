@@ -170,6 +170,12 @@ async function loadDocument(pdfBytes: Uint8Array): Promise<PdfDocument> {
   };
 }
 
+export async function createPdfDocument(
+  pdfBytes: Uint8Array,
+): Promise<PdfDocument> {
+  return loadDocument(pdfBytes);
+}
+
 export async function loadPdfDocument(
   pdfBytes: Uint8Array,
 ): Promise<PdfDocument> {
