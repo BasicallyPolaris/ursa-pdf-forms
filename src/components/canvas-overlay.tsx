@@ -73,11 +73,40 @@ function getFieldColor(el: FormElement): string {
   return FIELD_COLORS[el.type] ?? FIELD_COLORS.text;
 }
 
+function applySnapToHandleStyles(
+  baseStyles: Record<string, React.CSSProperties>,
+  snap: { dx: number; dy: number; dw: number; dh: number },
+): Record<string, React.CSSProperties> {
+  const { dx, dy, dw, dh } = snap;
+  const offsets: Record<string, [number, number]> = {
+    topLeft: [dx, dy],
+    top: [dx + dw / 2, dy],
+    topRight: [dx + dw, dy],
+    right: [dx + dw, dy + dh / 2],
+    bottomRight: [dx + dw, dy + dh],
+    bottom: [dx + dw / 2, dy + dh],
+    bottomLeft: [dx, dy + dh],
+    left: [dx, dy + dh / 2],
+  };
+  const result: Record<string, React.CSSProperties> = {};
+  for (const [key, style] of Object.entries(baseStyles)) {
+    const [tx, ty] = offsets[key] ?? [0, 0];
+    result[key] = {
+      ...style,
+      ...(tx !== 0 || ty !== 0
+        ? { transform: `translate(${tx}px, ${ty}px)` }
+        : {}),
+    };
+  }
+  return result;
+}
+
 function getHandleConfig(
   el: FormElement,
   isSelected: boolean,
   isMultiSelected: boolean,
   isDragging: boolean,
+  snapCorrection?: { dx: number; dy: number; dw: number; dh: number } | null,
 ) {
   if (!isSelected || isMultiSelected || isDragging) {
     return { enabled: false as const, styles: undefined };
@@ -95,30 +124,34 @@ function getHandleConfig(
     borderRadius: "1px",
   };
   if (isInput) {
+    let styles: Record<string, React.CSSProperties> = {
+      left: { ...hs, top: "calc(50% - 3.5px)", left: "-4px", cursor: "col-resize" },
+      right: { ...hs, top: "calc(50% - 3.5px)", right: "-4px", cursor: "col-resize" },
+    };
+    if (snapCorrection) styles = applySnapToHandleStyles(styles, snapCorrection);
     return {
       enabled: { left: true, right: true } as Record<string, boolean>,
-      styles: {
-        left: { ...hs, top: "calc(50% - 3.5px)", left: "-4px", cursor: "col-resize" },
-        right: { ...hs, top: "calc(50% - 3.5px)", right: "-4px", cursor: "col-resize" },
-      },
+      styles,
     };
   }
+  let styles: Record<string, React.CSSProperties> = {
+    topLeft: { ...hs, top: "-4px", left: "-4px", cursor: "nwse-resize" },
+    top: { ...hs, top: "-4px", left: "calc(50% - 3.5px)", cursor: "ns-resize" },
+    topRight: { ...hs, top: "-4px", right: "-4px", cursor: "nesw-resize" },
+    right: { ...hs, top: "calc(50% - 3.5px)", right: "-4px", cursor: "ew-resize" },
+    bottomRight: { ...hs, bottom: "-4px", right: "-4px", cursor: "nwse-resize" },
+    bottom: { ...hs, bottom: "-4px", left: "calc(50% - 3.5px)", cursor: "ns-resize" },
+    bottomLeft: { ...hs, bottom: "-4px", left: "-4px", cursor: "nesw-resize" },
+    left: { ...hs, top: "calc(50% - 3.5px)", left: "-4px", cursor: "ew-resize" },
+  };
+  if (snapCorrection) styles = applySnapToHandleStyles(styles, snapCorrection);
   return {
     enabled: {
       topLeft: true, top: true, topRight: true,
       right: true, bottomRight: true, bottom: true,
       bottomLeft: true, left: true,
     },
-    styles: {
-      topLeft: { ...hs, top: "-4px", left: "-4px" },
-      top: { ...hs, top: "-4px", left: "calc(50% - 3.5px)", cursor: "row-resize" },
-      topRight: { ...hs, top: "-4px", right: "-4px" },
-      right: { ...hs, top: "calc(50% - 3.5px)", right: "-4px", cursor: "col-resize" },
-      bottomRight: { ...hs, bottom: "-4px", right: "-4px" },
-      bottom: { ...hs, bottom: "-4px", left: "calc(50% - 3.5px)", cursor: "row-resize" },
-      bottomLeft: { ...hs, bottom: "-4px", left: "-4px" },
-      left: { ...hs, top: "calc(50% - 3.5px)", left: "-4px", cursor: "col-resize" },
-    },
+    styles,
   };
 }
 
@@ -681,7 +714,7 @@ export function CanvasOverlay() {
     const screenHeight = (isMultiResize ? livePos.height : el.height) * zoom;
 
     const isMultiSelected = selectedIds.size >= 2 && isSelected;
-    const handleConfig = getHandleConfig(el, isSelected, isMultiSelected, drag.draggingId.current === el.id);
+    const handleConfig = getHandleConfig(el, isSelected, isMultiSelected, drag.draggingId.current === el.id, resize.resizingId.current === el.id ? resize.resizeSnapCorrection : undefined);
 
     return (
       <Rnd

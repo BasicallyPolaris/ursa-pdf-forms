@@ -28,6 +28,34 @@ interface BoundingBoxOverlayProps {
   onResizeStop: () => void;
 }
 
+function applySnapToHandleStyles(
+  baseStyles: Record<string, React.CSSProperties>,
+  snap: { dx: number; dy: number; dw: number; dh: number },
+): Record<string, React.CSSProperties> {
+  const { dx, dy, dw, dh } = snap;
+  const offsets: Record<string, [number, number]> = {
+    topLeft: [dx, dy],
+    top: [dx + dw / 2, dy],
+    topRight: [dx + dw, dy],
+    right: [dx + dw, dy + dh / 2],
+    bottomRight: [dx + dw, dy + dh],
+    bottom: [dx + dw / 2, dy + dh],
+    bottomLeft: [dx, dy + dh],
+    left: [dx, dy + dh / 2],
+  };
+  const result: Record<string, React.CSSProperties> = {};
+  for (const [key, style] of Object.entries(baseStyles)) {
+    const [tx, ty] = offsets[key] ?? [0, 0];
+    result[key] = {
+      ...style,
+      ...(tx !== 0 || ty !== 0
+        ? { transform: `translate(${tx}px, ${ty}px)` }
+        : {}),
+    };
+  }
+  return result;
+}
+
 export function BoundingBoxOverlay({
   boundingBox,
   isDragging,
@@ -55,10 +83,15 @@ export function BoundingBoxOverlay({
     );
   }
 
+  const handleStyles = snapCorrection
+    ? applySnapToHandleStyles(HANDLE_STYLES, snapCorrection)
+    : HANDLE_STYLES;
+
   return (
     <MultiResizeRnd
       rect={boundingBox}
       enableResizing={anyHeightLocked ? HORIZONTAL_HANDLES : ALL_HANDLES}
+      handleStyles={handleStyles}
       snapCorrection={snapCorrection}
       onResizeStart={onResizeStart}
       onResize={onResize}
@@ -70,6 +103,7 @@ export function BoundingBoxOverlay({
 function MultiResizeRnd({
   rect,
   enableResizing,
+  handleStyles,
   snapCorrection,
   onResizeStart,
   onResize,
@@ -77,6 +111,7 @@ function MultiResizeRnd({
 }: {
   rect: ScreenRect;
   enableResizing: Record<string, boolean>;
+  handleStyles: Record<string, React.CSSProperties>;
   snapCorrection?: {
     dx: number;
     dy: number;
@@ -114,7 +149,7 @@ function MultiResizeRnd({
       minHeight={MIN_SCREEN}
       enableResizing={enableResizing}
       disableDragging
-      resizeHandleStyles={HANDLE_STYLES}
+      resizeHandleStyles={handleStyles}
       onResizeStart={onResizeStart}
       onResize={handleResize}
       onResizeStop={onResizeStop}
