@@ -742,8 +742,13 @@ export function CanvasOverlay() {
               : !isSelected
                 ? { borderColor: getFieldColor(el), opacity: 0.5 }
                 : {}),
-            ...(resize.resizingId.current === el.id
-              ? undefined
+            ...(resize.resizingId.current === el.id &&
+            resize.resizeSnapCorrection
+              ? {
+                  transform: `translate(${resize.resizeSnapCorrection.dx}px, ${resize.resizeSnapCorrection.dy}px)`,
+                  width: `calc(100% + ${resize.resizeSnapCorrection.dw}px)`,
+                  height: `calc(100% + ${resize.resizeSnapCorrection.dh}px)`,
+                }
               : drag.draggingId.current === el.id && drag.dragSnapCorrection
                 ? {
                     transform: `translate(${drag.dragSnapCorrection.dx}px, ${drag.dragSnapCorrection.dy}px)`,
@@ -865,6 +870,7 @@ export function CanvasOverlay() {
             el.type === "optionlist"
           );
         })()}
+        snapCorrection={multiResize.snapCorrection}
         onResizeStart={multiResize.handleResizeStart}
         onResize={multiResize.handleResize}
         onResizeStop={multiResize.handleResizeStop}

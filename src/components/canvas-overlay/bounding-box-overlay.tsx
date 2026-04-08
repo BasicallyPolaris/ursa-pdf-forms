@@ -12,6 +12,12 @@ interface BoundingBoxOverlayProps {
   boundingBox: ScreenRect | null;
   isDragging: boolean;
   anyHeightLocked: boolean;
+  snapCorrection?: {
+    dx: number;
+    dy: number;
+    dw: number;
+    dh: number;
+  } | null;
   onResizeStart: () => void;
   onResize: (
     dir: string,
@@ -26,6 +32,7 @@ export function BoundingBoxOverlay({
   boundingBox,
   isDragging,
   anyHeightLocked,
+  snapCorrection,
   onResizeStart,
   onResize,
   onResizeStop,
@@ -52,6 +59,7 @@ export function BoundingBoxOverlay({
     <MultiResizeRnd
       rect={boundingBox}
       enableResizing={anyHeightLocked ? HORIZONTAL_HANDLES : ALL_HANDLES}
+      snapCorrection={snapCorrection}
       onResizeStart={onResizeStart}
       onResize={onResize}
       onResizeStop={onResizeStop}
@@ -62,12 +70,19 @@ export function BoundingBoxOverlay({
 function MultiResizeRnd({
   rect,
   enableResizing,
+  snapCorrection,
   onResizeStart,
   onResize,
   onResizeStop,
 }: {
   rect: ScreenRect;
   enableResizing: Record<string, boolean>;
+  snapCorrection?: {
+    dx: number;
+    dy: number;
+    dw: number;
+    dh: number;
+  } | null;
   onResizeStart: () => void;
   onResize: (
     dir: string,
@@ -109,6 +124,13 @@ function MultiResizeRnd({
         style={{
           border: "1px dashed var(--bounding-rect)",
           opacity: 0.5,
+          ...(snapCorrection
+            ? {
+                transform: `translate(${snapCorrection.dx}px, ${snapCorrection.dy}px)`,
+                width: `calc(100% + ${snapCorrection.dw}px)`,
+                height: `calc(100% + ${snapCorrection.dh}px)`,
+              }
+            : {}),
         }}
       />
     </Rnd>
