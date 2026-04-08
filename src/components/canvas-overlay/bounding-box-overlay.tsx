@@ -11,6 +11,13 @@ interface ScreenRect {
 interface BoundingBoxOverlayProps {
   boundingBox: ScreenRect | null;
   isDragging: boolean;
+  allHeightLocked: boolean;
+  snapCorrection?: {
+    dx: number;
+    dy: number;
+    dw: number;
+    dh: number;
+  } | null;
   onResizeStart: () => void;
   onResize: (
     dir: string,
@@ -24,6 +31,8 @@ interface BoundingBoxOverlayProps {
 export function BoundingBoxOverlay({
   boundingBox,
   isDragging,
+  allHeightLocked,
+  snapCorrection,
   onResizeStart,
   onResize,
   onResizeStop,
@@ -49,6 +58,8 @@ export function BoundingBoxOverlay({
   return (
     <MultiResizeRnd
       rect={boundingBox}
+      enableResizing={allHeightLocked ? HORIZONTAL_HANDLES : ALL_HANDLES}
+      snapCorrection={snapCorrection}
       onResizeStart={onResizeStart}
       onResize={onResize}
       onResizeStop={onResizeStop}
@@ -58,11 +69,20 @@ export function BoundingBoxOverlay({
 
 function MultiResizeRnd({
   rect,
+  enableResizing,
+  snapCorrection,
   onResizeStart,
   onResize,
   onResizeStop,
 }: {
   rect: ScreenRect;
+  enableResizing: Record<string, boolean>;
+  snapCorrection?: {
+    dx: number;
+    dy: number;
+    dw: number;
+    dh: number;
+  } | null;
   onResizeStart: () => void;
   onResize: (
     dir: string,
@@ -87,12 +107,12 @@ function MultiResizeRnd({
 
   return (
     <Rnd
-      style={{ pointerEvents: "none" }}
+      style={{ pointerEvents: "none", zIndex: 60 }}
       size={{ width: rect.width, height: rect.height }}
       position={{ x: rect.x, y: rect.y }}
       minWidth={MIN_SCREEN}
       minHeight={MIN_SCREEN}
-      enableResizing={ALL_HANDLES}
+      enableResizing={enableResizing}
       disableDragging
       resizeHandleStyles={HANDLE_STYLES}
       onResizeStart={onResizeStart}
@@ -104,6 +124,13 @@ function MultiResizeRnd({
         style={{
           border: "1px dashed var(--bounding-rect)",
           opacity: 0.5,
+          ...(snapCorrection
+            ? {
+                transform: `translate(${snapCorrection.dx}px, ${snapCorrection.dy}px)`,
+                width: `calc(100% + ${snapCorrection.dw}px)`,
+                height: `calc(100% + ${snapCorrection.dh}px)`,
+              }
+            : {}),
         }}
       />
     </Rnd>
@@ -121,6 +148,11 @@ const ALL_HANDLES = {
   bottom: true,
   bottomLeft: true,
   left: true,
+};
+
+const HORIZONTAL_HANDLES = {
+  left: true,
+  right: true,
 };
 
 const HS: React.CSSProperties = {

@@ -689,6 +689,7 @@ export function CanvasOverlay() {
         data-element-overlay
         data-element-id={el.id}
         scale={1}
+        style={{ zIndex: isSelected ? 55 : undefined }}
         size={{ width: screenWidth, height: screenHeight }}
         position={{ x: screen.x, y: screen.y }}
         minWidth={10}
@@ -860,6 +861,16 @@ export function CanvasOverlay() {
       <BoundingBoxOverlay
         boundingBox={boundingBox}
         isDragging={!!drag.dragOffset}
+        allHeightLocked={(() => {
+          if (selectedIds.size < 2) return false;
+          const selected = elements.filter((el) => selectedIds.has(el.id));
+          return selected.length >= 2 && selected.every((el) =>
+            (el.type === "text" && !("multiline" in el && el.multiline)) ||
+            el.type === "dropdown" ||
+            el.type === "optionlist"
+          );
+        })()}
+        snapCorrection={multiResize.snapCorrection}
         onResizeStart={multiResize.handleResizeStart}
         onResize={multiResize.handleResize}
         onResizeStop={multiResize.handleResizeStop}

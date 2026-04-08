@@ -1,4 +1,5 @@
 import { pdfToScreen, screenToPdf } from "@/lib/coordinates";
+import { lockCursor, unlockCursor } from "@/lib/cursor";
 import type { FormElement, TextField } from "@/lib/form-element-model";
 import type { PageLayout } from "@/lib/page-layout";
 import {
@@ -7,7 +8,7 @@ import {
   type SnapGuide,
 } from "@/lib/snap-engine";
 import { useEditorStore } from "@/stores/editor-store";
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 
 const MIN_SCREEN = 10;
 
@@ -52,6 +53,13 @@ export function useMultiResize(config: MultiResizeConfig) {
   const currentBboxRef = useRef<ScreenRect | null>(null);
   const primaryPageRef = useRef(1);
   const prevSnapRef = useRef<{ x: number; y: number } | null>(null);
+  const allHeightLockedRef = useRef(false);
+  const [snapCorrection, setSnapCorrection] = useState<{
+    dx: number;
+    dy: number;
+    dw: number;
+    dh: number;
+  } | null>(null);
 
   const handleResizeStart = useCallback(() => {
     const store = useEditorStore.getState();
@@ -77,7 +85,9 @@ export function useMultiResize(config: MultiResizeConfig) {
         screenW: el.width * zoom,
         screenH: el.height * zoom,
         heightLocked:
-          el.type === "text" && !(el as TextField).multiline,
+          (el.type === "text" && !(el as TextField).multiline) ||
+          el.type === "dropdown" ||
+          el.type === "optionlist",
       });
     }
     if (screenData.length < 2) return;
@@ -107,12 +117,15 @@ export function useMultiResize(config: MultiResizeConfig) {
       (a, b) => b[1] - a[1],
     )[0][0];
 
+    const allLocked = screenData.every((s) => s.heightLocked);
     activeRef.current = true;
     originalsRef.current = screenData;
     origBboxRef.current = bbox;
     currentBboxRef.current = bbox;
     primaryPageRef.current = primaryPage;
     prevSnapRef.current = null;
+    allHeightLockedRef.current = allLocked;
+    setSnapCorrection(null);
   }, [config]);
 
   const handleResize = useCallback(
@@ -127,10 +140,14 @@ export function useMultiResize(config: MultiResizeConfig) {
       const { zoom } = config;
       const primaryLayout = config.layouts.get(primaryPageRef.current);
 
+      const isHorizontal = _dir === "left" || _dir === "right";
+      lockCursor(allHeightLockedRef.current || isHorizontal ? "ew" : "nwse");
+
       let sx = position.x;
       let sy = position.y;
       let sw = parseFloat(ref.style.width);
       let sh = parseFloat(ref.style.height);
+      let snappedBbox: ScreenRect | null = null;
 
       if (primaryLayout) {
         const rawPdf = screenToPdf(
@@ -180,6 +197,7 @@ export function useMultiResize(config: MultiResizeConfig) {
               pageY: primaryLayout.yOffset,
             },
           );
+          snappedBbox = { x: snScreen.x, y: snScreen.y, width: snW * zoom, height: snH * zoom };
           sx = snScreen.x;
           sy = snScreen.y;
           sw = snW * zoom;
@@ -197,6 +215,17 @@ export function useMultiResize(config: MultiResizeConfig) {
       }
 
       currentBboxRef.current = { x: sx, y: sy, width: sw, height: sh };
+
+      if (snappedBbox) {
+        setSnapCorrection({
+          dx: snappedBbox.x - position.x,
+          dy: snappedBbox.y - position.y,
+          dw: snappedBbox.width - parseFloat(ref.style.width),
+          dh: snappedBbox.height - parseFloat(ref.style.height),
+        });
+      } else {
+        setSnapCorrection(null);
+      }
 
       const scaleX = orig.width > 0 ? sw / orig.width : 1;
       const scaleY = orig.height > 0 ? sh / orig.height : 1;
@@ -266,6 +295,9 @@ export function useMultiResize(config: MultiResizeConfig) {
     origBboxRef.current = null;
     currentBboxRef.current = null;
     prevSnapRef.current = null;
+    allHeightLockedRef.current = false;
+    setSnapCorrection(null);
+    unlockCursor();
     config.setActiveGuides([]);
     config.setDragLivePositions(null);
   }, [config]);
@@ -273,6 +305,8 @@ export function useMultiResize(config: MultiResizeConfig) {
   return {
     isActive: activeRef,
     currentBbox: currentBboxRef,
+    allHeightLocked: allHeightLockedRef,
+    snapCorrection,
     handleResizeStart,
     handleResize,
     handleResizeStop,
