@@ -1,4 +1,4 @@
-type CursorType = "grab" | "ns" | "ew" | "nwse";
+export type CursorType = "grab" | "ns" | "ew" | "nwse" | "nesw";
 
 export function lockCursor(type: CursorType) {
   document.body.classList.add(`locked-cursor-${type}`);
@@ -11,6 +11,7 @@ export function unlockCursor() {
     "locked-cursor-ns",
     "locked-cursor-ew",
     "locked-cursor-nwse",
+    "locked-cursor-nesw",
   );
   document.body.style.userSelect = "";
 }

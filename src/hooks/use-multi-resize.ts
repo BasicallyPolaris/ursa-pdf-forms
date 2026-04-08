@@ -1,5 +1,5 @@
 import { pdfToScreen, screenToPdf } from "@/lib/coordinates";
-import { lockCursor, unlockCursor } from "@/lib/cursor";
+import { lockCursor, unlockCursor, type CursorType } from "@/lib/cursor";
 import type { FormElement, TextField } from "@/lib/form-element-model";
 import type { PageLayout } from "@/lib/page-layout";
 import {
@@ -37,6 +37,25 @@ interface OriginalElement {
   screenW: number;
   screenH: number;
   heightLocked: boolean;
+}
+
+function dirToCursor(dir: string): CursorType {
+  switch (dir) {
+    case "left":
+    case "right":
+      return "ew";
+    case "top":
+    case "bottom":
+      return "ns";
+    case "topLeft":
+    case "bottomRight":
+      return "nwse";
+    case "topRight":
+    case "bottomLeft":
+      return "nesw";
+    default:
+      return "nwse";
+  }
 }
 
 interface ScreenRect {
@@ -141,7 +160,7 @@ export function useMultiResize(config: MultiResizeConfig) {
       const primaryLayout = config.layouts.get(primaryPageRef.current);
 
       const isHorizontal = _dir === "left" || _dir === "right";
-      lockCursor(anyHeightLockedRef.current || isHorizontal ? "ew" : "nwse");
+      lockCursor(anyHeightLockedRef.current || isHorizontal ? "ew" : dirToCursor(_dir));
 
       let sx = position.x;
       let sy = position.y;

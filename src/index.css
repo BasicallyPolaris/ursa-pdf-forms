@@ -222,6 +222,10 @@
         cursor: nwse-resize !important;
     }
 
+    .locked-cursor-nesw * {
+        cursor: nesw-resize !important;
+    }
+
     select option {
         @apply bg-card text-foreground;
     }
