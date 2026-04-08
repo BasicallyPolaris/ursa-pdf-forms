@@ -8,7 +8,7 @@ import {
   type SnapGuide,
 } from "@/lib/snap-engine";
 import { useEditorStore } from "@/stores/editor-store";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 
 const MIN_SIZE = 10;
 
@@ -39,12 +39,8 @@ export function useElementResize(config: ElementResizeConfig) {
     height: number;
   } | null>(null);
   const prevSnapRef = useRef<{ x: number; y: number } | null>(null);
-  const [resizeSnapCorrection, setResizeSnapCorrection] = useState<{
-    dx: number;
-    dy: number;
-    dw: number;
-    dh: number;
-  } | null>(null);
+  const snapOffsetRef = useRef({ dx: 0, dy: 0 });
+  const resizableElRef = useRef<HTMLElement | null>(null);
 
   const handleResize = useCallback(
     (
@@ -61,15 +57,19 @@ export function useElementResize(config: ElementResizeConfig) {
       resizeHappenedRef.current = true;
       lockCursor(isSingleInput ? "ew" : "nwse");
       resizingId.current = el.id;
+      resizableElRef.current = ref;
 
       const pl = config.layouts.get(el.pageNumber);
       if (!pl) return;
 
       const { zoom } = config;
+      const prev = snapOffsetRef.current;
+      const cleanX = position.x - prev.dx;
+      const cleanY = position.y - prev.dy;
       const rawWidth = parseFloat(ref.style.width) / zoom;
       const rawHeight = parseFloat(ref.style.height) / zoom;
       const rawPdf = screenToPdf(
-        { x: position.x, y: position.y },
+        { x: cleanX, y: cleanY },
         { zoom, pageX: pl.xOffset, pageY: pl.yOffset },
       );
 
@@ -107,9 +107,12 @@ export function useElementResize(config: ElementResizeConfig) {
 
         const dx = (result.x - rawPdf.x) * zoom;
         const dy = (result.y - rawPdf.y) * zoom;
-        const dw = (snappedW - rawWidth) * zoom;
-        const dh = (snappedH - rawHeight) * zoom;
-        setResizeSnapCorrection({ dx, dy, dw, dh });
+        ref.style.width = `${snappedW * zoom}px`;
+        ref.style.height = `${snappedH * zoom}px`;
+        ref.style.transform =
+          dx !== 0 || dy !== 0 ? `translate(${dx}px, ${dy}px)` : "";
+        snapOffsetRef.current = { dx, dy };
+
         config.setActiveGuides(
           snapCtx.snapToGrid
             ? result.guides.filter((g) => g.type !== "grid")
@@ -129,7 +132,8 @@ export function useElementResize(config: ElementResizeConfig) {
         config.setDragLivePositions(livePositions);
       } else {
         lastResizeSnap.current = null;
-        setResizeSnapCorrection(null);
+        ref.style.transform = "";
+        snapOffsetRef.current = { dx: 0, dy: 0 };
         config.setActiveGuides([]);
       }
     },
@@ -159,7 +163,11 @@ export function useElementResize(config: ElementResizeConfig) {
         });
       }
       lastResizeSnap.current = null;
-      setResizeSnapCorrection(null);
+      snapOffsetRef.current = { dx: 0, dy: 0 };
+      if (resizableElRef.current) {
+        resizableElRef.current.style.transform = "";
+        resizableElRef.current = null;
+      }
       config.setActiveGuides([]);
       config.setDragLivePositions(null);
       resizingId.current = null;
@@ -172,14 +180,17 @@ export function useElementResize(config: ElementResizeConfig) {
   function resetState() {
     resizeHappenedRef.current = false;
     lastResizeSnap.current = null;
-    setResizeSnapCorrection(null);
+    snapOffsetRef.current = { dx: 0, dy: 0 };
+    if (resizableElRef.current) {
+      resizableElRef.current.style.transform = "";
+      resizableElRef.current = null;
+    }
     resizingId.current = null;
     prevSnapRef.current = null;
   }
 
   return {
     resizingId,
-    resizeSnapCorrection,
     handleResize,
     handleResizeStop,
     resetState,

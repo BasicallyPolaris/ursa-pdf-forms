@@ -8,7 +8,7 @@ import {
   type SnapGuide,
 } from "@/lib/snap-engine";
 import { useEditorStore } from "@/stores/editor-store";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 
 const MIN_SCREEN = 10;
 
@@ -54,12 +54,8 @@ export function useMultiResize(config: MultiResizeConfig) {
   const primaryPageRef = useRef(1);
   const prevSnapRef = useRef<{ x: number; y: number } | null>(null);
   const allHeightLockedRef = useRef(false);
-  const [snapCorrection, setSnapCorrection] = useState<{
-    dx: number;
-    dy: number;
-    dw: number;
-    dh: number;
-  } | null>(null);
+  const snapOffsetRef = useRef({ dx: 0, dy: 0 });
+  const resizableElRef = useRef<HTMLElement | null>(null);
 
   const handleResizeStart = useCallback(() => {
     const store = useEditorStore.getState();
@@ -117,15 +113,15 @@ export function useMultiResize(config: MultiResizeConfig) {
       (a, b) => b[1] - a[1],
     )[0][0];
 
-    const allLocked = screenData.every((s) => s.heightLocked);
+    const anyLocked = screenData.some((s) => s.heightLocked);
     activeRef.current = true;
     originalsRef.current = screenData;
     origBboxRef.current = bbox;
     currentBboxRef.current = bbox;
     primaryPageRef.current = primaryPage;
     prevSnapRef.current = null;
-    allHeightLockedRef.current = allLocked;
-    setSnapCorrection(null);
+    allHeightLockedRef.current = anyLocked;
+    snapOffsetRef.current = { dx: 0, dy: 0 };
   }, [config]);
 
   const handleResize = useCallback(
@@ -142,24 +138,29 @@ export function useMultiResize(config: MultiResizeConfig) {
 
       const isHorizontal = _dir === "left" || _dir === "right";
       lockCursor(allHeightLockedRef.current || isHorizontal ? "ew" : "nwse");
+      resizableElRef.current = ref;
 
       let sx = position.x;
       let sy = position.y;
       let sw = parseFloat(ref.style.width);
       let sh = parseFloat(ref.style.height);
-      let snappedBbox: ScreenRect | null = null;
 
       if (primaryLayout) {
+        const prev = snapOffsetRef.current;
+        const cleanX = position.x - prev.dx;
+        const cleanY = position.y - prev.dy;
+        const cleanW = sw;
+        const cleanH = sh;
         const rawPdf = screenToPdf(
-          { x: sx, y: sy },
+          { x: cleanX, y: cleanY },
           {
             zoom,
             pageX: primaryLayout.xOffset,
             pageY: primaryLayout.yOffset,
           },
         );
-        const rawW = sw / zoom;
-        const rawH = sh / zoom;
+        const rawW = cleanW / zoom;
+        const rawH = cleanH / zoom;
 
         const excludedIds = new Set(originalsRef.current.map((e) => e.id));
         const snapCtx = config.buildSnapContext(
@@ -197,12 +198,20 @@ export function useMultiResize(config: MultiResizeConfig) {
               pageY: primaryLayout.yOffset,
             },
           );
-          snappedBbox = { x: snScreen.x, y: snScreen.y, width: snW * zoom, height: snH * zoom };
           sx = snScreen.x;
           sy = snScreen.y;
           sw = snW * zoom;
           sh = snH * zoom;
           prevSnapRef.current = { x: result.x, y: result.y };
+
+          const dx = snScreen.x - cleanX;
+          const dy = snScreen.y - cleanY;
+          ref.style.width = `${snW * zoom}px`;
+          ref.style.height = `${snH * zoom}px`;
+          ref.style.transform =
+            dx !== 0 || dy !== 0 ? `translate(${dx}px, ${dy}px)` : "";
+          snapOffsetRef.current = { dx, dy };
+
           config.setActiveGuides(
             snapCtx.snapToGrid
               ? result.guides.filter((g) => g.type !== "grid")
@@ -210,22 +219,13 @@ export function useMultiResize(config: MultiResizeConfig) {
           );
         } else {
           prevSnapRef.current = null;
+          ref.style.transform = "";
+          snapOffsetRef.current = { dx: 0, dy: 0 };
           config.setActiveGuides([]);
         }
       }
 
       currentBboxRef.current = { x: sx, y: sy, width: sw, height: sh };
-
-      if (snappedBbox) {
-        setSnapCorrection({
-          dx: snappedBbox.x - position.x,
-          dy: snappedBbox.y - position.y,
-          dw: snappedBbox.width - parseFloat(ref.style.width),
-          dh: snappedBbox.height - parseFloat(ref.style.height),
-        });
-      } else {
-        setSnapCorrection(null);
-      }
 
       const scaleX = orig.width > 0 ? sw / orig.width : 1;
       const scaleY = orig.height > 0 ? sh / orig.height : 1;
@@ -296,7 +296,11 @@ export function useMultiResize(config: MultiResizeConfig) {
     currentBboxRef.current = null;
     prevSnapRef.current = null;
     allHeightLockedRef.current = false;
-    setSnapCorrection(null);
+    snapOffsetRef.current = { dx: 0, dy: 0 };
+    if (resizableElRef.current) {
+      resizableElRef.current.style.transform = "";
+      resizableElRef.current = null;
+    }
     unlockCursor();
     config.setActiveGuides([]);
     config.setDragLivePositions(null);
@@ -306,7 +310,6 @@ export function useMultiResize(config: MultiResizeConfig) {
     isActive: activeRef,
     currentBbox: currentBboxRef,
     allHeightLocked: allHeightLockedRef,
-    snapCorrection,
     handleResizeStart,
     handleResize,
     handleResizeStop,

@@ -742,13 +742,8 @@ export function CanvasOverlay() {
               : !isSelected
                 ? { borderColor: getFieldColor(el), opacity: 0.5 }
                 : {}),
-            ...(resize.resizingId.current === el.id &&
-            resize.resizeSnapCorrection
-              ? {
-                  transform: `translate(${resize.resizeSnapCorrection.dx}px, ${resize.resizeSnapCorrection.dy}px)`,
-                  width: `calc(100% + ${resize.resizeSnapCorrection.dw}px)`,
-                  height: `calc(100% + ${resize.resizeSnapCorrection.dh}px)`,
-                }
+            ...(resize.resizingId.current === el.id
+              ? undefined
               : drag.draggingId.current === el.id && drag.dragSnapCorrection
                 ? {
                     transform: `translate(${drag.dragSnapCorrection.dx}px, ${drag.dragSnapCorrection.dy}px)`,
@@ -861,16 +856,15 @@ export function CanvasOverlay() {
       <BoundingBoxOverlay
         boundingBox={boundingBox}
         isDragging={!!drag.dragOffset}
-        allHeightLocked={(() => {
+        anyHeightLocked={(() => {
           if (selectedIds.size < 2) return false;
           const selected = elements.filter((el) => selectedIds.has(el.id));
-          return selected.length >= 2 && selected.every((el) =>
+          return selected.length >= 2 && selected.some((el) =>
             (el.type === "text" && !("multiline" in el && el.multiline)) ||
             el.type === "dropdown" ||
             el.type === "optionlist"
           );
         })()}
-        snapCorrection={multiResize.snapCorrection}
         onResizeStart={multiResize.handleResizeStart}
         onResize={multiResize.handleResize}
         onResizeStop={multiResize.handleResizeStop}

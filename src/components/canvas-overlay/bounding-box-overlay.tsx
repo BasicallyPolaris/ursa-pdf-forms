@@ -11,13 +11,7 @@ interface ScreenRect {
 interface BoundingBoxOverlayProps {
   boundingBox: ScreenRect | null;
   isDragging: boolean;
-  allHeightLocked: boolean;
-  snapCorrection?: {
-    dx: number;
-    dy: number;
-    dw: number;
-    dh: number;
-  } | null;
+  anyHeightLocked: boolean;
   onResizeStart: () => void;
   onResize: (
     dir: string,
@@ -31,8 +25,7 @@ interface BoundingBoxOverlayProps {
 export function BoundingBoxOverlay({
   boundingBox,
   isDragging,
-  allHeightLocked,
-  snapCorrection,
+  anyHeightLocked,
   onResizeStart,
   onResize,
   onResizeStop,
@@ -58,8 +51,7 @@ export function BoundingBoxOverlay({
   return (
     <MultiResizeRnd
       rect={boundingBox}
-      enableResizing={allHeightLocked ? HORIZONTAL_HANDLES : ALL_HANDLES}
-      snapCorrection={snapCorrection}
+      enableResizing={anyHeightLocked ? HORIZONTAL_HANDLES : ALL_HANDLES}
       onResizeStart={onResizeStart}
       onResize={onResize}
       onResizeStop={onResizeStop}
@@ -70,19 +62,12 @@ export function BoundingBoxOverlay({
 function MultiResizeRnd({
   rect,
   enableResizing,
-  snapCorrection,
   onResizeStart,
   onResize,
   onResizeStop,
 }: {
   rect: ScreenRect;
   enableResizing: Record<string, boolean>;
-  snapCorrection?: {
-    dx: number;
-    dy: number;
-    dw: number;
-    dh: number;
-  } | null;
   onResizeStart: () => void;
   onResize: (
     dir: string,
@@ -124,13 +109,6 @@ function MultiResizeRnd({
         style={{
           border: "1px dashed var(--bounding-rect)",
           opacity: 0.5,
-          ...(snapCorrection
-            ? {
-                transform: `translate(${snapCorrection.dx}px, ${snapCorrection.dy}px)`,
-                width: `calc(100% + ${snapCorrection.dw}px)`,
-                height: `calc(100% + ${snapCorrection.dh}px)`,
-              }
-            : {}),
         }}
       />
     </Rnd>
@@ -165,12 +143,12 @@ const HS: React.CSSProperties = {
 };
 
 const HANDLE_STYLES: Record<string, React.CSSProperties> = {
-  topLeft: { ...HS, top: "-4px", left: "-4px" },
-  top: { ...HS, top: "-4px", left: "calc(50% - 3.5px)", cursor: "row-resize" },
-  topRight: { ...HS, top: "-4px", right: "-4px" },
-  right: { ...HS, top: "calc(50% - 3.5px)", right: "-4px", cursor: "col-resize" },
-  bottomRight: { ...HS, bottom: "-4px", right: "-4px" },
-  bottom: { ...HS, bottom: "-4px", left: "calc(50% - 3.5px)", cursor: "row-resize" },
-  bottomLeft: { ...HS, bottom: "-4px", left: "-4px" },
-  left: { ...HS, top: "calc(50% - 3.5px)", left: "-4px", cursor: "col-resize" },
+  topLeft: { ...HS, top: "-4px", left: "-4px", cursor: "nwse-resize" },
+  top: { ...HS, top: "-4px", left: "calc(50% - 3.5px)", cursor: "ns-resize" },
+  topRight: { ...HS, top: "-4px", right: "-4px", cursor: "nesw-resize" },
+  right: { ...HS, top: "calc(50% - 3.5px)", right: "-4px", cursor: "ew-resize" },
+  bottomRight: { ...HS, bottom: "-4px", right: "-4px", cursor: "nwse-resize" },
+  bottom: { ...HS, bottom: "-4px", left: "calc(50% - 3.5px)", cursor: "ns-resize" },
+  bottomLeft: { ...HS, bottom: "-4px", left: "-4px", cursor: "nesw-resize" },
+  left: { ...HS, top: "calc(50% - 3.5px)", left: "-4px", cursor: "ew-resize" },
 };
