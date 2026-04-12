@@ -12,6 +12,12 @@ export interface TextField {
   multiline: boolean;
   required: boolean;
   maxLength: number | undefined;
+  textColor: string;
+  fontFamily: string;
+  fontWeight: "regular" | "bold" | "italic" | "bold-italic";
+  backgroundColor: string | null;
+  borderColor: string | null;
+  borderWidth: number;
 }
 
 export interface Checkbox {
@@ -39,7 +45,85 @@ export interface RadioButton {
   label: string;
 }
 
-export type FormElement = TextField | Checkbox | RadioButton;
+export interface DropdownField {
+  type: "dropdown";
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pageNumber: number;
+  name: string;
+  options: string[];
+  defaultValue: string;
+  fontSize: number;
+  required: boolean;
+  editable: boolean;
+  fontFamily: string;
+  fontWeight: "regular" | "bold" | "italic" | "bold-italic";
+  textColor: string;
+  backgroundColor: string | null;
+  borderColor: string | null;
+  borderWidth: number;
+}
+
+export interface ButtonField {
+  type: "button";
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pageNumber: number;
+  name: string;
+  label: string;
+  fontSize: number;
+  fontFamily: string;
+  fontWeight: "regular" | "bold" | "italic" | "bold-italic";
+  textColor: string;
+  backgroundColor: string | null;
+  borderColor: string | null;
+  borderWidth: number;
+}
+
+export interface OptionListField {
+  type: "optionlist";
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pageNumber: number;
+  name: string;
+  options: string[];
+  defaultValue: string;
+  fontSize: number;
+  required: boolean;
+  fontFamily: string;
+  fontWeight: "regular" | "bold" | "italic" | "bold-italic";
+  textColor: string;
+  backgroundColor: string | null;
+  borderColor: string | null;
+  borderWidth: number;
+}
+
+
+export type HasTypography = {
+  fontFamily: string;
+  fontWeight: "regular" | "bold" | "italic" | "bold-italic";
+  textColor: string;
+  backgroundColor: string | null;
+  borderColor: string | null;
+  borderWidth: number;
+};
+
+export type FormElement =
+  | TextField
+  | Checkbox
+  | RadioButton
+  | DropdownField
+  | ButtonField
+  | OptionListField;
 
 let nextId = 1;
 function generateId(): string {
@@ -49,6 +133,14 @@ function generateId(): string {
 export function heightFromFontSize(fontSize: number): number {
   const safe = Number.isFinite(fontSize) && fontSize > 0 ? fontSize : 12;
   return Math.round(safe * 1.2 * 2) / 2;
+}
+
+export function heightFromOptions(fontSize: number, optionCount: number): number {
+  const safe = Number.isFinite(fontSize) && fontSize > 0 ? fontSize : 12;
+  const count = Number.isFinite(optionCount) && optionCount > 0 ? optionCount : 2;
+  const lineHeight = safe * 1.4;
+  const padding = safe * 0.4;
+  return Math.round((lineHeight * count + padding * 2) * 2) / 2;
 }
 
 function safePositive(value: number | undefined, fallback: number): number {
@@ -118,6 +210,12 @@ export function createTextField(opts: TextFieldOptions): TextField {
     multiline,
     required: opts.required ?? false,
     maxLength: opts.maxLength,
+    textColor: "#000000",
+    fontFamily: "Helvetica",
+    fontWeight: "regular" as const,
+    backgroundColor: null,
+    borderColor: null,
+    borderWidth: 1,
   };
 }
 
@@ -182,6 +280,129 @@ export function createRadioButton(opts: RadioButtonOptions): RadioButton {
 export function isRadioButton(el: FormElement): el is RadioButton {
   return el.type === "radio";
 }
+
+interface DropdownFieldOptions {
+  x: number;
+  y: number;
+  pageNumber: number;
+  name?: string;
+  options?: string[];
+  defaultValue?: string;
+  fontSize?: number;
+  required?: boolean;
+  editable?: boolean;
+  width?: number;
+  height?: number;
+}
+
+export function createDropdownField(opts: DropdownFieldOptions): DropdownField {
+  const fontSize = opts.fontSize ?? 12;
+  return {
+    type: "dropdown",
+    id: generateId(),
+    x: opts.x,
+    y: opts.y,
+    width: safePositive(opts.width, 150),
+    height: safePositive(opts.height, heightFromFontSize(fontSize)),
+    pageNumber: opts.pageNumber,
+    name: opts.name ?? "",
+    options: opts.options ?? ["Option 1", "Option 2"],
+    defaultValue: opts.defaultValue ?? "",
+    fontSize,
+    required: opts.required ?? false,
+    editable: opts.editable ?? false,
+    fontFamily: "Helvetica",
+    fontWeight: "regular" as const,
+    textColor: "#000000",
+    backgroundColor: null,
+    borderColor: null,
+    borderWidth: 1,
+  };
+}
+
+export function isDropdownField(el: FormElement): el is DropdownField {
+  return el.type === "dropdown";
+}
+
+interface ButtonFieldOptions {
+  x: number;
+  y: number;
+  pageNumber: number;
+  name?: string;
+  label?: string;
+  fontSize?: number;
+  width?: number;
+  height?: number;
+}
+
+export function createButtonField(opts: ButtonFieldOptions): ButtonField {
+  const fontSize = opts.fontSize ?? 12;
+  return {
+    type: "button",
+    id: generateId(),
+    x: opts.x,
+    y: opts.y,
+    width: safePositive(opts.width, 80),
+    height: safePositive(opts.height, heightFromFontSize(fontSize)),
+    pageNumber: opts.pageNumber,
+    name: opts.name ?? "",
+    label: opts.label ?? "Button",
+    fontSize,
+    fontFamily: "Helvetica",
+    fontWeight: "regular" as const,
+    textColor: "#000000",
+    backgroundColor: null,
+    borderColor: null,
+    borderWidth: 1,
+  };
+}
+
+export function isButtonField(el: FormElement): el is ButtonField {
+  return el.type === "button";
+}
+
+interface OptionListFieldOptions {
+  x: number;
+  y: number;
+  pageNumber: number;
+  name?: string;
+  options?: string[];
+  defaultValue?: string;
+  fontSize?: number;
+  required?: boolean;
+  width?: number;
+  height?: number;
+}
+
+export function createOptionListField(opts: OptionListFieldOptions): OptionListField {
+  const fontSize = opts.fontSize ?? 12;
+  const options = opts.options ?? ["Option 1", "Option 2"];
+  return {
+    type: "optionlist",
+    id: generateId(),
+    x: opts.x,
+    y: opts.y,
+    width: safePositive(opts.width, 150),
+    height: safePositive(opts.height, heightFromOptions(fontSize, options.length)),
+    pageNumber: opts.pageNumber,
+    name: opts.name ?? "",
+    options,
+    defaultValue: opts.defaultValue ?? "",
+    fontSize,
+    required: opts.required ?? false,
+    fontFamily: "Helvetica",
+    fontWeight: "regular" as const,
+    textColor: "#000000",
+    backgroundColor: null,
+    borderColor: null,
+    borderWidth: 1,
+  };
+}
+
+export function isOptionListField(el: FormElement): el is OptionListField {
+  return el.type === "optionlist";
+}
+
 
 export function sanitizeNumericValue(value: unknown): number | undefined {
   if (value === undefined || value === null || value === "") return undefined;

@@ -5,8 +5,6 @@ import {
   PDFArray,
   PDFDict,
   PDFRef,
-  PDFNumber,
-  PDFHexString,
 } from "pdf-lib";
 import { extractAcroFormFields } from "@/lib/pdf-form-reader";
 import { exportFormElements } from "@/lib/pdf-export-engine";
@@ -14,6 +12,9 @@ import {
   createTextField,
   createCheckbox,
   createRadioButton,
+  createButtonField,
+  createDropdownField,
+  createOptionListField,
   type FormElement,
 } from "@/lib/form-element-model";
 
@@ -231,6 +232,134 @@ describe("extractAcroFormFields", () => {
     expect(types).toEqual(["checkbox", "radio", "radio", "text"]);
   });
 
+  it("extracts a push button", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      createButtonField({
+        x: 72,
+        y: 700,
+        pageNumber: 1,
+        name: "submitBtn",
+        label: "Submit",
+        fontSize: 12,
+        width: 80,
+        height: 24,
+      }),
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(1);
+    const field = extracted[0];
+    expect(field.type).toBe("button");
+    if (field.type === "button") {
+      expect(field.name).toBe("submitBtn");
+      expect(field.pageNumber).toBe(1);
+      expect(field.fontSize).toBe(12);
+    }
+  });
+
+  it("extracts a dropdown (combo box)", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      createDropdownField({
+        x: 72,
+        y: 700,
+        pageNumber: 1,
+        name: "country",
+        options: ["USA", "Canada", "Mexico"],
+        defaultValue: "Canada",
+        fontSize: 12,
+        width: 150,
+        height: 20,
+      }),
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(1);
+    const field = extracted[0];
+    expect(field.type).toBe("dropdown");
+    if (field.type === "dropdown") {
+      expect(field.name).toBe("country");
+      expect(field.pageNumber).toBe(1);
+      expect(field.options).toEqual(["USA", "Canada", "Mexico"]);
+      expect(field.fontSize).toBe(12);
+    }
+  });
+
+  it("extracts an option list (list box)", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      createOptionListField({
+        x: 72,
+        y: 600,
+        pageNumber: 1,
+        name: "colors",
+        options: ["Red", "Green", "Blue"],
+        defaultValue: "Green",
+        fontSize: 12,
+        width: 150,
+        height: 60,
+      }),
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(1);
+    const field = extracted[0];
+    expect(field.type).toBe("optionlist");
+    if (field.type === "optionlist") {
+      expect(field.name).toBe("colors");
+      expect(field.pageNumber).toBe(1);
+      expect(field.options).toEqual(["Red", "Green", "Blue"]);
+      expect(field.fontSize).toBe(12);
+    }
+  });
+
+  it("distinguishes button, checkbox, and radio in mixed document", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      createButtonField({
+        x: 72,
+        y: 720,
+        pageNumber: 1,
+        name: "btn",
+        label: "Click",
+      }),
+      createCheckbox({
+        x: 72,
+        y: 700,
+        pageNumber: 1,
+        name: "check",
+      }),
+      createRadioButton({
+        x: 72,
+        y: 680,
+        pageNumber: 1,
+        groupName: "group",
+        value: "a",
+      }),
+      createRadioButton({
+        x: 72,
+        y: 660,
+        pageNumber: 1,
+        groupName: "group",
+        value: "b",
+      }),
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(4);
+    const types = extracted.map((el) => el.type).sort();
+    expect(types).toEqual(["button", "checkbox", "radio", "radio"]);
+  });
+
   it("handles unchecked checkbox", async () => {
     const basePdf = await createPdfWithTextField();
     const elements: FormElement[] = [
@@ -330,8 +459,8 @@ describe("extractAcroFormFields", () => {
       ignoreEncryption: true,
     });
     const ctx = reloaded.context;
-    const pagesTree = reloaded.catalog.lookup(PDFName.of("Pages"));
-    const kids = pagesTree.lookup(PDFName.of("Kids"));
+    const pagesTree = reloaded.catalog.lookup(PDFName.of("Pages")) as PDFDict;
+    const kids = pagesTree.lookup(PDFName.of("Kids")) as PDFArray;
 
     const intermediateKids = PDFArray.withContext(ctx);
     intermediateKids.push(kids.get(0));
@@ -356,6 +485,7 @@ describe("extractAcroFormFields", () => {
     newTopKids.push(kids.get(2));
     newTopKids.push(kids.get(3));
     pagesTree.set(PDFName.of("Kids"), newTopKids);
+    pagesTree.set(PDFName.of("Count"), ctx.obj(4));
 
     const modifiedPdf = await reloaded.save();
 
@@ -363,6 +493,335 @@ describe("extractAcroFormFields", () => {
     expect(extracted.length).toBe(2);
     const pageNumbers = extracted.map((el) => el.pageNumber).sort();
     expect(pageNumbers).toEqual([1, 4]);
+  });
+
+  it("preserves multiline flag after round-trip", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      createTextField({
+        x: 72,
+        y: 600,
+        pageNumber: 1,
+        name: "single",
+        multiline: false,
+        width: 200,
+        height: 20,
+      }),
+      createTextField({
+        x: 72,
+        y: 500,
+        pageNumber: 1,
+        name: "multi",
+        multiline: true,
+        width: 200,
+        height: 60,
+      }),
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(2);
+    const single = extracted.find(
+      (el) => el.type === "text" && el.name === "single",
+    );
+    const multi = extracted.find(
+      (el) => el.type === "text" && el.name === "multi",
+    );
+    expect(single).toBeDefined();
+    expect(multi).toBeDefined();
+    if (single?.type === "text") {
+      expect(single.multiline).toBe(false);
+    }
+    if (multi?.type === "text") {
+      expect(multi.multiline).toBe(true);
+    }
+  });
+
+  it("preserves text field typography and appearance after round-trip", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      {
+        type: "text",
+        id: "el_1",
+        x: 72,
+        y: 700,
+        width: 200,
+        height: 24,
+        pageNumber: 1,
+        name: "styledField",
+        defaultValue: "Hello",
+        fontSize: 14,
+        multiline: false,
+        required: false,
+        maxLength: undefined,
+        textColor: "#cc3300",
+        fontFamily: "Helvetica",
+        fontWeight: "bold",
+        backgroundColor: "#f0f0e0",
+        borderColor: "#808080",
+        borderWidth: 2,
+      },
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(1);
+    const field = extracted[0];
+    expect(field.type).toBe("text");
+    if (field.type === "text") {
+      expect(field.fontSize).toBe(14);
+      expect(field.textColor).toBe("#cc3300");
+      expect(field.backgroundColor).toBe("#f0f0e0");
+      expect(field.borderColor).toBe("#808080");
+      expect(field.borderWidth).toBe(2);
+    }
+  });
+
+  it("preserves dropdown typography and appearance after round-trip", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      {
+        type: "dropdown",
+        id: "el_1",
+        x: 72,
+        y: 700,
+        width: 150,
+        height: 20,
+        pageNumber: 1,
+        name: "styledDropdown",
+        options: ["A", "B", "C"],
+        defaultValue: "",
+        fontSize: 11,
+        required: false,
+        editable: false,
+        fontFamily: "Courier",
+        fontWeight: "regular",
+        textColor: "#0000ff",
+        backgroundColor: "#ffffee",
+        borderColor: "#000000",
+        borderWidth: 1,
+      },
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(1);
+    const field = extracted[0];
+    expect(field.type).toBe("dropdown");
+    if (field.type === "dropdown") {
+      expect(field.fontSize).toBe(11);
+      expect(field.textColor).toBe("#0000ff");
+      expect(field.backgroundColor).toBe("#ffffee");
+      expect(field.borderColor).toBe("#000000");
+    }
+  });
+
+  it("preserves button typography and appearance after round-trip", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      {
+        type: "button",
+        id: "el_1",
+        x: 72,
+        y: 700,
+        width: 100,
+        height: 28,
+        pageNumber: 1,
+        name: "styledBtn",
+        label: "Click Me",
+        fontSize: 16,
+        fontFamily: "Helvetica",
+        fontWeight: "bold-italic",
+        textColor: "#ffffff",
+        backgroundColor: "#3366cc",
+        borderColor: "#1a3366",
+        borderWidth: 2,
+      },
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(1);
+    const field = extracted[0];
+    expect(field.type).toBe("button");
+    if (field.type === "button") {
+      expect(field.fontSize).toBe(16);
+      expect(field.textColor).toBe("#ffffff");
+      expect(field.backgroundColor).toBe("#3366cc");
+      expect(field.borderColor).toBe("#1a3366");
+      expect(field.borderWidth).toBe(2);
+    }
+  });
+
+  it("preserves option list typography and appearance after round-trip", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      {
+        type: "optionlist",
+        id: "el_1",
+        x: 72,
+        y: 600,
+        width: 150,
+        height: 60,
+        pageNumber: 1,
+        name: "styledList",
+        options: ["X", "Y", "Z"],
+        defaultValue: "",
+        fontSize: 10,
+        required: false,
+        fontFamily: "Times-Roman",
+        fontWeight: "italic",
+        textColor: "#333333",
+        backgroundColor: "#fafafa",
+        borderColor: "#aaaaaa",
+        borderWidth: 1,
+      },
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(1);
+    const field = extracted[0];
+    expect(field.type).toBe("optionlist");
+    if (field.type === "optionlist") {
+      expect(field.fontSize).toBe(10);
+      expect(field.textColor).toBe("#333333");
+      expect(field.backgroundColor).toBe("#fafafa");
+      expect(field.borderColor).toBe("#aaaaaa");
+    }
+  });
+
+  it("corrects dimensions for border width on text field round-trip", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      {
+        type: "text",
+        id: "el_1",
+        x: 100,
+        y: 600,
+        width: 200,
+        height: 5,
+        pageNumber: 1,
+        name: "bordered",
+        defaultValue: "",
+        fontSize: 12,
+        multiline: false,
+        required: false,
+        maxLength: undefined,
+        textColor: "#000000",
+        fontFamily: "Helvetica",
+        fontWeight: "regular",
+        backgroundColor: null,
+        borderColor: "#000000",
+        borderWidth: 5,
+      },
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(1);
+    const field = extracted[0];
+    expect(field.type).toBe("text");
+    if (field.type === "text") {
+      expect(field.borderWidth).toBe(5);
+      expect(field.x).toBeCloseTo(100, 0);
+      expect(field.y).toBeCloseTo(600, 0);
+      expect(field.width).toBeCloseTo(200, 0);
+      expect(field.height).toBeCloseTo(5, 0);
+    }
+  });
+
+  it("corrects dimensions for border on checkbox round-trip", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      createCheckbox({
+        x: 100,
+        y: 700,
+        pageNumber: 1,
+        name: "cb",
+        width: 15,
+        height: 15,
+      }),
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(1);
+    expect(extracted[0].type).toBe("checkbox");
+    if (extracted[0].type === "checkbox") {
+      expect(extracted[0].x).toBeCloseTo(100, 0);
+      expect(extracted[0].y).toBeCloseTo(700, 0);
+      expect(extracted[0].width).toBeCloseTo(15, 0);
+      expect(extracted[0].height).toBeCloseTo(15, 0);
+    }
+  });
+
+  it("corrects dimensions for border on radio button round-trip", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      createRadioButton({
+        x: 100,
+        y: 700,
+        pageNumber: 1,
+        groupName: "grp",
+        value: "a",
+        width: 12,
+        height: 12,
+      }),
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(1);
+    expect(extracted[0].type === "radio").toBe(true);
+    if (extracted[0].type === "radio") {
+      expect(extracted[0].x).toBeCloseTo(100, 0);
+      expect(extracted[0].y).toBeCloseTo(700, 0);
+      expect(extracted[0].width).toBeCloseTo(12, 0);
+      expect(extracted[0].height).toBeCloseTo(12, 0);
+    }
+  });
+
+  it("corrects dimensions for border on button round-trip", async () => {
+    const basePdf = await createPdfWithTextField();
+    const elements: FormElement[] = [
+      {
+        type: "button",
+        id: "el_1",
+        x: 72,
+        y: 700,
+        width: 80,
+        height: 5,
+        pageNumber: 1,
+        name: "btn",
+        label: "Go",
+        fontSize: 12,
+        fontFamily: "Helvetica",
+        fontWeight: "regular",
+        textColor: "#000000",
+        backgroundColor: null,
+        borderColor: null,
+        borderWidth: 4,
+      },
+    ];
+
+    const exportedPdf = await exportFormElements(basePdf, elements);
+    const extracted = await extractAcroFormFields(exportedPdf);
+
+    expect(extracted.length).toBe(1);
+    expect(extracted[0].type).toBe("button");
+    if (extracted[0].type === "button") {
+      expect(extracted[0].width).toBeCloseTo(80, 0);
+      expect(extracted[0].height).toBeCloseTo(5, 0);
+    }
   });
 
   it("extracts fields when /P is only on parent dict", async () => {
@@ -383,7 +842,7 @@ describe("extractAcroFormFields", () => {
       ignoreEncryption: true,
     });
     const ctx = reloaded.context;
-    const pagesTree = reloaded.catalog.lookup(PDFName.of("Pages"));
+    const pagesTree = reloaded.catalog.lookup(PDFName.of("Pages")) as PDFDict;
     const pageRef = (pagesTree.lookup(PDFName.of("Kids")) as PDFArray).get(0) as PDFRef;
 
     const acroForm = reloaded.catalog.lookup(PDFName.of("AcroForm")) as PDFDict;

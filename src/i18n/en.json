@@ -17,13 +17,19 @@
     "input": "Input",
     "textarea": "Textarea",
     "checkbox": "Checkbox",
-    "radio": "Radio"
+    "radio": "Radio",
+    "dropdown": "Dropdown",
+    "button": "Button",
+    "optionlist": "Option List"
   },
   "fieldTypes": {
     "textField": "Text Field",
     "checkbox": "Checkbox",
     "radioButton": "Radio Button",
-    "multiline": "Multiline"
+    "multiline": "Multiline",
+    "dropdown": "Dropdown",
+    "button": "Button",
+    "optionlist": "Option List"
   },
   "properties": {
     "panelError": "Panel error",
@@ -32,12 +38,24 @@
     "textFields": "Text Fields",
     "checkboxes": "Checkboxes",
     "radioButtons": "Radio Buttons",
+    "dropdowns": "Dropdowns",
+    "buttons": "Buttons",
+    "optionLists": "Option Lists",
     "mixedTypes": "Mixed types",
     "page": "Page {{page}}",
     "pageLabel": "Page",
     "name": "Name",
     "defaultValue": "Default Value",
     "typography": "Typography",
+    "fontFamily": "Font Family",
+    "textColor": "Text Color",
+    "appearance": "Appearance",
+    "backgroundColor": "Background",
+    "borderColor": "Border Color",
+    "borderWidth": "Border Width",
+    "none": "None",
+    "options": "Options",
+    "editable": "Editable",
     "fontSize": "Font Size",
     "height": "Height",
     "required": "Required",
@@ -77,7 +95,14 @@
     "guide": "{{orientation}} guide",
     "positionLabel": "{{axis}} position",
     "deleteGuide": "Delete guide",
-    "pt": "{{value}}pt"
+    "pt": "{{value}}pt",
+    "widthShort": "W",
+    "heightShort": "H",
+    "general": "General",
+    "clearBackgroundColor": "Clear background color",
+    "clearBorderColor": "Clear border color",
+    "editPageNumber": "Edit page number",
+    "addOption": "Add option"
   },
   "status": {
     "clickToSelect": "Click to select",
@@ -125,6 +150,9 @@
     "toolTextarea": "Multiline text",
     "toolCheckbox": "Checkbox",
     "toolRadio": "Radio button",
+    "toolDropdown": "Dropdown",
+    "toolButton": "Button",
+    "toolOptionList": "Option List",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "zoomFit": "Fit to width",
@@ -144,7 +172,10 @@
     "addTextField": "Add Text Field",
     "addTextarea": "Add Textarea",
     "addCheckbox": "Add Checkbox",
-    "addRadio": "Add Radio Button"
+    "addRadio": "Add Radio Button",
+    "addDropdown": "Add Dropdown",
+    "addButton": "Add Button",
+    "addOptionList": "Add Option List"
   },
   "sidebar": {
     "pages": "Pages"

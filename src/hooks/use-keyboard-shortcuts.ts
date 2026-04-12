@@ -5,7 +5,12 @@ import {
   findPageAtScreenPoint,
   getLayoutContentWidth,
 } from "@/lib/page-layout";
-import { redo, undo, useEditorStore } from "@/stores/editor-store";
+import {
+  type EditorState,
+  redo,
+  undo,
+  useEditorStore,
+} from "@/stores/editor-store";
 import { useEffect } from "react";
 
 const TOOL_KEY_MAP: Record<string, string> = {
@@ -13,6 +18,13 @@ const TOOL_KEY_MAP: Record<string, string> = {
   t: "input",
   c: "checkbox",
   r: "radio",
+  d: "dropdown",
+  b: "button",
+};
+
+const SHIFT_TOOL_KEY_MAP: Record<string, string> = {
+  t: "textarea",
+  o: "optionlist",
 };
 
 function isInputElement(e: KeyboardEvent): boolean {
@@ -81,13 +93,13 @@ export function useKeyboardShortcuts() {
 
       const mod = e.metaKey || e.ctrlKey;
 
-      if (mod && e.key === "o") {
+      if (mod && e.key.toLowerCase() === "o") {
         e.preventDefault();
         fileIO.openPdf();
         return;
       }
 
-      if (mod && e.key === "e") {
+      if (mod && e.key.toLowerCase() === "e") {
         e.preventDefault();
         fileIO.exportPdf();
         return;
@@ -96,38 +108,38 @@ export function useKeyboardShortcuts() {
       const store = useEditorStore.getState();
       if (!store.pdfBytes) return;
 
-      if (mod && e.key === "c") {
+      if (mod && e.key.toLowerCase() === "c") {
         e.preventDefault();
         store.copySelection();
       }
 
-      if (mod && e.key === "x") {
+      if (mod && e.key.toLowerCase() === "x") {
         e.preventDefault();
         store.cutSelection();
       }
 
-      if (mod && e.key === "d") {
+      if (mod && e.key.toLowerCase() === "d") {
         e.preventDefault();
         store.duplicateSelection(getVisiblePage());
       }
 
-      if (mod && e.key === "v") {
+      if (mod && e.key.toLowerCase() === "v") {
         e.preventDefault();
         const mousePage = getMousePage();
         store.pasteClipboard(mousePage ?? getVisiblePage());
       }
 
-      if (mod && e.key === "z" && !e.shiftKey) {
+      if (mod && e.key.toLowerCase() === "z" && !e.shiftKey) {
         e.preventDefault();
         undo();
       }
 
-      if (mod && e.key === "z" && e.shiftKey) {
+      if (mod && e.key.toLowerCase() === "z" && e.shiftKey) {
         e.preventDefault();
         redo();
       }
 
-      if (mod && e.key === "y") {
+      if (mod && e.key.toLowerCase() === "y") {
         e.preventDefault();
         redo();
       }
@@ -148,19 +160,20 @@ export function useKeyboardShortcuts() {
         store.clearSelection();
       }
 
-      if (!mod && e.shiftKey && e.key.toLowerCase() === "t") {
-        e.preventDefault();
-        store.setActiveTool("textarea");
-        return;
+      if (!mod && e.shiftKey) {
+        const tool = SHIFT_TOOL_KEY_MAP[e.key.toLowerCase()];
+        if (tool) {
+          e.preventDefault();
+          store.setActiveTool(tool as EditorState["activeTool"]);
+          return;
+        }
       }
 
       if (!mod && !e.shiftKey) {
         const tool = TOOL_KEY_MAP[e.key.toLowerCase()];
         if (tool) {
           e.preventDefault();
-          store.setActiveTool(
-            tool as "select" | "input" | "checkbox" | "radio",
-          );
+          store.setActiveTool(tool as EditorState["activeTool"]);
         }
       }
     };

@@ -51,6 +51,15 @@
     --color-field-multiline: var(--field-multiline);
     --color-field-multiline-dim: var(--field-multiline-dim);
     --color-field-multiline-bg: var(--field-multiline-bg);
+    --color-field-dropdown: var(--field-dropdown);
+    --color-field-dropdown-dim: var(--field-dropdown-dim);
+    --color-field-dropdown-bg: var(--field-dropdown-bg);
+    --color-field-button: var(--field-button);
+    --color-field-button-dim: var(--field-button-dim);
+    --color-field-button-bg: var(--field-button-bg);
+    --color-field-optionlist: var(--field-optionlist);
+    --color-field-optionlist-dim: var(--field-optionlist-dim);
+    --color-field-optionlist-bg: var(--field-optionlist-bg);
     --color-guide-ruler: var(--guide-ruler);
     --color-guide-snap: var(--guide-snap);
     --color-guide-page: var(--guide-page);
@@ -151,6 +160,15 @@
     --field-multiline: oklch(0.769 0.167 70);
     --field-multiline-dim: oklch(0.769 0.167 70 / 50%);
     --field-multiline-bg: oklch(0.769 0.167 70 / 10%);
+    --field-dropdown: oklch(0.72 0.18 55);
+    --field-dropdown-dim: oklch(0.72 0.18 55 / 50%);
+    --field-dropdown-bg: oklch(0.72 0.18 55 / 10%);
+    --field-button: oklch(0.75 0.15 340);
+    --field-button-dim: oklch(0.75 0.15 340 / 50%);
+    --field-button-bg: oklch(0.75 0.15 340 / 10%);
+    --field-optionlist: oklch(0.7 0.16 180);
+    --field-optionlist-dim: oklch(0.7 0.16 180 / 50%);
+    --field-optionlist-bg: oklch(0.7 0.16 180 / 10%);
     --guide-ruler: oklch(0.75 0.14 200);
     --guide-snap: oklch(0.68 0.17 55);
     --guide-page: oklch(0.68 0.15 155);
@@ -188,20 +206,24 @@
         @apply font-sans;
     }
 
-    .cursor-grab * {
+    .locked-cursor-grab * {
         cursor: grabbing !important;
     }
 
-    .cursor-ns * {
+    .locked-cursor-ns * {
         cursor: ns-resize !important;
     }
 
-    .cursor-ew * {
+    .locked-cursor-ew * {
         cursor: ew-resize !important;
     }
 
-    .cursor-nwse * {
+    .locked-cursor-nwse * {
         cursor: nwse-resize !important;
+    }
+
+    .locked-cursor-nesw * {
+        cursor: nesw-resize !important;
     }
 
     select option {

@@ -5,13 +5,42 @@ import {
   PDFName,
   PDFPage,
   PDFRef,
+  rgb,
+  StandardFonts,
 } from "pdf-lib";
+
+const RESOLVED_FONT_TO_ENUM_KEY: Record<string, keyof typeof StandardFonts> = {
+  Helvetica: "Helvetica",
+  "Helvetica-Bold": "HelveticaBold",
+  "Helvetica-Oblique": "HelveticaOblique",
+  "Helvetica-BoldOblique": "HelveticaBoldOblique",
+  Courier: "Courier",
+  "Courier-Bold": "CourierBold",
+  "Courier-Oblique": "CourierOblique",
+  "Courier-BoldOblique": "CourierBoldOblique",
+  "Times-Roman": "TimesRoman",
+  "Times-Bold": "TimesRomanBold",
+  "Times-Italic": "TimesRomanItalic",
+  "Times-BoldItalic": "TimesRomanBoldItalic",
+  Symbol: "Symbol",
+  ZapfDingbats: "ZapfDingbats",
+};
+
+function embedStandardFont(pdfDoc: PDFDocument, resolvedName: string) {
+  const key = RESOLVED_FONT_TO_ENUM_KEY[resolvedName] ?? "Helvetica";
+  return pdfDoc.embedStandardFont(StandardFonts[key]);
+}
+
 import type {
   Checkbox,
+  DropdownField,
   FormElement,
   RadioButton,
   TextField,
+  ButtonField,
+  OptionListField,
 } from "./form-element-model";
+import { hexToRgb, resolveFontFamily } from "./font-utils";
 
 export class ExportValidationError extends Error {
   errors: string[];
@@ -35,6 +64,8 @@ function dedupeFieldName(
   while (usedNames.has(`${name}_${i}`)) i++;
   return `${name}_${i}`;
 }
+
+
 
 export async function exportFormElements(
   originalPdfBytes: Uint8Array,
@@ -80,10 +111,19 @@ export async function exportFormElements(
 
     switch (el.type) {
       case "text":
-        addTextField(form, page, { ...el, name: safeName }, pageHeight);
+        addTextField(form, page, { ...el, name: safeName }, pageHeight, pdf);
         break;
       case "checkbox":
         addCheckboxField(form, page, { ...el, name: safeName }, pageHeight);
+        break;
+      case "dropdown":
+        addDropdownField(form, page, { ...el, name: safeName }, pageHeight, pdf);
+        break;
+      case "button":
+        addButtonField(form, page, { ...el, name: safeName }, pageHeight, pdf);
+        break;
+      case "optionlist":
+        addOptionListField(form, page, { ...el, name: safeName }, pageHeight, pdf);
         break;
     }
   }
@@ -98,6 +138,7 @@ export async function exportFormElements(
 
   for (const [groupName, radios] of groups) {
     const radioGroup = form.createRadioGroup(groupName);
+
     for (const el of radios) {
       if (el.pageNumber < 1 || el.pageNumber > pageCount) continue;
       const page = pdf.getPage(el.pageNumber - 1);
@@ -110,6 +151,7 @@ export async function exportFormElements(
         height: el.height,
       });
     }
+
   }
 
   return pdf.save();
@@ -120,16 +162,29 @@ function addTextField(
   page: PDFPage,
   el: TextField,
   pageHeight: number,
+  pdfDoc: PDFDocument,
 ): void {
   const field = form.createTextField(el.name);
 
   const pdfY = pageHeight - el.y - el.height;
+
+  const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
+  const font = embedStandardFont(pdfDoc, resolvedFont);
+
+  const textColor = el.textColor ? hexToRgb(el.textColor) : undefined;
+  const backgroundColor = el.backgroundColor ? hexToRgb(el.backgroundColor) : undefined;
+  const borderColor = el.borderColor ? hexToRgb(el.borderColor) : undefined;
 
   field.addToPage(page, {
     x: el.x,
     y: pdfY,
     width: el.width,
     height: el.height,
+    font,
+    textColor: textColor ? rgb(textColor.r, textColor.g, textColor.b) : undefined,
+    backgroundColor: backgroundColor ? rgb(backgroundColor.r, backgroundColor.g, backgroundColor.b) : undefined,
+    borderColor: borderColor ? rgb(borderColor.r, borderColor.g, borderColor.b) : undefined,
+    borderWidth: el.borderWidth > 0 ? el.borderWidth : undefined,
   });
 
   if (el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {
@@ -153,6 +208,8 @@ function addTextField(
   ) {
     field.setMaxLength(el.maxLength);
   }
+
+  field.updateAppearances(font);
 }
 
 function addCheckboxField(
@@ -174,6 +231,136 @@ function addCheckboxField(
 
   if (el.defaultChecked) {
     field.check();
+  }
+}
+
+function addDropdownField(
+  form: ReturnType<PDFDocument["getForm"]>,
+  page: PDFPage,
+  el: DropdownField & { name: string },
+  pageHeight: number,
+  pdfDoc: PDFDocument,
+): void {
+  const field = form.createDropdown(el.name);
+  const pdfY = pageHeight - el.y - el.height;
+
+  const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
+  const font = embedStandardFont(pdfDoc, resolvedFont);
+
+  const textColor = el.textColor ? hexToRgb(el.textColor) : undefined;
+  const backgroundColor = el.backgroundColor ? hexToRgb(el.backgroundColor) : undefined;
+  const borderColor = el.borderColor ? hexToRgb(el.borderColor) : undefined;
+
+  field.addToPage(page, {
+    x: el.x,
+    y: pdfY,
+    width: el.width,
+    height: el.height,
+    font,
+    textColor: textColor ? rgb(textColor.r, textColor.g, textColor.b) : undefined,
+    backgroundColor: backgroundColor ? rgb(backgroundColor.r, backgroundColor.g, backgroundColor.b) : undefined,
+    borderColor: borderColor ? rgb(borderColor.r, borderColor.g, borderColor.b) : undefined,
+    borderWidth: el.borderWidth > 0 ? el.borderWidth : undefined,
+  });
+
+  if (el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {
+    field.setFontSize(el.fontSize);
+  }
+
+  if (el.options.length > 0) {
+    field.setOptions(el.options);
+  }
+
+  if (el.defaultValue) {
+    field.select(el.defaultValue);
+  }
+
+  if (el.required) {
+    field.isRequired();
+  }
+
+  if (el.editable) {
+    field.enableEditing();
+  }
+}
+
+function addButtonField(
+  form: ReturnType<PDFDocument["getForm"]>,
+  page: PDFPage,
+  el: ButtonField & { name: string },
+  pageHeight: number,
+  pdfDoc: PDFDocument,
+): void {
+  const field = form.createButton(el.name);
+  const pdfY = pageHeight - el.y - el.height;
+
+  const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
+  const font = embedStandardFont(pdfDoc, resolvedFont);
+
+  const textColor = el.textColor ? hexToRgb(el.textColor) : undefined;
+  const backgroundColor = el.backgroundColor ? hexToRgb(el.backgroundColor) : undefined;
+  const borderColor = el.borderColor ? hexToRgb(el.borderColor) : undefined;
+
+  field.addToPage(el.label, page, {
+    x: el.x,
+    y: pdfY,
+    width: el.width,
+    height: el.height,
+    font,
+    textColor: textColor ? rgb(textColor.r, textColor.g, textColor.b) : rgb(0, 0, 0),
+    backgroundColor: backgroundColor ? rgb(backgroundColor.r, backgroundColor.g, backgroundColor.b) : rgb(0.9, 0.9, 0.9),
+    borderColor: borderColor ? rgb(borderColor.r, borderColor.g, borderColor.b) : rgb(0.5, 0.5, 0.5),
+    borderWidth: el.borderWidth > 0 ? el.borderWidth : 1,
+  });
+
+  if (el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {
+    field.setFontSize(el.fontSize);
+  }
+}
+
+function addOptionListField(
+  form: ReturnType<PDFDocument["getForm"]>,
+  page: PDFPage,
+  el: OptionListField & { name: string },
+  pageHeight: number,
+  pdfDoc: PDFDocument,
+): void {
+  const field = form.createOptionList(el.name);
+  const pdfY = pageHeight - el.y - el.height;
+
+  const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
+  const font = embedStandardFont(pdfDoc, resolvedFont);
+
+  const textColor = el.textColor ? hexToRgb(el.textColor) : undefined;
+  const backgroundColor = el.backgroundColor ? hexToRgb(el.backgroundColor) : undefined;
+  const borderColor = el.borderColor ? hexToRgb(el.borderColor) : undefined;
+
+  field.addToPage(page, {
+    x: el.x,
+    y: pdfY,
+    width: el.width,
+    height: el.height,
+    font,
+    textColor: textColor ? rgb(textColor.r, textColor.g, textColor.b) : undefined,
+    backgroundColor: backgroundColor ? rgb(backgroundColor.r, backgroundColor.g, backgroundColor.b) : undefined,
+    borderColor: borderColor ? rgb(borderColor.r, borderColor.g, borderColor.b) : undefined,
+    borderWidth: el.borderWidth > 0 ? el.borderWidth : undefined,
+  });
+
+  if (el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {
+    field.setFontSize(el.fontSize);
+  }
+
+  if (el.options.length > 0) {
+    field.setOptions(el.options);
+  }
+
+  if (el.defaultValue) {
+    field.select(el.defaultValue);
+  }
+
+  if (el.required) {
+    field.isRequired();
   }
 }
 

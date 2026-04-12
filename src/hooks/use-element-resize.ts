@@ -1,5 +1,5 @@
 import { screenToPdf } from "@/lib/coordinates";
-import { lockCursor, unlockCursor } from "@/lib/cursor";
+import { lockCursor, unlockCursor, type CursorType } from "@/lib/cursor";
 import type { FormElement } from "@/lib/form-element-model";
 import type { PageLayout } from "@/lib/page-layout";
 import {
@@ -29,6 +29,25 @@ interface ElementResizeConfig {
   ) => void;
 }
 
+function dirToCursor(dir: string): CursorType {
+  switch (dir) {
+    case "left":
+    case "right":
+      return "ew";
+    case "top":
+    case "bottom":
+      return "ns";
+    case "topLeft":
+    case "bottomRight":
+      return "nwse";
+    case "topRight":
+    case "bottomLeft":
+      return "nesw";
+    default:
+      return "nwse";
+  }
+}
+
 export function useElementResize(config: ElementResizeConfig) {
   const resizingId = useRef<string | null>(null);
   const resizeHappenedRef = useRef(false);
@@ -54,9 +73,12 @@ export function useElementResize(config: ElementResizeConfig) {
       position: { x: number; y: number },
       resizeEvent: MouseEvent,
     ) => {
-      const isSingleInput = el.type === "text" && !el.multiline;
+      const isSingleInput =
+        (el.type === "text" && !el.multiline) ||
+        el.type === "dropdown" ||
+        el.type === "optionlist";
       resizeHappenedRef.current = true;
-      lockCursor(isSingleInput ? "ew" : "nwse");
+      lockCursor(isSingleInput ? "ew" : dirToCursor(dir));
       resizingId.current = el.id;
 
       const pl = config.layouts.get(el.pageNumber);

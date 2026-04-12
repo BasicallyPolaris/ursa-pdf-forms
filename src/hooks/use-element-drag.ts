@@ -253,6 +253,14 @@ export function useElementDrag(config: ElementDragConfig) {
         return;
       }
 
+      const dragDx = d.x - screen.x;
+      const dragDy = d.y - screen.y;
+      if (Math.abs(dragDx) < 0.5 && Math.abs(dragDy) < 0.5) {
+        cleanup();
+        unlockCursor();
+        return;
+      }
+
       const currentSelectedIds = store.selectedIds;
 
       if (currentSelectedIds.size > 1 && currentSelectedIds.has(el.id)) {

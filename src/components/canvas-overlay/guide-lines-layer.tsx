@@ -2,7 +2,7 @@ import { useRef } from "react";
 import type { PageInfo } from "@/lib/pdf-loader";
 import type { PageLayout } from "@/lib/page-layout";
 import type { GuideLine } from "@/stores/editor-store";
-import { V_PADDING, PAGE_GAP, H_PADDING } from "@/lib/coordinates";
+import { V_PADDING, H_PADDING } from "@/lib/coordinates";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
 
 interface GuideLinesLayerProps {
@@ -15,6 +15,7 @@ interface GuideLinesLayerProps {
   overlayWidth: number;
   totalContentHeight: number;
   overlayRef: React.RefObject<HTMLDivElement | null>;
+  activeTool: string;
   selectGuide: (id: string) => void;
   updateGuidePosition: (id: string, position: number) => void;
   setPreviewGuide: (
@@ -33,6 +34,7 @@ export function GuideLinesLayer({
   overlayWidth,
   totalContentHeight,
   overlayRef,
+  activeTool,
   selectGuide,
   updateGuidePosition,
   setPreviewGuide,
@@ -47,39 +49,29 @@ export function GuideLinesLayer({
         const isBeingDragged = draggingGuideIdRef.current === guide.id;
         if (isBeingDragged) return [];
 
-        const handleGuideMouseDown = (e: React.MouseEvent) => {
+        const handleGuideMouseDown = (e: React.MouseEvent, clickedPageNumber: number) => {
+          if (activeTool !== "select") return;
           if (e.button !== 0) return;
           e.preventDefault();
           e.stopPropagation();
           selectGuide(guide.id);
           lockCursor(guide.orientation === "horizontal" ? "ns" : "ew");
 
-          const initialPosition = guide.position;
           const overlayEl = overlayRef.current;
           if (!overlayEl) return;
 
-          let dragPageOffset = V_PADDING;
-          let dragPageHeight = pages[0]?.height ?? 792;
-          let dragPageWidth = pages[0]?.width ?? 612;
-          let dragPageXOffset =
+          const clickedPage = pages.find((p) => p.pageNumber === clickedPageNumber);
+          const clickedLayout = layouts.get(clickedPageNumber);
+
+          let dragPageOffset = clickedLayout?.yOffset ?? V_PADDING;
+          let dragPageHeight = clickedPage?.height ?? pages[0]?.height ?? 792;
+          let dragPageWidth = clickedPage?.width ?? pages[0]?.width ?? 612;
+          let dragPageXOffset = clickedLayout?.xOffset ??
             layouts.get(1)?.xOffset ??
             Math.max(
               H_PADDING,
               (overlayWidth - (pages[0]?.width ?? 612) * zoom) / 2,
             );
-          if (guide.orientation === "horizontal") {
-            let yOff = V_PADDING;
-            for (const p of pages) {
-              const pH = p.height * zoom;
-              if (initialPosition * zoom >= 0 && initialPosition * zoom <= pH) {
-                dragPageOffset = yOff;
-                dragPageHeight = p.height;
-                dragPageWidth = p.width;
-                break;
-              }
-              yOff += pH + PAGE_GAP;
-            }
-          }
 
           const computeGuidePosition = (
             moveEvent: MouseEvent,
@@ -134,6 +126,8 @@ export function GuideLinesLayer({
           opacity: isSelected ? 1 : 0.6,
         };
 
+        const isInteractive = activeTool === "select";
+
         if (guide.orientation === "horizontal") {
           return pages.map((page, pi) => {
             const layout = layouts.get(page.pageNumber);
@@ -144,9 +138,9 @@ export function GuideLinesLayer({
                 key={`${guide.id}-page-${pi}`}
                 data-guide-line
                 data-guide-id={guide.id}
-                className="absolute z-40 cursor-ns-resize group"
+                className={`absolute z-40 group ${isInteractive ? "cursor-ns-resize" : "pointer-events-none"}`}
                 style={{ left: 0, top: screenY - 4, width: overlayWidth, height: 9 }}
-                onMouseDown={handleGuideMouseDown}
+                onMouseDown={isInteractive ? (e) => handleGuideMouseDown(e, page.pageNumber) : undefined}
               >
                 <div
                   className="w-full group-hover:opacity-100"
@@ -165,9 +159,9 @@ export function GuideLinesLayer({
               key={guide.id}
               data-guide-line
               data-guide-id={guide.id}
-              className="absolute z-40 cursor-ew-resize group"
+              className={`absolute z-40 group ${isInteractive ? "cursor-ew-resize" : "pointer-events-none"}`}
               style={{ left: screenX - 4, top: 0, width: 9, height: totalContentHeight }}
-              onMouseDown={handleGuideMouseDown}
+              onMouseDown={isInteractive ? (e) => handleGuideMouseDown(e, 1) : undefined}
             >
               <div
                 className="h-full group-hover:opacity-100"

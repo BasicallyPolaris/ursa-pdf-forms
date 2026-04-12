@@ -5,7 +5,10 @@ import {
 import { screenToPdf } from "@/lib/coordinates";
 import {
   createTextField,
+  createDropdownField,
+  createOptionListField,
   heightFromFontSize,
+  heightFromOptions,
   type FormElement,
 } from "@/lib/form-element-model";
 import {
@@ -54,18 +57,26 @@ export function useDrawingTool(deps: {
       pdfX: number,
       pdfY: number,
       modifiers: { shiftKey: boolean; ctrlKey: boolean },
+      elementHeight?: number,
     ) => {
       const snapCtx = deps.buildSnapContext(new Set(), pageNumber, modifiers);
       let startX = screenX;
       let startY = screenY;
       if (snapCtx.hasAnySnap) {
-        const snap = snapPosition(pdfX, pdfY, 0, 0, snapCtx);
+        const snap = snapPosition(pdfX, pdfY, 0, elementHeight ?? 0, snapCtx);
         const snapped = {
           x: pdfX * deps.zoom + pageX + (snap.x - pdfX) * deps.zoom,
           y: pdfY * deps.zoom + pageY + (snap.y - pdfY) * deps.zoom,
         };
         startX = snapped.x;
         startY = snapped.y;
+        if (snap.guides.length > 0) {
+          deps.setActiveGuides(
+            snapCtx.snapToGrid
+              ? snap.guides.filter((g) => g.type !== "grid")
+              : snap.guides,
+          );
+        }
       }
       drawStartRef.current = {
         x: startX,
@@ -85,6 +96,7 @@ export function useDrawingTool(deps: {
       currentX: number,
       currentY: number,
       modifiers: { shiftKey: boolean; ctrlKey: boolean },
+      isHorizontalTool?: boolean,
     ) => {
       if (!drawStartRef.current) return;
       isDrawingRef.current = true;
@@ -113,11 +125,14 @@ export function useDrawingTool(deps: {
             (snap.y - pdfCurrent.y) * deps.zoom,
         };
         snappedCurrentX = snappedScreen.x;
-        snappedCurrentY = snappedScreen.y;
+        snappedCurrentY = isHorizontalTool ? start.y : snappedScreen.y;
+        const guides = snapCtx.snapToGrid
+          ? snap.guides.filter((g) => g.type !== "grid")
+          : snap.guides;
         deps.setActiveGuides(
-          snapCtx.snapToGrid
-            ? snap.guides.filter((g) => g.type !== "grid")
-            : snap.guides,
+          isHorizontalTool
+            ? guides.filter((g) => g.orientation === "vertical")
+            : guides,
         );
       } else {
         deps.setActiveGuides([]);
@@ -126,7 +141,7 @@ export function useDrawingTool(deps: {
         startX: start.x,
         startY: start.y,
         currentX: snappedCurrentX,
-        currentY: snappedCurrentY,
+        currentY: isHorizontalTool ? start.y : snappedCurrentY,
       });
     },
     [deps],
@@ -159,14 +174,32 @@ export function useDrawingTool(deps: {
         );
         const pdfWidth = width / deps.zoom;
 
-        newEl = createTextField({
-          x: pdfTopLeft.x,
-          y: pdfTopLeft.y,
-          pageNumber: start.pageNumber,
-          name: `text_${state.elements.length + 1}`,
-          multiline: false,
-          width: pdfWidth,
-        });
+        if (activeTool === "dropdown") {
+          newEl = createDropdownField({
+            x: pdfTopLeft.x,
+            y: pdfTopLeft.y,
+            pageNumber: start.pageNumber,
+            name: `dropdown_${state.elements.length + 1}`,
+            width: pdfWidth,
+          });
+        } else if (activeTool === "optionlist") {
+          newEl = createOptionListField({
+            x: pdfTopLeft.x,
+            y: pdfTopLeft.y,
+            pageNumber: start.pageNumber,
+            name: `optionlist_${state.elements.length + 1}`,
+            width: pdfWidth,
+          });
+        } else {
+          newEl = createTextField({
+            x: pdfTopLeft.x,
+            y: pdfTopLeft.y,
+            pageNumber: start.pageNumber,
+            name: `text_${state.elements.length + 1}`,
+            multiline: false,
+            width: pdfWidth,
+          });
+        }
       } else if (RECT_DRAW_TOOLS.has(activeTool)) {
         const height = Math.abs(drawRect.currentY - drawRect.startY);
         if (width > 5 && height > 5) {
@@ -209,9 +242,14 @@ export function useDrawingTool(deps: {
 
       if (HORIZONTAL_DRAW_TOOLS.has(activeTool)) {
         const fontSize = 12;
-        const autoHeight = heightFromFontSize(fontSize) * deps.zoom;
         const start = drawStartRef.current;
         const startY = start ? start.y : top;
+        let autoHeight: number;
+        if (activeTool === "optionlist") {
+          autoHeight = heightFromOptions(fontSize, 2) * deps.zoom;
+        } else {
+          autoHeight = heightFromFontSize(fontSize) * deps.zoom;
+        }
         return { left, top: startY, width, height: autoHeight };
       }
       return { left, top, width, height };

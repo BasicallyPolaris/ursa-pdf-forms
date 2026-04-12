@@ -17,19 +17,24 @@ import { useVisiblePages } from "@/contexts/visible-pages";
 import { useDrawingTool } from "@/hooks/use-drawing-tool";
 import { useElementDrag } from "@/hooks/use-element-drag";
 import { useElementResize } from "@/hooks/use-element-resize";
+import { useMultiResize } from "@/hooks/use-multi-resize";
 import { useMarqueeSelection } from "@/hooks/use-marquee-selection";
 import { pdfToScreen, screenToPdf } from "@/lib/coordinates";
+import { fontFamilyToCss, fontWeightToCss, fontStyleToCss } from "@/lib/font-utils";
 import { getElementStyleConfig } from "@/lib/element-style-map";
 import {
   createCheckbox,
   createRadioButton,
+  createButtonField,
+  heightFromFontSize,
+  heightFromOptions,
   type FormElement,
   getElementName,
 } from "@/lib/form-element-model";
-import { computeBoundingRect } from "@/lib/geometry";
 import {
   computePageLayouts,
   findPageAtScreenPoint,
+  getVisiblePageNumbers,
   getTotalContentHeight,
 } from "@/lib/page-layout";
 import type { SnapContext } from "@/lib/snap-engine";
@@ -42,7 +47,113 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  AlignLeft,
+  CircleDot,
+  List,
+  Square,
+  SquareChevronDown,
+  SquareMousePointer,
+  Type,
+} from "lucide-react";
 import { Rnd } from "react-rnd";
+
+const FIELD_COLORS: Record<string, string> = {
+  text: "oklch(0.623 0.214 259)",
+  checkbox: "oklch(0.723 0.219 149)",
+  radio: "oklch(0.657 0.229 310)",
+  multiline: "oklch(0.769 0.167 70)",
+  dropdown: "oklch(0.72 0.18 55)",
+  button: "oklch(0.75 0.15 340)",
+  optionlist: "oklch(0.7 0.16 180)",
+};
+
+function getFieldColor(el: FormElement): string {
+  if (el.type === "text" && "multiline" in el && el.multiline) return FIELD_COLORS.multiline;
+  return FIELD_COLORS[el.type] ?? FIELD_COLORS.text;
+}
+
+function applySnapToHandleStyles(
+  baseStyles: Record<string, React.CSSProperties>,
+  snap: { dx: number; dy: number; dw: number; dh: number },
+): Record<string, React.CSSProperties> {
+  const { dx, dy, dw, dh } = snap;
+  const offsets: Record<string, [number, number]> = {
+    topLeft: [dx, dy],
+    top: [dx + dw / 2, dy],
+    topRight: [dx + dw, dy],
+    right: [dx + dw, dy + dh / 2],
+    bottomRight: [dx + dw, dy + dh],
+    bottom: [dx + dw / 2, dy + dh],
+    bottomLeft: [dx, dy + dh],
+    left: [dx, dy + dh / 2],
+  };
+  const result: Record<string, React.CSSProperties> = {};
+  for (const [key, style] of Object.entries(baseStyles)) {
+    const [tx, ty] = offsets[key] ?? [0, 0];
+    result[key] = {
+      ...style,
+      ...(tx !== 0 || ty !== 0
+        ? { transform: `translate(${tx}px, ${ty}px)` }
+        : {}),
+    };
+  }
+  return result;
+}
+
+function getHandleConfig(
+  el: FormElement,
+  isSelected: boolean,
+  isMultiSelected: boolean,
+  isDragging: boolean,
+  snapCorrection?: { dx: number; dy: number; dw: number; dh: number } | null,
+) {
+  if (!isSelected || isMultiSelected || isDragging) {
+    return { enabled: false as const, styles: undefined };
+  }
+  const color = getFieldColor(el);
+  const isInput =
+    (el.type === "text" && !("multiline" in el && el.multiline)) ||
+    el.type === "dropdown" ||
+    el.type === "optionlist";
+  const hs: React.CSSProperties = {
+    width: "7px",
+    height: "7px",
+    background: "oklch(0.98 0 0)",
+    border: `1.5px solid ${color}`,
+    borderRadius: "1px",
+  };
+  if (isInput) {
+    let styles: Record<string, React.CSSProperties> = {
+      left: { ...hs, top: "calc(50% - 3.5px)", left: "-4px", cursor: "col-resize" },
+      right: { ...hs, top: "calc(50% - 3.5px)", right: "-4px", cursor: "col-resize" },
+    };
+    if (snapCorrection) styles = applySnapToHandleStyles(styles, snapCorrection);
+    return {
+      enabled: { left: true, right: true } as Record<string, boolean>,
+      styles,
+    };
+  }
+  let styles: Record<string, React.CSSProperties> = {
+    topLeft: { ...hs, top: "-4px", left: "-4px", cursor: "nwse-resize" },
+    top: { ...hs, top: "-4px", left: "calc(50% - 3.5px)", cursor: "ns-resize" },
+    topRight: { ...hs, top: "-4px", right: "-4px", cursor: "nesw-resize" },
+    right: { ...hs, top: "calc(50% - 3.5px)", right: "-4px", cursor: "ew-resize" },
+    bottomRight: { ...hs, bottom: "-4px", right: "-4px", cursor: "nwse-resize" },
+    bottom: { ...hs, bottom: "-4px", left: "calc(50% - 3.5px)", cursor: "ns-resize" },
+    bottomLeft: { ...hs, bottom: "-4px", left: "-4px", cursor: "nesw-resize" },
+    left: { ...hs, top: "calc(50% - 3.5px)", left: "-4px", cursor: "ew-resize" },
+  };
+  if (snapCorrection) styles = applySnapToHandleStyles(styles, snapCorrection);
+  return {
+    enabled: {
+      topLeft: true, top: true, topRight: true,
+      right: true, bottomRight: true, bottom: true,
+      bottomLeft: true, left: true,
+    },
+    styles,
+  };
+}
 
 export function CanvasOverlay() {
   const elements = useEditorStore((s) => s.elements);
@@ -137,16 +248,64 @@ export function CanvasOverlay() {
     ): SnapContext => {
       const page = pages.find((p) => p.pageNumber === pageNumber);
       const freeMovement = modifiers.ctrlKey;
-      const pageElements = elementsByPage.get(pageNumber) ?? [];
+      const currentLayout = layouts.get(pageNumber);
+
+      const crossPageElements: Array<{
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        id?: string;
+      }> = [];
+
+      const scrollEl = document.querySelector<HTMLElement>(
+        "[data-pdf-scroll-container]",
+      );
+      const snapVisible =
+        scrollEl && pages.length > 0
+          ? getVisiblePageNumbers(
+              layouts,
+              scrollEl.scrollTop,
+              scrollEl.clientHeight,
+              0,
+            )
+          : new Set([pageNumber]);
+
+      for (const visPageNum of snapVisible) {
+        const pageEls = elementsByPage.get(visPageNum) ?? [];
+        const filtered =
+          excludedIds.size > 0
+            ? pageEls.filter((el) => !excludedIds.has(el.id))
+            : pageEls;
+
+        if (visPageNum === pageNumber || !currentLayout) {
+          crossPageElements.push(...filtered);
+        } else {
+          const otherLayout = layouts.get(visPageNum);
+          if (!otherLayout) {
+            crossPageElements.push(...filtered);
+            continue;
+          }
+          const dx = (otherLayout.xOffset - currentLayout.xOffset) / zoom;
+          const dy = (otherLayout.yOffset - currentLayout.yOffset) / zoom;
+          for (const el of filtered) {
+            crossPageElements.push({
+              id: el.id,
+              x: el.x + dx,
+              y: el.y + dy,
+              width: el.width,
+              height: el.height,
+            });
+          }
+        }
+      }
+
       return {
         gridSize,
         snapThreshold: 5,
         pageWidth: page?.width ?? 612,
         pageHeight: page?.height ?? 792,
-        otherElements:
-          excludedIds.size > 0
-            ? pageElements.filter((el) => !excludedIds.has(el.id))
-            : pageElements,
+        otherElements: crossPageElements,
         rulerGuides: rulerGuideSnapData,
         snapToGrid: modifiers.shiftKey && !freeMovement,
         snapToPageEdges: !freeMovement,
@@ -155,7 +314,7 @@ export function CanvasOverlay() {
         hasAnySnap: !freeMovement,
       };
     },
-    [elementsByPage, pages, gridSize, rulerGuideSnapData],
+    [elementsByPage, pages, gridSize, rulerGuideSnapData, layouts, zoom],
   );
 
   const resolveTargetPage = useCallback(
@@ -219,6 +378,18 @@ export function CanvasOverlay() {
   );
   const resize = useElementResize(resizeConfig);
 
+  const multiResizeConfig = useMemo(
+    () => ({
+      zoom,
+      layouts,
+      buildSnapContext,
+      setActiveGuides,
+      setDragLivePositions,
+    }),
+    [zoom, layouts, buildSnapContext, setActiveGuides, setDragLivePositions],
+  );
+  const multiResize = useMultiResize(multiResizeConfig);
+
   // --- Canvas mouse handlers ---
 
   const handleCanvasMouseDown = useCallback(
@@ -263,7 +434,7 @@ export function CanvasOverlay() {
             pageNumber,
             name: `checkbox_${elements.length + 1}`,
           });
-        } else {
+        } else if (activeTool === "radio") {
           newEl = createRadioButton({
             x: pdf.x,
             y: pdf.y,
@@ -271,6 +442,15 @@ export function CanvasOverlay() {
             groupName: "group_1",
             value: `option_${elements.length + 1}`,
           });
+        } else if (activeTool === "button") {
+          newEl = createButtonField({
+            x: pdf.x,
+            y: pdf.y,
+            pageNumber,
+            name: `button_${elements.length + 1}`,
+          });
+        } else {
+          return;
         }
         addElement(newEl);
         selectElements(new Set([newEl.id]));
@@ -294,6 +474,11 @@ export function CanvasOverlay() {
           pdf.x,
           pdf.y,
           { shiftKey: e.shiftKey, ctrlKey: e.ctrlKey || e.metaKey },
+          HORIZONTAL_DRAW_TOOLS.has(activeTool)
+            ? activeTool === "optionlist"
+              ? heightFromOptions(12, 2)
+              : heightFromFontSize(12)
+            : undefined,
         );
       }
     },
@@ -321,7 +506,7 @@ export function CanvasOverlay() {
       };
 
       if (drawing.drawStartRef.current) {
-        drawing.updateDraw(currentX, currentY, modifiers);
+        drawing.updateDraw(currentX, currentY, modifiers, HORIZONTAL_DRAW_TOOLS.has(activeTool));
         return;
       }
 
@@ -357,12 +542,14 @@ export function CanvasOverlay() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
         e.target instanceof HTMLElement &&
-        ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)
+        (e.target.closest(
+          "input, textarea, select, [role='menu'], [role='menuitem']",
+        ) !== null)
       ) {
         return;
       }
 
-      if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
         e.preventDefault();
         const currentLayouts = getPageLayouts();
         if (currentLayouts.size === 0) return;
@@ -496,8 +683,6 @@ export function CanvasOverlay() {
   if (!pdfBytes) return null;
 
   const totalContentHeight = getTotalContentHeight(pages, zoom);
-  const isInputEl = (el: FormElement) => el.type === "text" && !el.multiline;
-
   const snapTargetIds = new Set<string>(
     activeGuides
       .filter((g) => g.type === "element" && g.elementId)
@@ -510,66 +695,26 @@ export function CanvasOverlay() {
     if (!layout) return null;
 
     const isSelected = selectedIds.has(el.id);
+    const livePos = isSelected ? dragLivePositions?.get(el.id) : null;
+    const isMultiResize =
+      multiResize.isActive.current &&
+      livePos &&
+      (Math.abs(livePos.width - el.width) > 0.01 ||
+        Math.abs(livePos.height - el.height) > 0.01);
+
     const screen = pdfToScreen(
-      { x: el.x, y: el.y },
+      { x: isMultiResize ? livePos.x : el.x, y: isMultiResize ? livePos.y : el.y },
       { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
     );
-    if (isSelected && drag.dragOffset && drag.draggingId.current !== el.id) {
+    if (!isMultiResize && isSelected && drag.dragOffset && drag.draggingId.current !== el.id) {
       screen.x += drag.dragOffset.dx;
       screen.y += drag.dragOffset.dy;
     }
-    const screenWidth = el.width * zoom;
-    const screenHeight = el.height * zoom;
+    const screenWidth = (isMultiResize ? livePos.width : el.width) * zoom;
+    const screenHeight = (isMultiResize ? livePos.height : el.height) * zoom;
 
-    const isSingleInput = isInputEl(el);
-    const isSmallElement = screenWidth < 40 || screenHeight < 40;
-
-    const smallHandleOverride = isSmallElement
-      ? {
-          topLeft: { width: "8px", height: "8px", left: "-4px", top: "-4px" },
-          topRight: { width: "8px", height: "8px", right: "-4px", top: "-4px" },
-          bottomLeft: {
-            width: "8px",
-            height: "8px",
-            left: "-4px",
-            bottom: "-4px",
-          },
-          bottomRight: {
-            width: "8px",
-            height: "8px",
-            right: "-4px",
-            bottom: "-4px",
-          },
-          top: {
-            width: "100%",
-            height: "4px",
-            top: "-2px",
-            left: "0px",
-            cursor: "row-resize",
-          },
-          bottom: {
-            width: "100%",
-            height: "4px",
-            bottom: "-2px",
-            left: "0px",
-            cursor: "row-resize",
-          },
-          left: {
-            width: "4px",
-            height: "100%",
-            left: "-2px",
-            top: "0px",
-            cursor: "col-resize",
-          },
-          right: {
-            width: "4px",
-            height: "100%",
-            right: "-2px",
-            top: "0px",
-            cursor: "col-resize",
-          },
-        }
-      : undefined;
+    const isMultiSelected = selectedIds.size >= 2 && isSelected;
+    const handleConfig = getHandleConfig(el, isSelected, isMultiSelected, drag.draggingId.current === el.id, resize.resizingId.current === el.id ? resize.resizeSnapCorrection : undefined);
 
     return (
       <Rnd
@@ -577,25 +722,13 @@ export function CanvasOverlay() {
         data-element-overlay
         data-element-id={el.id}
         scale={1}
+        style={{ zIndex: isSelected ? 55 : undefined }}
         size={{ width: screenWidth, height: screenHeight }}
         position={{ x: screen.x, y: screen.y }}
         minWidth={10}
         minHeight={10}
-        enableResizing={
-          isSingleInput
-            ? {
-                left: true,
-                right: true,
-                topLeft: false,
-                topRight: false,
-                bottomLeft: false,
-                bottomRight: false,
-                top: false,
-                bottom: false,
-              }
-            : undefined
-        }
-        resizeHandleStyles={smallHandleOverride}
+        enableResizing={handleConfig.enabled}
+        resizeHandleStyles={handleConfig.styles}
         onDragStart={(e) => {
           drag.handleDragStart(el, e as React.MouseEvent);
           resize.resetState();
@@ -629,13 +762,19 @@ export function CanvasOverlay() {
           aria-label={`${getElementName(el)} (${el.type})`}
           aria-pressed={isSelected}
           tabIndex={-1}
-          className={`h-full w-full flex items-center justify-center outline-none ring-0 ${getElementStyleConfig(el).borderBgClass(isSelected)} ${
+          className={`h-full w-full flex items-center justify-center outline-none ring-0 ${
+            isSelected
+              ? getElementStyleConfig(el).borderBgClass(true)
+              : `border border-dashed ${getElementStyleConfig(el).dimBorderClass} ${getElementStyleConfig(el).borderBgClass(false).split(' ').find(c => c.startsWith('bg-')) ?? ''}`
+          } ${
             snapTargetIds.has(el.id) ? "border-2" : ""
           }`}
           style={{
             ...(snapTargetIds.has(el.id)
               ? { borderColor: "var(--guide-snap)" }
-              : {}),
+              : !isSelected
+                ? { borderColor: getFieldColor(el), opacity: 0.5 }
+                : {}),
             ...(resize.resizingId.current === el.id &&
             resize.resizeSnapCorrection
               ? {
@@ -651,66 +790,56 @@ export function CanvasOverlay() {
           }}
         >
           {el.type === "checkbox" && (
-            <svg
-              viewBox="0 0 10 10"
-              className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`}
-            >
-              <path
-                d="M2 5L4 7L8 3"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <Square className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`} strokeWidth={2} />
           )}
           {el.type === "radio" && (
-            <svg
-              viewBox="0 0 10 10"
-              className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`}
-            >
-              <circle
-                cx="5"
-                cy="5"
-                r="3.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1"
-              />
-              <circle cx="5" cy="5" r="1.5" fill="currentColor" />
-            </svg>
+            <CircleDot className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`} strokeWidth={2} />
           )}
-          {el.type === "text" && el.multiline && (
-            <svg
-              viewBox="0 0 12 12"
-              className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass} opacity-50`}
+          {el.type === "text" && el.multiline && !el.defaultValue && (
+            <AlignLeft className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass} opacity-50`} strokeWidth={2} />
+          )}
+          {el.type === "text" && !el.multiline && !el.defaultValue && (
+            <Type className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass} opacity-50`} strokeWidth={2} />
+          )}
+          {el.type === "text" && el.defaultValue && (
+            <span
+              className="pointer-events-none truncate px-0.5"
+              style={{
+                fontSize: `${Math.max(8, el.fontSize * zoom * 0.6)}px`,
+                color: el.textColor ?? "currentColor",
+                fontFamily: fontFamilyToCss(el.fontFamily),
+                fontWeight: fontWeightToCss(el.fontWeight),
+                fontStyle: fontStyleToCss(el.fontWeight),
+                opacity: 0.5,
+                lineHeight: el.multiline ? "1.2" : undefined,
+              }}
             >
-              <line
-                x1="2"
-                y1="3"
-                x2="10"
-                y2="3"
-                stroke="currentColor"
-                strokeWidth="1"
-              />
-              <line
-                x1="2"
-                y1="6"
-                x2="10"
-                y2="6"
-                stroke="currentColor"
-                strokeWidth="1"
-              />
-              <line
-                x1="2"
-                y1="9"
-                x2="7"
-                y2="9"
-                stroke="currentColor"
-                strokeWidth="1"
-              />
-            </svg>
+              {el.defaultValue}
+            </span>
+          )}
+          {el.type === "dropdown" && (
+            <SquareChevronDown className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`} strokeWidth={2} />
+          )}
+          {el.type === "button" && !el.label && (
+            <SquareMousePointer className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`} strokeWidth={2} />
+          )}
+          {el.type === "button" && el.label && (
+            <span
+              className="pointer-events-none truncate px-0.5"
+              style={{
+                fontSize: `${Math.max(8, el.fontSize * zoom * 0.6)}px`,
+                color: el.textColor ?? "currentColor",
+                fontFamily: fontFamilyToCss(el.fontFamily),
+                fontWeight: fontWeightToCss(el.fontWeight),
+                fontStyle: fontStyleToCss(el.fontWeight),
+                opacity: 0.7,
+              }}
+            >
+              {el.label}
+            </span>
+          )}
+          {el.type === "optionlist" && (
+            <List className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`} strokeWidth={2} />
           )}
           <span
             className={`absolute -top-4 left-0 max-w-20 truncate overflow-hidden text-[10px] select-none ${getElementStyleConfig(el).textColorClass}`}
@@ -722,52 +851,33 @@ export function CanvasOverlay() {
     );
   });
 
-  // Bounding box computation
-  const boundingBoxes = (() => {
-    if (selectedIds.size < 2) return [];
-    const byPage = new Map<
-      number,
-      Array<{ x: number; y: number; width: number; height: number }>
-    >();
+  const boundingBox = (() => {
+    if (selectedIds.size < 2) return null;
+    if (multiResize.isActive.current && multiResize.currentBbox.current) {
+      return multiResize.currentBbox.current;
+    }
+    const items: Array<{ x: number; y: number; width: number; height: number }> = [];
     for (const el of elements) {
       if (!selectedIds.has(el.id)) continue;
-      if (!byPage.has(el.pageNumber)) byPage.set(el.pageNumber, []);
-      const live = dragLivePositions?.get(el.id);
-      byPage.get(el.pageNumber)!.push({
-        x: live?.x ?? el.x,
-        y: live?.y ?? el.y,
-        width: live?.width ?? el.width,
-        height: live?.height ?? el.height,
-      });
-    }
-    const rects: Array<{
-      screenX: number;
-      screenY: number;
-      screenWidth: number;
-      screenHeight: number;
-    }> = [];
-    for (const [page, items] of byPage) {
-      if (items.length < 2) continue;
-      const rect = computeBoundingRect(items);
-      if (!rect) continue;
-      const layout = layouts.get(page);
+      const layout = layouts.get(el.pageNumber);
       if (!layout) continue;
-      const topLeft = pdfToScreen(
-        { x: rect.x, y: rect.y },
-        { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
-      );
-      const bottomRight = pdfToScreen(
-        { x: rect.x + rect.width, y: rect.y + rect.height },
-        { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
-      );
-      rects.push({
-        screenX: topLeft.x,
-        screenY: topLeft.y,
-        screenWidth: bottomRight.x - topLeft.x,
-        screenHeight: bottomRight.y - topLeft.y,
-      });
+      const live = dragLivePositions?.get(el.id);
+      const px = live?.x ?? el.x;
+      const py = live?.y ?? el.y;
+      const pw = live?.width ?? el.width;
+      const ph = live?.height ?? el.height;
+      const tl = pdfToScreen({ x: px, y: py }, { zoom, pageX: layout.xOffset, pageY: layout.yOffset });
+      items.push({ x: tl.x, y: tl.y, width: pw * zoom, height: ph * zoom });
     }
-    return rects;
+    if (items.length < 2) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const r of items) {
+      if (r.x < minX) minX = r.x;
+      if (r.y < minY) minY = r.y;
+      if (r.x + r.width > maxX) maxX = r.x + r.width;
+      if (r.y + r.height > maxY) maxY = r.y + r.height;
+    }
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   })();
 
   return (
@@ -782,8 +892,21 @@ export function CanvasOverlay() {
     >
       {elementOverlays}
       <BoundingBoxOverlay
-        boundingBoxes={boundingBoxes}
-        dragOffset={drag.dragOffset}
+        boundingBox={boundingBox}
+        isDragging={!!drag.dragOffset}
+        anyHeightLocked={(() => {
+          if (selectedIds.size < 2) return false;
+          const selected = elements.filter((el) => selectedIds.has(el.id));
+          return selected.length >= 2 && selected.some((el) =>
+            (el.type === "text" && !("multiline" in el && el.multiline)) ||
+            el.type === "dropdown" ||
+            el.type === "optionlist"
+          );
+        })()}
+        snapCorrection={multiResize.snapCorrection}
+        onResizeStart={multiResize.handleResizeStart}
+        onResize={multiResize.handleResize}
+        onResizeStop={multiResize.handleResizeStop}
       />
       <GuideLinesLayer
         guides={guides}
@@ -795,6 +918,7 @@ export function CanvasOverlay() {
         overlayWidth={overlayWidth}
         totalContentHeight={totalContentHeight}
         overlayRef={overlayRef}
+        activeTool={activeTool}
         selectGuide={selectGuide}
         updateGuidePosition={updateGuidePosition}
         setPreviewGuide={setPreviewGuide}

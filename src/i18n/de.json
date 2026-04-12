@@ -17,13 +17,19 @@
     "input": "Eingabefeld",
     "textarea": "Textbereich",
     "checkbox": "Kontrollkästchen",
-    "radio": "Optionsfeld"
+    "radio": "Optionsfeld",
+    "dropdown": "Dropdown",
+    "button": "Schaltfläche",
+    "optionlist": "Auswahlliste"
   },
   "fieldTypes": {
     "textField": "Textfeld",
     "checkbox": "Kontrollkästchen",
     "radioButton": "Optionsfeld",
-    "multiline": "Mehrzeilig"
+    "multiline": "Mehrzeilig",
+    "dropdown": "Dropdown",
+    "button": "Schaltfläche",
+    "optionlist": "Auswahlliste"
   },
   "properties": {
     "panelError": "Panel-Fehler",
@@ -32,12 +38,24 @@
     "textFields": "Textfelder",
     "checkboxes": "Kontrollkästchen",
     "radioButtons": "Optionsfelder",
+    "dropdowns": "Dropdowns",
+    "buttons": "Schaltflächen",
+    "optionLists": "Auswahllisten",
     "mixedTypes": "Gemischte Typen",
     "page": "Seite {{page}}",
     "pageLabel": "Seite",
     "name": "Name",
     "defaultValue": "Standardwert",
     "typography": "Typografie",
+    "fontFamily": "Schriftfamilie",
+    "textColor": "Textfarbe",
+    "appearance": "Erscheinungsbild",
+    "backgroundColor": "Hintergrund",
+    "borderColor": "Rahmenfarbe",
+    "borderWidth": "Rahmenbreite",
+    "none": "Keine",
+    "options": "Optionen",
+    "editable": "Bearbeitbar",
     "fontSize": "Schriftgröße",
     "height": "Höhe",
     "required": "Pflichtfeld",
@@ -77,7 +95,14 @@
     "guide": "{{orientation}}-Hilfslinie",
     "positionLabel": "{{axis}}-Position",
     "deleteGuide": "Hilfslinie löschen",
-    "pt": "{{value}} pt"
+    "pt": "{{value}} pt",
+    "widthShort": "B",
+    "heightShort": "H",
+    "general": "Allgemein",
+    "clearBackgroundColor": "Hintergrundfarbe entfernen",
+    "clearBorderColor": "Rahmenfarbe entfernen",
+    "editPageNumber": "Seitennummer bearbeiten",
+    "addOption": "Option hinzufügen"
   },
   "status": {
     "clickToSelect": "Klicken zum Auswählen",
@@ -156,6 +181,9 @@
     "toolTextarea": "Mehrzeiliger Text",
     "toolCheckbox": "Kontrollkästchen",
     "toolRadio": "Optionsfeld",
+    "toolDropdown": "Dropdown",
+    "toolButton": "Schaltfläche",
+    "toolOptionList": "Auswahlliste",
     "zoomIn": "Vergrößern",
     "zoomOut": "Verkleinern",
     "zoomFit": "An Breite anpassen",
@@ -175,6 +203,9 @@
     "addTextField": "Textfeld hinzufügen",
     "addTextarea": "Textbereich hinzufügen",
     "addCheckbox": "Kontrollkästchen hinzufügen",
-    "addRadio": "Optionsfeld hinzufügen"
+    "addRadio": "Optionsfeld hinzufügen",
+    "addDropdown": "Dropdown hinzufügen",
+    "addButton": "Schaltfläche hinzufügen",
+    "addOptionList": "Auswahlliste hinzufügen"
   }
 }

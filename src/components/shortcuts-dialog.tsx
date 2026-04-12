@@ -34,7 +34,7 @@ export function ShortcutsDialog() {
       >
         <Keyboard className="h-3 w-3" />
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-xl">
         <div className="px-5 pt-5 pb-2 select-none">
           <DialogHeader>
             <DialogTitle>{t("shortcuts.title")}</DialogTitle>
@@ -46,7 +46,7 @@ export function ShortcutsDialog() {
             {t("shortcuts.openShortcuts")}
           </DialogDescription>
         </div>
-        <div className="px-5 pb-5 select-none">
+        <div className="px-5 pb-5 select-none overflow-x-hidden">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
             {GROUPS.map(({ id, labelKey }) => (
               <div key={id}>
@@ -70,12 +70,12 @@ export function ShortcutsDialog() {
                       return (
                         <div
                           key={shortcut.id}
-                          className="flex items-center justify-between gap-3 text-xs"
+                          className="flex items-center justify-between gap-3 text-xs min-w-0"
                         >
-                          <span className="text-foreground/80">
+                          <span className="text-foreground/80 truncate">
                             {t(shortcut.i18nKey)}
                           </span>
-                          <span className="inline-flex items-center gap-1">
+                          <span className="inline-flex items-center gap-1 shrink-0">
                             <ShortcutKbd shortcutId={shortcut.id} />
                             {altShortcut && (
                               <>

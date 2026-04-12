@@ -1,7 +1,15 @@
 import i18n from "@/i18n";
 import type { FormElement } from "@/lib/form-element-model";
 import type { LucideIcon } from "lucide-react";
-import { AlignLeft, CircleDot, Square, Type } from "lucide-react";
+import {
+  AlignLeft,
+  CircleDot,
+  ChevronDown,
+  List,
+  Square,
+  SquareMousePointer,
+  Type,
+} from "lucide-react";
 
 export interface ElementStyleConfig {
   labelKey: string;
@@ -67,6 +75,48 @@ const CONFIGS: Record<string, ElementStyleConfig> = {
     textColorClass: "text-field-multiline",
     drawPreviewClass:
       "border-2 border-field-multiline/60 bg-field-multiline-bg",
+  },
+  dropdown: {
+    labelKey: "fieldTypes.dropdown",
+    icon: ChevronDown,
+    colorClass: "text-field-dropdown",
+    borderClass: "border-field-dropdown/30",
+    borderBgClass: (selected) =>
+      selected
+        ? "border-2 border-field-dropdown bg-field-dropdown-bg"
+        : "border border-field-dropdown-dim bg-field-dropdown-bg",
+    dimBorderClass: "border-field-dropdown-dim",
+    textColorClass: "text-field-dropdown",
+    drawPreviewClass:
+      "border-2 border-field-dropdown/60 bg-field-dropdown-bg",
+  },
+  button: {
+    labelKey: "fieldTypes.button",
+    icon: SquareMousePointer,
+    colorClass: "text-field-button",
+    borderClass: "border-field-button/30",
+    borderBgClass: (selected) =>
+      selected
+        ? "border-2 border-field-button bg-field-button-bg"
+        : "border border-field-button-dim bg-field-button-bg",
+    dimBorderClass: "border-field-button-dim",
+    textColorClass: "text-field-button",
+    drawPreviewClass:
+      "border-2 border-field-button/60 bg-field-button-bg",
+  },
+  optionlist: {
+    labelKey: "fieldTypes.optionlist",
+    icon: List,
+    colorClass: "text-field-optionlist",
+    borderClass: "border-field-optionlist/30",
+    borderBgClass: (selected) =>
+      selected
+        ? "border-2 border-field-optionlist bg-field-optionlist-bg"
+        : "border border-field-optionlist-dim bg-field-optionlist-bg",
+    dimBorderClass: "border-field-optionlist-dim",
+    textColorClass: "text-field-optionlist",
+    drawPreviewClass:
+      "border-2 border-field-optionlist/60 bg-field-optionlist-bg",
   },
 };
 

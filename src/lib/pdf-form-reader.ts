@@ -7,6 +7,7 @@ import {
   PDFRef,
 } from "pdf-lib";
 import type { FormElement } from "./form-element-model";
+import { rgbToHex } from "./font-utils";
 
 export async function extractAcroFormFields(
   pdfBytes: Uint8Array,
@@ -136,10 +137,13 @@ function collectFields(
   if (!rect) return;
 
   const pageHeight = pages[pageNumber - 1].getSize().height;
-  const x = rect.x1;
-  const y = pageHeight - rect.y2;
-  const width = rect.x2 - rect.x1;
-  const height = rect.y2 - rect.y1;
+  const rawX = rect.x1;
+  const rawY = pageHeight - rect.y2;
+  const rawWidth = rect.x2 - rect.x1;
+  const rawHeight = rect.y2 - rect.y1;
+
+  const border = getBorderExpansion(fieldDict, ctx);
+  const { x, y, width, height } = adjustRectForBorder(rawX, rawY, rawWidth, rawHeight, border);
 
   if (width <= 0 || height <= 0) return;
 
@@ -158,7 +162,22 @@ function collectFields(
       ),
     );
   } else if (ft === PDFName.of("Btn")) {
-    if (isRadioField(fieldDict, ctx)) {
+    if (isPushButton(fieldDict, ctx)) {
+      const name = getFieldName(fieldDict) ?? parentPartialName ?? "";
+      elements.push(
+        extractButtonField(
+          fieldDict,
+          ctx,
+          generateId(),
+          x,
+          y,
+          width,
+          height,
+          pageNumber,
+          name,
+        ),
+      );
+    } else if (isRadioField(fieldDict, ctx)) {
       const groupName = parentPartialName ?? "";
       const exportValue = getExportValue(fieldDict) ?? "";
       elements.push({
@@ -178,6 +197,37 @@ function collectFields(
       elements.push(
         extractCheckboxField(
           fieldDict,
+          generateId(),
+          x,
+          y,
+          width,
+          height,
+          pageNumber,
+          name,
+        ),
+      );
+    }
+  } else if (ft === PDFName.of("Ch")) {
+    const name = getFieldName(fieldDict) ?? parentPartialName ?? "";
+    if (isComboField(fieldDict, ctx)) {
+      elements.push(
+        extractDropdownField(
+          fieldDict,
+          ctx,
+          generateId(),
+          x,
+          y,
+          width,
+          height,
+          pageNumber,
+          name,
+        ),
+      );
+    } else {
+      elements.push(
+        extractOptionListField(
+          fieldDict,
+          ctx,
           generateId(),
           x,
           y,
@@ -215,10 +265,13 @@ function collectRadioKids(
     if (!rect) continue;
 
     const pageHeight = pages[pageNumber - 1].getSize().height;
-    const x = rect.x1;
-    const y = pageHeight - rect.y2;
-    const width = rect.x2 - rect.x1;
-    const height = rect.y2 - rect.y1;
+    const rawX = rect.x1;
+    const rawY = pageHeight - rect.y2;
+    const rawWidth = rect.x2 - rect.x1;
+    const rawHeight = rect.y2 - rect.y1;
+
+    const border = getBorderExpansion(kidDict, ctx);
+    const { x, y, width, height } = adjustRectForBorder(rawX, rawY, rawWidth, rawHeight, border);
 
     if (width <= 0 || height <= 0) continue;
 
@@ -256,13 +309,16 @@ function extractTextField(
   const defaultValue = tryAsString(v) ?? "";
   const da = getInheritableAttr(dict, PDFName.of("DA"), ctx);
   const daStr = tryAsString(da) ?? "";
-  const fontSize = parseFontSizeFromDA(daStr);
+  const { fontFamily, fontWeight, textColor, fontSize } =
+    parseTypographyFromDA(daStr);
   const flags = getInheritableAttr(dict, PDFName.of("Ff"), ctx);
   const flagNum = flags instanceof PDFNumber ? flags.asNumber() : 0;
-  const multiline = (flagNum & (1 << 13)) !== 0;
-  const required = (flagNum & (1 << 2)) !== 0;
+  const multiline = (flagNum & (1 << 12)) !== 0;
+  const required = (flagNum & (1 << 1)) !== 0;
   const maxLen = getInheritableAttr(dict, PDFName.of("MaxLen"), ctx);
   const maxLength = maxLen instanceof PDFNumber ? maxLen.asNumber() : undefined;
+  const { backgroundColor, borderColor } = parseAppearanceColors(dict, ctx);
+  const borderWidth = parseBorderWidth(dict, ctx);
 
   return {
     type: "text",
@@ -274,10 +330,16 @@ function extractTextField(
     pageNumber,
     name,
     defaultValue,
-    fontSize: fontSize > 0 ? fontSize : 12,
+    fontSize,
     multiline,
     required,
     maxLength,
+    textColor,
+    fontFamily,
+    fontWeight,
+    backgroundColor,
+    borderColor,
+    borderWidth,
   };
 }
 
@@ -306,6 +368,181 @@ function extractCheckboxField(
     name,
     defaultChecked,
   };
+}
+
+function extractButtonField(
+  dict: PDFDict,
+  ctx: LookupCtx,
+  id: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  pageNumber: number,
+  name: string,
+): FormElement {
+  const da = getInheritableAttr(dict, PDFName.of("DA"), ctx);
+  const daStr = tryAsString(da) ?? "";
+  const { fontFamily, fontWeight, textColor, fontSize } =
+    parseTypographyFromDA(daStr);
+  const label = extractButtonLabel(dict);
+  const { backgroundColor, borderColor } = parseAppearanceColors(dict, ctx);
+  const borderWidth = parseBorderWidth(dict, ctx);
+
+  return {
+    type: "button",
+    id,
+    x,
+    y,
+    width,
+    height,
+    pageNumber,
+    name,
+    label: label || "Button",
+    fontSize,
+    fontFamily,
+    fontWeight,
+    textColor,
+    backgroundColor,
+    borderColor,
+    borderWidth,
+  };
+}
+
+function extractButtonLabel(dict: PDFDict): string {
+  const ap = dict.lookup(PDFName.of("AP"));
+  if (!(ap instanceof PDFDict)) return "";
+  const n = ap.lookup(PDFName.of("N"));
+  if (!(n instanceof PDFDict)) return "";
+  for (const [key] of n.entries()) {
+    if (key === PDFName.of("Off")) continue;
+    const stream = n.lookup(key);
+    if (stream && typeof stream === "object" && "decodeText" in stream) {
+      try {
+        const content = (stream as { decodeText: () => string }).decodeText();
+        const match = content.match(/\(([^)]*)\)/);
+        if (match) return match[1];
+      } catch {
+        // ignore
+      }
+    }
+  }
+  return "";
+}
+
+function extractDropdownField(
+  dict: PDFDict,
+  ctx: LookupCtx,
+  id: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  pageNumber: number,
+  name: string,
+): FormElement {
+  const options = extractChoiceOptions(dict, ctx);
+  const v = getInheritableAttr(dict, PDFName.of("V"), ctx);
+  const defaultValue = tryAsString(v) ?? "";
+  const da = getInheritableAttr(dict, PDFName.of("DA"), ctx);
+  const daStr = tryAsString(da) ?? "";
+  const { fontFamily, fontWeight, textColor, fontSize } =
+    parseTypographyFromDA(daStr);
+  const flags = getInheritableAttr(dict, PDFName.of("Ff"), ctx);
+  const flagNum = flags instanceof PDFNumber ? flags.asNumber() : 0;
+  const required = (flagNum & (1 << 1)) !== 0;
+  const editable = (flagNum & (1 << 18)) !== 0;
+  const { backgroundColor, borderColor } = parseAppearanceColors(dict, ctx);
+  const borderWidth = parseBorderWidth(dict, ctx);
+
+  return {
+    type: "dropdown",
+    id,
+    x,
+    y,
+    width,
+    height,
+    pageNumber,
+    name,
+    options,
+    defaultValue,
+    fontSize,
+    required,
+    editable,
+    fontFamily,
+    fontWeight,
+    textColor,
+    backgroundColor,
+    borderColor,
+    borderWidth,
+  };
+}
+
+function extractOptionListField(
+  dict: PDFDict,
+  ctx: LookupCtx,
+  id: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  pageNumber: number,
+  name: string,
+): FormElement {
+  const options = extractChoiceOptions(dict, ctx);
+  const v = getInheritableAttr(dict, PDFName.of("V"), ctx);
+  const defaultValue = tryAsString(v) ?? "";
+  const da = getInheritableAttr(dict, PDFName.of("DA"), ctx);
+  const daStr = tryAsString(da) ?? "";
+  const { fontFamily, fontWeight, textColor, fontSize } =
+    parseTypographyFromDA(daStr);
+  const flags = getInheritableAttr(dict, PDFName.of("Ff"), ctx);
+  const flagNum = flags instanceof PDFNumber ? flags.asNumber() : 0;
+  const required = (flagNum & (1 << 1)) !== 0;
+  const { backgroundColor, borderColor } = parseAppearanceColors(dict, ctx);
+  const borderWidth = parseBorderWidth(dict, ctx);
+
+  return {
+    type: "optionlist",
+    id,
+    x,
+    y,
+    width,
+    height,
+    pageNumber,
+    name,
+    options,
+    defaultValue,
+    fontSize,
+    required,
+    fontFamily,
+    fontWeight,
+    textColor,
+    backgroundColor,
+    borderColor,
+    borderWidth,
+  };
+}
+
+function extractChoiceOptions(
+  dict: PDFDict,
+  ctx: LookupCtx,
+): string[] {
+  const opt = getInheritableAttr(dict, PDFName.of("Opt"), ctx);
+  if (!(opt instanceof PDFArray)) return [];
+  const values: string[] = [];
+  for (let i = 0; i < opt.size(); i++) {
+    const item = opt.lookup(i);
+    if (item instanceof PDFArray && item.size() >= 2) {
+      const exportVal = tryAsString(item.lookup(0));
+      const displayVal = tryAsString(item.lookup(1));
+      values.push(displayVal ?? exportVal ?? `Option ${i + 1}`);
+    } else {
+      const str = tryAsString(item);
+      values.push(str ?? `Option ${i + 1}`);
+    }
+  }
+  return values;
 }
 
 function tryAsString(val: unknown): string | null {
@@ -366,6 +603,20 @@ function isRadioField(dict: PDFDict, ctx: LookupCtx): boolean {
   return (flagNum & (1 << 15)) !== 0;
 }
 
+function isPushButton(dict: PDFDict, ctx: LookupCtx): boolean {
+  const flags = getInheritableAttr(dict, PDFName.of("Ff"), ctx);
+  if (!(flags instanceof PDFNumber)) return false;
+  const flagNum = flags.asNumber();
+  return (flagNum & (1 << 16)) !== 0;
+}
+
+function isComboField(dict: PDFDict, ctx: LookupCtx): boolean {
+  const flags = getInheritableAttr(dict, PDFName.of("Ff"), ctx);
+  if (!(flags instanceof PDFNumber)) return false;
+  const flagNum = flags.asNumber();
+  return (flagNum & (1 << 17)) !== 0;
+}
+
 function parseFontSizeFromDA(da: string): number {
   const parts = da.split(/\s+/);
   const tfIdx = parts.indexOf("Tf");
@@ -374,6 +625,135 @@ function parseFontSizeFromDA(da: string): number {
     if (Number.isFinite(size) && size > 0) return size;
   }
   return 0;
+}
+
+function parseTextColorFromDA(da: string): string {
+  const match = da.match(/([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+rg/);
+  if (match) {
+    const r = parseFloat(match[1]);
+    const g = parseFloat(match[2]);
+    const b = parseFloat(match[3]);
+    if (Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)) {
+      return rgbToHex(r, g, b);
+    }
+  }
+  return "#000000";
+}
+
+function parseFontNameFromDA(da: string): {
+  fontFamily: string;
+  fontWeight: "regular" | "bold" | "italic" | "bold-italic";
+} {
+  const match = da.match(/\/([^\s]+)\s+\d+\s+Tf/);
+  if (!match) return { fontFamily: "Helvetica", fontWeight: "regular" };
+  const rawName = match[1];
+  return mapPdfFontName(rawName);
+}
+
+function mapPdfFontName(
+  name: string,
+): { fontFamily: string; fontWeight: "regular" | "bold" | "italic" | "bold-italic" } {
+  if (name.endsWith("-BoldOblique") || name.endsWith("-BoldItalic")) {
+    const base = name.replace(/-BoldOblique$|-BoldItalic$/, "");
+    return { fontFamily: base, fontWeight: "bold-italic" };
+  }
+  if (name.endsWith("-Bold")) {
+    const base = name.replace(/-Bold$/, "");
+    return { fontFamily: base, fontWeight: "bold" };
+  }
+  if (name.endsWith("-Oblique") || name.endsWith("-Italic")) {
+    const base = name.replace(/-Oblique$|-Italic$/, "");
+    return { fontFamily: base, fontWeight: "italic" };
+  }
+  return { fontFamily: name, fontWeight: "regular" };
+}
+
+interface AppearanceColors {
+  backgroundColor: string | null;
+  borderColor: string | null;
+}
+
+function parseAppearanceColors(dict: PDFDict, ctx: LookupCtx): AppearanceColors {
+  const mk = getInheritableAttr(dict, PDFName.of("MK"), ctx);
+  if (!(mk instanceof PDFDict)) return { backgroundColor: null, borderColor: null };
+
+  const bg = parseColorArray(mk.lookup(PDFName.of("BG")));
+  const bc = parseColorArray(mk.lookup(PDFName.of("BC")));
+
+  return {
+    backgroundColor: bg,
+    borderColor: bc,
+  };
+}
+
+function parseColorArray(val: unknown): string | null {
+  if (!(val instanceof PDFArray)) return null;
+  if (val.size() < 3) return null;
+  const r = val.lookup(0);
+  const g = val.lookup(1);
+  const b = val.lookup(2);
+  if (
+    r instanceof PDFNumber &&
+    g instanceof PDFNumber &&
+    b instanceof PDFNumber
+  ) {
+    return rgbToHex(r.asNumber(), g.asNumber(), b.asNumber());
+  }
+  return null;
+}
+
+function parseBorderWidth(dict: PDFDict, ctx: LookupCtx): number {
+  const bs = getInheritableAttr(dict, PDFName.of("BS"), ctx);
+  if (bs instanceof PDFDict) {
+    const w = bs.get(PDFName.of("W"));
+    if (w instanceof PDFNumber) return w.asNumber();
+  }
+  return 1;
+}
+
+function getBorderExpansion(dict: PDFDict, ctx: LookupCtx): number {
+  const bs = getInheritableAttr(dict, PDFName.of("BS"), ctx);
+  if (bs instanceof PDFDict) {
+    const w = bs.get(PDFName.of("W"));
+    if (w instanceof PDFNumber) return w.asNumber();
+    return 0;
+  }
+  return 0;
+}
+
+function adjustRectForBorder(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  borderExpansion: number,
+): { x: number; y: number; width: number; height: number } {
+  if (borderExpansion <= 0) return { x, y, width, height };
+  return {
+    x: x + borderExpansion / 2,
+    y: y + borderExpansion / 2,
+    width: width - borderExpansion,
+    height: height - borderExpansion,
+  };
+}
+
+interface ParsedTypography {
+  fontFamily: string;
+  fontWeight: "regular" | "bold" | "italic" | "bold-italic";
+  textColor: string;
+  fontSize: number;
+}
+
+function parseTypographyFromDA(daStr: string): ParsedTypography {
+  const { fontFamily, fontWeight } = parseFontNameFromDA(daStr);
+  const fontSize = parseFontSizeFromDA(daStr);
+  const textColor = parseTextColorFromDA(daStr);
+  return {
+    fontFamily,
+    fontWeight,
+    textColor,
+    fontSize: fontSize > 0 ? fontSize : 12,
+  };
 }
 
 function getInheritableAttr(
