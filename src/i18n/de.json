@@ -207,5 +207,53 @@
     "addDropdown": "Dropdown hinzufügen",
     "addButton": "Schaltfläche hinzufügen",
     "addOptionList": "Auswahlliste hinzufügen"
+  },
+  "onboarding": {
+    "welcome": {
+      "title": "Willkommen bei PDF Form Maker",
+      "description": "Platzieren Sie interaktive Formularfelder auf PDF-Dokumenten und exportieren Sie diese als ausfüllbare Formulare. Lassen Sie uns starten."
+    },
+    "layout": {
+      "title": "Layout auswählen",
+      "description": "Wählen Sie den Arbeitsbereich-Stil, der für Sie am natürlichsten ist.",
+      "figma": "Canvas-Layout",
+      "figmaDescription": "Schwebende Symbolleiste unten. Ideal, wenn Sie Figma oder Design-Tools mögen.",
+      "office": "Menüband-Layout",
+      "officeDescription": "Werkzeuge in der oberen Leiste. Ideal, wenn Sie Word oder Office-Apps bevorzugen."
+    },
+    "ready": {
+      "title": "Alles fertig",
+      "description": "Hier ist eine kurze Übersicht, was Sie tun können."
+    },
+    "tour": {
+      "sidebar": "Seitennavigation",
+      "sidebarDesc": "Durchsuchen und navigieren Sie zwischen den Seiten Ihres PDF-Dokuments.",
+      "sidebarTitle": "Seitenleiste",
+      "tools": "Formularfeld-Werkzeuge",
+      "toolsDesc": "Wählen und platzieren Sie Textfelder, Kontrollkästchen, Optionsfelder und mehr.",
+      "toolsTitle": "Zeichnungs-Werkzeuge",
+      "properties": "Eigenschafts-Panel",
+      "propertiesDesc": "Bearbeiten Sie Feldeigenschaften wie Name, Größe, Schriftart und Erscheinungsbild.",
+      "propertiesTitle": "Eigenschafts-Panel",
+      "export": "PDF exportieren",
+      "exportDesc": "Exportieren Sie Ihr Dokument als ausfüllbares PDF mit allen platzierten Formularfeldern.",
+      "exportTitle": "Export-Schaltfläche"
+    },
+    "skip": "Überspringen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "done": "Fertig",
+    "getStarted": "Loslegen"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "layout": "Layout",
+    "figmaLayout": "Canvas-Layout",
+    "figmaLayoutDesc": "Schwebende Symbolleiste unten.",
+    "officeLayout": "Menüband-Layout",
+    "officeLayoutDesc": "Werkzeuge in der oberen Leiste.",
+    "help": "Hilfe",
+    "showTour": "Feature-Tour anzeigen",
+    "resetOnboarding": "Onboarding neu starten"
   }
 }

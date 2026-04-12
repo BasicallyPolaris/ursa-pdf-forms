@@ -207,5 +207,53 @@
     "nameRequired": "Field name is required",
     "groupNameRequired": "Group name is required for radio buttons",
     "radioValueRequired": "Value is required for radio buttons"
+  },
+  "onboarding": {
+    "welcome": {
+      "title": "Welcome to PDF Form Maker",
+      "description": "Place interactive form fields onto PDF documents and export them as fillable forms. Let's get you set up."
+    },
+    "layout": {
+      "title": "Choose your layout",
+      "description": "Pick the workspace style that feels most natural to you.",
+      "figma": "Canvas Layout",
+      "figmaDescription": "Floating toolbar at the bottom. Best if you like Figma or design tools.",
+      "office": "Ribbon Layout",
+      "officeDescription": "Tools in the top bar. Best if you prefer Word or Office-style apps."
+    },
+    "ready": {
+      "title": "You're all set",
+      "description": "Here's a quick overview of what you can do."
+    },
+    "tour": {
+      "sidebar": "Page Navigation",
+      "sidebarDesc": "Browse and jump between pages of your PDF document.",
+      "sidebarTitle": "Page Sidebar",
+      "tools": "Form Field Tools",
+      "toolsDesc": "Select and place text fields, checkboxes, radio buttons, and more.",
+      "toolsTitle": "Drawing Tools",
+      "properties": "Properties Panel",
+      "propertiesDesc": "Edit field properties like name, size, font, and appearance.",
+      "propertiesTitle": "Properties Panel",
+      "export": "Export PDF",
+      "exportDesc": "Export your document as a fillable PDF with all placed form fields.",
+      "exportTitle": "Export Button"
+    },
+    "skip": "Skip",
+    "back": "Back",
+    "next": "Next",
+    "done": "Done",
+    "getStarted": "Get Started"
+  },
+  "settings": {
+    "title": "Settings",
+    "layout": "Layout",
+    "figmaLayout": "Canvas Layout",
+    "figmaLayoutDesc": "Floating toolbar at the bottom.",
+    "officeLayout": "Ribbon Layout",
+    "officeLayoutDesc": "Tools in the top bar.",
+    "help": "Help",
+    "showTour": "Show feature tour",
+    "resetOnboarding": "Restart onboarding"
   }
 }

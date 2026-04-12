@@ -344,6 +344,7 @@ export function PageSidebar() {
   return (
     <aside
       data-testid="left-sidebar"
+      data-tour="page-sidebar"
       className="flex w-44 flex-col border-r border-border bg-card select-none"
     >
       <div className="px-2.5 py-1.5 flex items-center justify-between">

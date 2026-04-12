@@ -1,3 +1,4 @@
+import { TOOL_KEYS } from "@/components/header-toolbar";
 import { ShortcutKbd } from "@/components/ui/kbd";
 import { ToolButton } from "@/components/ui/tool-button";
 import {
@@ -9,44 +10,9 @@ import {
 import type { ShortcutId } from "@/lib/shortcuts";
 import { TOOL_SHORTCUT_MAP } from "@/lib/shortcuts";
 import { useEditorStore } from "@/stores/editor-store";
-import {
-  AlignLeft,
-  CircleDot,
-  List,
-  MousePointer2,
-  SquareChevronDown,
-  SquareMousePointer,
-  Square,
-  Type,
-} from "lucide-react";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { Separator } from "./ui/separator";
-
-const TOOL_KEYS = [
-  {
-    id: "select" as const,
-    labelKey: "toolbar.select",
-    icon: MousePointer2,
-    separate: true,
-  },
-  { id: "input" as const, labelKey: "toolbar.input", icon: Type },
-  { id: "textarea" as const, labelKey: "toolbar.textarea", icon: AlignLeft },
-  { id: "checkbox" as const, labelKey: "toolbar.checkbox", icon: Square },
-  { id: "radio" as const, labelKey: "toolbar.radio", icon: CircleDot },
-  {
-    id: "dropdown" as const,
-    labelKey: "toolbar.dropdown",
-    icon: SquareChevronDown,
-    separate: true,
-  },
-  { id: "optionlist" as const, labelKey: "toolbar.optionlist", icon: List },
-  {
-    id: "button" as const,
-    labelKey: "toolbar.button",
-    icon: SquareMousePointer,
-  },
-];
 
 export function FloatingToolbar() {
   const { t } = useTranslation();
@@ -60,6 +26,7 @@ export function FloatingToolbar() {
     <div
       className="pointer-events-auto fixed bottom-12 left-1/2 z-50 -translate-x-1/2"
       data-testid="floating-toolbar"
+      data-tour="drawing-tools"
     >
       <TooltipProvider>
         <div className="flex items-center gap-1 rounded-lg border border-border bg-toolbar-bg px-1.5 py-1 shadow-lg backdrop-blur-sm select-none">

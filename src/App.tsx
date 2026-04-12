@@ -1,21 +1,25 @@
 import { AppHeader } from "@/components/app-header";
 import { CanvasOverlay } from "@/components/canvas-overlay";
 import { FloatingToolbar } from "@/components/floating-toolbar";
+import { OnboardingDialog } from "@/components/onboarding-dialog";
 import { PageSidebar } from "@/components/page-sidebar";
 import { PdfCanvas } from "@/components/pdf-canvas";
 import { PropertiesPanel } from "@/components/properties-panel";
+import { SettingsDialog } from "@/components/settings-dialog";
 import {
   HorizontalRuler,
   RulerCorner,
   VerticalRuler,
 } from "@/components/ruler";
 import { StatusBar } from "@/components/status-bar";
+import { TourSpotlight } from "@/components/tour-spotlight";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useZoom } from "@/hooks/use-zoom";
 import { fileIO } from "@/lib/file-io";
 import { useEditorStore } from "@/stores/editor-store";
+import { useSettingsStore } from "@/stores/settings-store";
 import { FileDown, FileX } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -31,6 +35,7 @@ function App() {
   const isFileDragOver = useEditorStore((s) => s.isFileDragOver);
   const isDragFileValid = useEditorStore((s) => s.isDragFileValid);
   const pdfBytes = useEditorStore((s) => s.pdfBytes);
+  const layoutPreference = useSettingsStore((s) => s.layoutPreference);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const hRulerRef = useRef<HTMLDivElement>(null);
   const vRulerRef = useRef<HTMLDivElement>(null);
@@ -104,7 +109,7 @@ function App() {
                       <CanvasOverlay />
                     </ErrorBoundary>
                   </PdfCanvas>
-                  <FloatingToolbar />
+                  {layoutPreference === "figma" && <FloatingToolbar />}
                 </div>
               </div>
             </div>
@@ -143,6 +148,7 @@ function App() {
 
         <aside
           data-testid="properties-panel"
+          data-tour="properties-panel"
           className="border-l border-border bg-card"
           style={{ width: "calc(11rem + 36px)" }}
         >
@@ -151,6 +157,9 @@ function App() {
       </div>
 
       <StatusBar />
+      <OnboardingDialog />
+      <SettingsDialog />
+      <TourSpotlight />
     </div>
   );
 }

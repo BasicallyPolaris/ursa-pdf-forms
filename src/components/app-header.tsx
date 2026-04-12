@@ -1,7 +1,9 @@
+import { HeaderToolbar } from "@/components/header-toolbar";
 import { clampZoom, ZOOM_PRESETS, ZOOM_STEP } from "@/hooks/use-zoom";
 import { fileIO } from "@/lib/file-io";
 import { getZoomEngine } from "@/lib/use-zoom-animation";
 import { redo, undo, useEditorStore } from "@/stores/editor-store";
+import { useSettingsStore } from "@/stores/settings-store";
 import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
 
@@ -90,6 +92,7 @@ export function AppHeader() {
     (s) => s.futureStates.length > 0,
   );
   const hasPdf = useEditorStore((s) => !!s.pdfBytes);
+  const layoutPreference = useSettingsStore((s) => s.layoutPreference);
 
   return (
     <TooltipProvider>
@@ -117,6 +120,7 @@ export function AppHeader() {
         </div>
 
         <ZoomControls />
+        {layoutPreference === "office" && <HeaderToolbar />}
 
         <div className="flex items-center justify-end gap-1">
           <Tooltip>
@@ -164,6 +168,7 @@ export function AppHeader() {
                 <ToolButton
                   onClick={() => fileIO.exportPdf()}
                   variant="primary"
+                  data-tour="export-button"
                 />
               }
             >
