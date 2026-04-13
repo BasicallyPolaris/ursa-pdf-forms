@@ -78,31 +78,47 @@ export function TourSpotlight() {
   const r = rect;
 
   function getTooltipStyle(): React.CSSProperties {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const tw = 256;
+    const estTh = 120;
+    const margin = 8;
+
     switch (tooltipPos) {
-      case "bottom":
+      case "bottom": {
+        const center = r.left + r.width / 2;
+        const clamped = Math.max(margin + tw / 2, Math.min(center, vw - margin - tw / 2));
         return {
-          top: r.top + r.height + PAD + 8,
-          left: r.left + r.width / 2,
+          top: r.bottom + PAD + 8,
+          left: clamped,
           transform: "translateX(-50%)",
         };
-      case "top":
+      }
+      case "top": {
+        const center = r.left + r.width / 2;
+        const clamped = Math.max(margin + tw / 2, Math.min(center, vw - margin - tw / 2));
         return {
-          bottom: window.innerHeight - r.top + PAD + 8,
-          left: r.left + r.width / 2,
+          bottom: vh - r.top + PAD + 8,
+          left: clamped,
           transform: "translateX(-50%)",
         };
-      case "right":
+      }
+      case "right": {
+        const midY = r.top + r.height / 2;
+        const clamped = Math.max(margin, Math.min(midY - estTh / 2, vh - margin - estTh));
         return {
-          top: r.top + r.height / 2,
+          top: clamped,
           left: r.right + PAD + 8,
-          transform: "translateY(-50%)",
         };
-      case "left":
+      }
+      case "left": {
+        const midY = r.top + r.height / 2;
+        const clamped = Math.max(margin, Math.min(midY - estTh / 2, vh - margin - estTh));
         return {
-          top: r.top + r.height / 2,
-          right: window.innerWidth - r.left + PAD + 8,
-          transform: "translateY(-50%)",
+          top: clamped,
+          right: vw - r.left + PAD + 8,
         };
+      }
     }
   }
 

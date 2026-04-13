@@ -1,5 +1,4 @@
 import { ShortcutKbd } from "@/components/ui/kbd";
-import { ToolButton } from "@/components/ui/tool-button";
 import {
   Tooltip,
   TooltipContent,
@@ -20,34 +19,49 @@ import {
 } from "lucide-react";
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { Separator } from "./ui/separator";
 
 export const TOOL_KEYS = [
   {
     id: "select" as const,
     labelKey: "toolbar.select",
     icon: MousePointer2,
-    separate: true,
+    group: 0,
   },
-  { id: "input" as const, labelKey: "toolbar.input", icon: Type },
-  { id: "textarea" as const, labelKey: "toolbar.textarea", icon: AlignLeft },
-  { id: "checkbox" as const, labelKey: "toolbar.checkbox", icon: Square },
-  { id: "radio" as const, labelKey: "toolbar.radio", icon: CircleDot },
+  { id: "input" as const, labelKey: "toolbar.input", icon: Type, group: 1 },
+  {
+    id: "textarea" as const,
+    labelKey: "toolbar.textarea",
+    icon: AlignLeft,
+    group: 1,
+  },
+  {
+    id: "checkbox" as const,
+    labelKey: "toolbar.checkbox",
+    icon: Square,
+    group: 1,
+  },
+  { id: "radio" as const, labelKey: "toolbar.radio", icon: CircleDot, group: 1 },
   {
     id: "dropdown" as const,
     labelKey: "toolbar.dropdown",
     icon: SquareChevronDown,
-    separate: true,
+    group: 2,
   },
-  { id: "optionlist" as const, labelKey: "toolbar.optionlist", icon: List },
+  {
+    id: "optionlist" as const,
+    labelKey: "toolbar.optionlist",
+    icon: List,
+    group: 2,
+  },
   {
     id: "button" as const,
     labelKey: "toolbar.button",
     icon: SquareMousePointer,
+    group: 2,
   },
 ];
 
-export function HeaderToolbar() {
+export function OfficeRibbon() {
   const { t } = useTranslation();
   const pdfBytes = useEditorStore((s) => s.pdfBytes);
   const activeTool = useEditorStore((s) => s.activeTool);
@@ -56,21 +70,27 @@ export function HeaderToolbar() {
   if (!pdfBytes) return null;
 
   return (
-    <>
-      <ToolbarSeparator />
-      {TOOL_KEYS.map(({ id, labelKey, icon: Icon, separate }) => (
+    <div
+      data-tour="drawing-tools"
+      className="flex items-center border-t border-border bg-background px-2 py-1 overflow-x-auto select-none"
+    >
+      {TOOL_KEYS.map(({ id, labelKey, icon: Icon, group }, i) => (
         <React.Fragment key={id}>
+          {i > 0 && group !== TOOL_KEYS[i - 1].group && (
+            <div className="mx-1.5 h-6 w-px bg-border" />
+          )}
           <Tooltip>
             <TooltipTrigger
-              render={
-                <ToolButton
-                  variant="icon"
-                  onClick={() => setActiveTool(id)}
-                  active={activeTool === id}
-                />
+              onClick={() => setActiveTool(id)}
+              className={
+                "flex items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 whitespace-nowrap " +
+                (activeTool === id
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-accent/40 hover:text-accent-foreground")
               }
             >
-              <Icon className="h-3.5 w-3.5" />
+              <Icon className="h-3.5 w-3.5 shrink-0" />
+              <span>{t(labelKey)}</span>
             </TooltipTrigger>
             <TooltipContent>
               <span className="flex items-center gap-2">
@@ -81,13 +101,8 @@ export function HeaderToolbar() {
               </span>
             </TooltipContent>
           </Tooltip>
-          {!!separate && <Separator orientation="vertical" />}
         </React.Fragment>
       ))}
-    </>
+    </div>
   );
-}
-
-function ToolbarSeparator() {
-  return <div className="mx-0.5 h-6 w-px bg-border" />;
 }

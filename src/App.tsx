@@ -1,6 +1,7 @@
 import { AppHeader } from "@/components/app-header";
 import { CanvasOverlay } from "@/components/canvas-overlay";
 import { FloatingToolbar } from "@/components/floating-toolbar";
+import { OfficeRibbon } from "@/components/header-toolbar";
 import { OnboardingDialog } from "@/components/onboarding-dialog";
 import { PageSidebar } from "@/components/page-sidebar";
 import { PdfCanvas } from "@/components/pdf-canvas";
@@ -36,11 +37,19 @@ function App() {
   const isDragFileValid = useEditorStore((s) => s.isDragFileValid);
   const pdfBytes = useEditorStore((s) => s.pdfBytes);
   const layoutPreference = useSettingsStore((s) => s.layoutPreference);
+  const tourPending = useSettingsStore((s) => s.tourPending);
+  const startTour = useSettingsStore((s) => s.startTour);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const hRulerRef = useRef<HTMLDivElement>(null);
   const vRulerRef = useRef<HTMLDivElement>(null);
   const [overlayWidth, setOverlayWidth] = useState(0);
   const [canvasHeight, setCanvasHeight] = useState(0);
+
+  useEffect(() => {
+    if (tourPending && pdfBytes) {
+      startTour();
+    }
+  }, [tourPending, pdfBytes, startTour]);
 
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -72,7 +81,9 @@ function App() {
       onContextMenu={(e) => e.preventDefault()}
     >
       <ErrorBoundary>
-        <AppHeader />
+        <AppHeader>
+          {layoutPreference === "office" && <OfficeRibbon />}
+        </AppHeader>
       </ErrorBoundary>
 
       <div className="flex flex-1 overflow-hidden">

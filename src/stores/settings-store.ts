@@ -8,6 +8,7 @@ interface SettingsState {
   hasCompletedOnboarding: boolean;
   tourCompleted: boolean;
   tourActive: boolean;
+  tourPending: boolean;
   tourStep: number;
   settingsOpen: boolean;
   onboardingOpen: boolean;
@@ -16,6 +17,8 @@ interface SettingsState {
   completeOnboarding: (pref: LayoutPreference) => void;
   setTourCompleted: (completed: boolean) => void;
   startTour: () => void;
+  startTourPending: () => void;
+  clearTourPending: () => void;
   endTour: () => void;
   nextTourStep: () => void;
   prevTourStep: () => void;
@@ -43,6 +46,7 @@ export const useSettingsStore = create<SettingsState>()(
       hasCompletedOnboarding: false,
       tourCompleted: false,
       tourActive: false,
+      tourPending: false,
       tourStep: 0,
       settingsOpen: false,
       onboardingOpen: false,
@@ -58,7 +62,11 @@ export const useSettingsStore = create<SettingsState>()(
 
       setTourCompleted: (completed) => set({ tourCompleted: completed }),
 
-      startTour: () => set({ tourActive: true, tourStep: 0 }),
+      startTour: () => set({ tourActive: true, tourStep: 0, tourPending: false }),
+
+      startTourPending: () => set({ tourPending: true }),
+
+      clearTourPending: () => set({ tourPending: false }),
 
       endTour: () =>
         set({ tourActive: false, tourStep: 0, tourCompleted: true }),
@@ -89,6 +97,7 @@ export const useSettingsStore = create<SettingsState>()(
           hasCompletedOnboarding: false,
           tourCompleted: false,
           tourActive: false,
+          tourPending: false,
           tourStep: 0,
         }),
     }),

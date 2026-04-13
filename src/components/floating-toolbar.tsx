@@ -30,7 +30,7 @@ export function FloatingToolbar() {
     >
       <TooltipProvider>
         <div className="flex items-center gap-1 rounded-lg border border-border bg-toolbar-bg px-1.5 py-1 shadow-lg backdrop-blur-sm select-none">
-          {TOOL_KEYS.map(({ id, labelKey, icon: Icon, separate }) => (
+          {TOOL_KEYS.map(({ id, labelKey, icon: Icon, group }, i) => (
             <React.Fragment key={id}>
               <Tooltip>
                 <TooltipTrigger
@@ -54,7 +54,9 @@ export function FloatingToolbar() {
                   </span>
                 </TooltipContent>
               </Tooltip>
-              {!!separate && <Separator orientation="vertical" />}
+              {i < TOOL_KEYS.length - 1 && group !== TOOL_KEYS[i + 1].group && (
+                <Separator orientation="vertical" />
+              )}
             </React.Fragment>
           ))}
         </div>

@@ -28,7 +28,7 @@ export function OnboardingDialog() {
     (s) => s.hasCompletedOnboarding,
   );
   const completeOnboarding = useSettingsStore((s) => s.completeOnboarding);
-  const startTour = useSettingsStore((s) => s.startTour);
+  const startTourPending = useSettingsStore((s) => s.startTourPending);
 
   const [step, setStep] = useState(0);
   const [selectedLayout, setSelectedLayout] =
@@ -40,7 +40,7 @@ export function OnboardingDialog() {
 
   function handleFinish() {
     completeOnboarding(selectedLayout);
-    startTour();
+    startTourPending();
     setStep(0);
   }
 
@@ -66,7 +66,7 @@ export function OnboardingDialog() {
               {step === 2 && t("onboarding.ready.title")}
             </DialogTitle>
           </DialogHeader>
-          <DialogDescription className="mt-1.5">
+          <DialogDescription className="mt-1">
             {step === 0 && t("onboarding.welcome.description")}
             {step === 1 && t("onboarding.layout.description")}
             {step === 2 && t("onboarding.ready.description")}
@@ -76,8 +76,19 @@ export function OnboardingDialog() {
         <div className="px-6 pb-2">
           {step === 0 && (
             <div className="flex items-center justify-center py-6">
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10">
-                <Monitor className="h-8 w-8 text-primary" />
+              <div className="relative flex h-20 w-28 items-center justify-center">
+                <div className="absolute inset-0 rounded-lg border border-border bg-muted/20 -rotate-3" />
+                <div className="absolute inset-0 rounded-lg border border-border bg-card shadow-sm rotate-2">
+                  <div className="p-2.5 space-y-2">
+                    <div className="h-1 w-10 rounded-sm bg-foreground/10" />
+                    <div className="h-3.5 w-full rounded border border-field-text/30 bg-field-text-bg" />
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-3.5 w-3.5 rounded border border-field-checkbox/30 bg-field-checkbox-bg" />
+                      <div className="h-1 w-6 rounded-sm bg-foreground/10" />
+                    </div>
+                    <div className="h-3.5 w-3/4 rounded border border-field-radio/30 bg-field-radio-bg" />
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -87,20 +98,22 @@ export function OnboardingDialog() {
               <button
                 type="button"
                 onClick={() => setSelectedLayout("figma")}
-                className={`group flex flex-col items-start rounded-lg border p-3 text-left transition-colors ${
+                className={`group flex flex-col items-start rounded-lg border p-3.5 text-left transition-colors ${
                   selectedLayout === "figma"
-                    ? "border-primary bg-primary/5"
+                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                     : "border-border hover:border-muted-foreground/30"
                 }`}
               >
                 <div className="flex w-full items-center justify-between">
                   <LayoutGrid className="h-4 w-4 text-muted-foreground" />
                   {selectedLayout === "figma" && (
-                    <Check className="h-4 w-4 text-primary" />
+                    <div className="flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+                      <Check className="h-2.5 w-2.5 text-primary-foreground" strokeWidth={3} />
+                    </div>
                   )}
                 </div>
                 <div
-                  className="mt-2 w-full rounded border border-border bg-muted/30 overflow-hidden"
+                  className="mt-2.5 w-full rounded border border-border bg-muted/30 overflow-hidden"
                   style={{ aspectRatio: "16/10" }}
                 >
                   <div className="h-2 w-full border-b border-border bg-card" />
@@ -118,7 +131,7 @@ export function OnboardingDialog() {
                     <div className="w-6 border-l border-border bg-card" />
                   </div>
                 </div>
-                <p className="mt-2 text-xs font-medium text-foreground">
+                <p className="mt-2.5 text-xs font-medium text-foreground">
                   {t("onboarding.layout.figma")}
                 </p>
                 <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
@@ -129,20 +142,22 @@ export function OnboardingDialog() {
               <button
                 type="button"
                 onClick={() => setSelectedLayout("office")}
-                className={`group flex flex-col items-start rounded-lg border p-3 text-left transition-colors ${
+                className={`group flex flex-col items-start rounded-lg border p-3.5 text-left transition-colors ${
                   selectedLayout === "office"
-                    ? "border-primary bg-primary/5"
+                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                     : "border-border hover:border-muted-foreground/30"
                 }`}
               >
                 <div className="flex w-full items-center justify-between">
                   <Monitor className="h-4 w-4 text-muted-foreground" />
                   {selectedLayout === "office" && (
-                    <Check className="h-4 w-4 text-primary" />
+                    <div className="flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+                      <Check className="h-2.5 w-2.5 text-primary-foreground" strokeWidth={3} />
+                    </div>
                   )}
                 </div>
                 <div
-                  className="mt-2 w-full rounded border border-border bg-muted/30 overflow-hidden"
+                  className="mt-2.5 w-full rounded border border-border bg-muted/30 overflow-hidden"
                   style={{ aspectRatio: "16/10" }}
                 >
                   <div className="h-2 w-full border-b border-border bg-card">
@@ -156,6 +171,13 @@ export function OnboardingDialog() {
                       <div className="h-1.5 w-1.5 rounded-sm bg-muted-foreground/20" />
                     </div>
                   </div>
+                  <div className="h-1.5 w-full border-b border-border bg-card/60">
+                    <div className="flex items-center gap-1 px-1">
+                      <div className="h-1 w-3 rounded-sm bg-muted-foreground/20" />
+                      <div className="h-1 w-4 rounded-sm bg-muted-foreground/20" />
+                      <div className="h-1 w-3 rounded-sm bg-muted-foreground/20" />
+                    </div>
+                  </div>
                   <div className="flex h-full">
                     <div className="flex flex-1 flex-col items-center justify-center gap-1 p-2">
                       <div className="h-1 w-6 rounded-sm bg-muted-foreground/20" />
@@ -164,7 +186,7 @@ export function OnboardingDialog() {
                     <div className="w-6 border-l border-border bg-card" />
                   </div>
                 </div>
-                <p className="mt-2 text-xs font-medium text-foreground">
+                <p className="mt-2.5 text-xs font-medium text-foreground">
                   {t("onboarding.layout.office")}
                 </p>
                 <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
@@ -175,7 +197,7 @@ export function OnboardingDialog() {
           )}
 
           {step === 2 && (
-            <div className="grid gap-3 py-4">
+            <div className="grid gap-2 py-4">
               {[
                 {
                   icon: PanelLeft,
@@ -195,16 +217,16 @@ export function OnboardingDialog() {
               ].map(({ icon: Icon, title, desc }) => (
                 <div
                   key={title}
-                  className="flex items-start gap-3 rounded-md border border-border p-3"
+                  className="flex items-center gap-3 rounded-md border border-border px-3 py-2.5"
                 >
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/50">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/40">
                     <Icon className="h-3.5 w-3.5 text-muted-foreground" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs font-medium text-foreground">
                       {title}
                     </p>
-                    <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
+                    <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground truncate">
                       {desc}
                     </p>
                   </div>
@@ -215,14 +237,16 @@ export function OnboardingDialog() {
         </div>
 
         <div className="flex items-center justify-between border-t border-border px-6 py-3">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
-                className={`h-1.5 rounded-full transition-all ${
+                className={`h-1 rounded-full transition-all duration-200 ${
                   i === step
-                    ? "w-4 bg-primary"
-                    : "w-1.5 bg-muted-foreground/20"
+                    ? "w-5 bg-primary"
+                    : i < step
+                      ? "w-1.5 bg-primary/40"
+                      : "w-1.5 bg-muted-foreground/15"
                 }`}
               />
             ))}
