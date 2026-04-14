@@ -1,5 +1,9 @@
 mod lang;
 
+use tauri::webview::{PageLoadEvent, WebviewWindowBuilder};
+use tauri::window::Color;
+use tauri::WebviewUrl;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -8,6 +12,20 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .manage(lang::LanguageState::new())
         .invoke_handler(tauri::generate_handler![lang::set_language])
+        .setup(|app| {
+            WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+                .title("PDF Form Maker")
+                .inner_size(1280.0, 800.0)
+                .visible(false)
+                .background_color(Color(30, 30, 30, 255))
+                .on_page_load(|window, payload| {
+                    if payload.event() == PageLoadEvent::Finished {
+                        window.show().unwrap();
+                    }
+                })
+                .build()?;
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
