@@ -345,14 +345,10 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
               {t("canvas.emptyDescription")}
             </p>
           </div>
-          <div className="mt-2 flex flex-col gap-1.5 text-[11px] text-muted-foreground/70">
+          <div className="flex flex-col gap-1.5 text-[11px] text-muted-foreground/70">
             <div className="flex items-center gap-2">
               <Kbd>Ctrl</Kbd>+<Kbd>O</Kbd>
               <span>{t("canvas.openPdf")}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Kbd>Ctrl</Kbd>+<Kbd>Scroll</Kbd>
-              <span>{t("canvas.zoom")}</span>
             </div>
           </div>
         </div>
