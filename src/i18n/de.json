@@ -33,6 +33,7 @@
   },
   "properties": {
     "panelError": "Panel-Fehler",
+    "panelTitle": "Eigenschaften",
     "noSelection": "Element auswählen, um Eigenschaften zu bearbeiten",
     "selected": "{{count}} ausgewählt",
     "textFields": "Textfelder",
@@ -102,7 +103,16 @@
     "clearBackgroundColor": "Hintergrundfarbe entfernen",
     "clearBorderColor": "Rahmenfarbe entfernen",
     "editPageNumber": "Seitennummer bearbeiten",
-    "addOption": "Option hinzufügen"
+    "addOption": "Option hinzufügen",
+    "bold": "Fett",
+    "italic": "Kursiv",
+    "dragOption": "Option {{index}} ziehen",
+    "setDefaultOption": "Option {{index}} als Standard festlegen",
+    "removeOption": "Option {{index}} entfernen",
+    "newOption": "Option {{index}}",
+    "kofi": "Unterstütze mich mit einem Ko-fi",
+    "collapsePanel": "Panel einklappen",
+    "expandPanel": "Panel ausklappen"
   },
   "status": {
     "clickToSelect": "Klicken zum Auswählen",
@@ -126,7 +136,10 @@
     "removeField": "Feld entfernen",
     "dropToOpen": "PDF zum Öffnen ablegen",
     "dropToReplace": "PDF ablegen, um aktuelles Dokument zu ersetzen",
-    "dropInvalidFile": "Nur PDF-Dateien werden unterstützt"
+    "dropInvalidFile": "Nur PDF-Dateien werden unterstützt",
+    "loading": "PDF wird geladen...",
+    "formCanvas": "PDF-Formular-Canvas",
+    "canvasArea": "Canvas"
   },
   "sidebar": {
     "pages": "Seiten"
@@ -141,14 +154,17 @@
     "defaultExportName": "formular-ausgabe.pdf",
     "openFailed": "Datei konnte nicht geöffnet werden. Bitte überprüfen Sie, ob die Datei ein gültiges PDF ist.",
     "exportFailed": "PDF konnte nicht exportiert werden. Bitte versuchen Sie es erneut.",
-    "invalidPdf": "Die ausgewählte Datei ist kein gültiges PDF."
+    "invalidPdf": "Die ausgewählte Datei ist kein gültiges PDF.",
+    "fileTooLarge": "Die Datei ist zu groß zum Öffnen (max. 100 MB).",
+    "operationInProgress": "Eine andere Dateioperation wird bereits ausgeführt. Bitte warten."
   },
   "dialog": {
     "unsavedTitle": "Ungespeicherte Änderungen",
     "unsavedChanges": "Sie haben ungespeicherte Änderungen. Speichern bevor Sie fortfahren?",
     "save": "Speichern",
     "discard": "Nicht speichern",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "close": "Schließen"
   },
   "errors": {
     "boundaryTitle": "Etwas ist schiefgelaufen",
@@ -157,7 +173,11 @@
     "exportEmptyName": "Einige Felder haben leere Namen. Bitte benennen Sie alle Felder vor dem Export.",
     "nameRequired": "Feldname ist erforderlich",
     "groupNameRequired": "Gruppenname ist für Optionsfelder erforderlich",
-    "radioValueRequired": "Wert ist für Optionsfelder erforderlich"
+    "radioValueRequired": "Wert ist für Optionsfelder erforderlich",
+    "defaultValueExceedsMaxLength": "Standardwert überschreitet maximale Länge",
+    "exportEmptyOptions": "Einige Felder haben keine Optionen. Bitte fügen Sie mindestens eine Option hinzu.",
+    "exportEmptyOptionValue": "Einige Optionen sind leer. Bitte füllen Sie leere Optionen aus oder entfernen Sie diese.",
+    "exportDuplicateOptions": "Einige Felder haben doppelte Optionen. Bitte stellen Sie sicher, dass alle Optionen eindeutig sind."
   },
   "shortcuts": {
     "title": "Tastenkombinationen",
@@ -190,7 +210,8 @@
     "zoom100": "Auf 100 % zoomen",
     "nudge": "1 pt verschieben",
     "nudge5": "5 pt verschieben",
-    "openShortcuts": "Tastenkombinationen"
+    "openShortcuts": "Tastenkombinationen",
+    "or": "oder"
   },
   "contextMenu": {
     "cut": "Ausschneiden",
@@ -244,7 +265,8 @@
     "next": "Weiter",
     "done": "Fertig",
     "getStarted": "Loslegen",
-    "closeTour": "Tour schließen"
+    "closeTour": "Tour schließen",
+    "stepProgress": "Schritt {{current}} von {{total}}"
   },
   "settings": {
     "title": "Einstellungen",
@@ -256,5 +278,16 @@
     "help": "Hilfe",
     "showTour": "Feature-Tour anzeigen",
     "resetOnboarding": "Onboarding neu starten"
+  },
+  "errorBoundary": {
+    "message": "Etwas ist schiefgelaufen",
+    "retry": "Erneut versuchen"
+  },
+  "announcements": {
+    "elementAdded": "{{type}} hinzugefügt",
+    "elementsDeleted": "{{count}} gelöscht",
+    "elementsDuplicated": "{{count}} dupliziert",
+    "guideHorizontal": "Horizontale Hilfslinie bei Y {{position}}",
+    "guideVertical": "Vertikale Hilfslinie bei X {{position}}"
   }
 }

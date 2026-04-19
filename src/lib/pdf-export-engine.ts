@@ -59,10 +59,15 @@ function dedupeFieldName(
   if (!name || name.trim() === "") {
     return `field_${index + 1}`;
   }
-  if (!usedNames.has(name)) return name;
+  const safe = name.slice(0, 100);
+  if (!usedNames.has(safe)) return safe;
   let i = 2;
-  while (usedNames.has(`${name}_${i}`)) i++;
-  return `${name}_${i}`;
+  for (let attempts = 0; attempts < 10000; attempts++) {
+    const candidate = `${safe}_${i}`;
+    if (!usedNames.has(candidate)) return candidate;
+    i++;
+  }
+  return `field_${index + 1}_${Date.now().toString(36)}`;
 }
 
 
@@ -71,6 +76,13 @@ export async function exportFormElements(
   originalPdfBytes: Uint8Array,
   elements: FormElement[],
 ): Promise<Uint8Array> {
+  if (!originalPdfBytes || originalPdfBytes.length === 0) {
+    throw new Error("Cannot export: no PDF data provided");
+  }
+  if (!Array.isArray(elements)) {
+    throw new Error("Cannot export: invalid elements");
+  }
+
   const pdf = await PDFDocument.load(originalPdfBytes);
   const pageCount = pdf.getPageCount();
 
@@ -109,22 +121,26 @@ export async function exportFormElements(
     const safeName = dedupeFieldName("name" in el ? el.name : "", usedNames, i);
     usedNames.add(safeName);
 
-    switch (el.type) {
-      case "text":
-        addTextField(form, page, { ...el, name: safeName }, pageHeight, pdf);
-        break;
-      case "checkbox":
-        addCheckboxField(form, page, { ...el, name: safeName }, pageHeight);
-        break;
-      case "dropdown":
-        addDropdownField(form, page, { ...el, name: safeName }, pageHeight, pdf);
-        break;
-      case "button":
-        addButtonField(form, page, { ...el, name: safeName }, pageHeight, pdf);
-        break;
-      case "optionlist":
-        addOptionListField(form, page, { ...el, name: safeName }, pageHeight, pdf);
-        break;
+    try {
+      switch (el.type) {
+        case "text":
+          addTextField(form, page, { ...el, name: safeName }, pageHeight, pdf);
+          break;
+        case "checkbox":
+          addCheckboxField(form, page, { ...el, name: safeName }, pageHeight);
+          break;
+        case "dropdown":
+          addDropdownField(form, page, { ...el, name: safeName }, pageHeight, pdf);
+          break;
+        case "button":
+          addButtonField(form, page, { ...el, name: safeName }, pageHeight, pdf);
+          break;
+        case "optionlist":
+          addOptionListField(form, page, { ...el, name: safeName }, pageHeight, pdf);
+          break;
+      }
+    } catch (err) {
+      console.warn(`Skipping field "${safeName}" due to export error:`, err);
     }
   }
 
@@ -137,21 +153,24 @@ export async function exportFormElements(
   }
 
   for (const [groupName, radios] of groups) {
-    const radioGroup = form.createRadioGroup(groupName);
+    try {
+      const radioGroup = form.createRadioGroup(groupName);
 
-    for (const el of radios) {
-      if (el.pageNumber < 1 || el.pageNumber > pageCount) continue;
-      const page = pdf.getPage(el.pageNumber - 1);
-      const { height: pageHeight } = page.getSize();
-      const pdfY = pageHeight - el.y - el.height;
-      radioGroup.addOptionToPage(el.value || el.id, page, {
-        x: el.x,
-        y: pdfY,
-        width: el.width,
-        height: el.height,
-      });
+      for (const el of radios) {
+        if (el.pageNumber < 1 || el.pageNumber > pageCount) continue;
+        const page = pdf.getPage(el.pageNumber - 1);
+        const { height: pageHeight } = page.getSize();
+        const pdfY = pageHeight - el.y - el.height;
+        radioGroup.addOptionToPage(el.value || el.id, page, {
+          x: el.x,
+          y: pdfY,
+          width: el.width,
+          height: el.height,
+        });
+      }
+    } catch (err) {
+      console.warn(`Skipping radio group "${groupName}" due to export error:`, err);
     }
-
   }
 
   return pdf.save();

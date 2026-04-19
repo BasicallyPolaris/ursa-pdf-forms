@@ -3,6 +3,7 @@ import {
   TOTAL_TOUR_STEPS,
   useSettingsStore,
 } from "@/stores/settings-store";
+import { usePrefersReducedMotion } from "@/lib/use-prefers-reduced-motion";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -32,6 +33,7 @@ export function TourSpotlight() {
   const prevRectRef = useRef<SpotlightRect | null>(null);
   const prevTooltipPosRef = useRef<string>("bottom");
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const prefersReduced = usePrefersReducedMotion();
 
   const handleTrapKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key !== "Tab") return;
@@ -117,12 +119,15 @@ export function TourSpotlight() {
     }
 
     update();
+    if (prefersReduced) return;
     rafRef.current = requestAnimationFrame(function loop() {
       update();
       rafRef.current = requestAnimationFrame(loop);
     });
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [tourActive, tourStep]);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [tourActive, tourStep, prefersReduced]);
 
   if (!tourActive || !rect) return null;
 

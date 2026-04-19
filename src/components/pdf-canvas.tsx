@@ -1,4 +1,5 @@
 import { Kbd } from "@/components/ui/kbd";
+import { useScrollContainerRef } from "@/contexts/scroll-container-context";
 import { VisiblePagesContext } from "@/contexts/visible-pages";
 import {
   computePageLayouts as computeLayouts,
@@ -109,6 +110,7 @@ interface PdfCanvasProps {
 
 export function PdfCanvas({ children }: PdfCanvasProps) {
   const { t } = useTranslation();
+  const scrollRef = useScrollContainerRef();
   const pdfBytes = useEditorStore((s) => s.renderPdfBytes ?? s.pdfBytes);
   const pages = useEditorStore((s) => s.pages);
   const committedZoom = useEditorStore((s) => s.zoom);
@@ -149,9 +151,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   const scrollRafRef = useRef<number | null>(null);
 
   const computeVisibleSet = useCallback((): Set<number> => {
-    const el = document.querySelector<HTMLElement>(
-      "[data-pdf-scroll-container]",
-    );
+    const el = scrollRef.current;
     if (!el || pagesRef.current.length === 0) return new Set();
     const raw = getVisiblePageNumbers(
       layoutsRef.current,
@@ -178,9 +178,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   useEffect(() => {
     const listener: ZoomListener = {
       onZoomSettle(_zoom: number) {
-        const scrollEl = document.querySelector<HTMLElement>(
-          "[data-pdf-scroll-container]",
-        );
+        const scrollEl = scrollRef.current;
         if (scrollEl && pagesRef.current.length > 0) {
           pendingScrollCorrectionRef.current = {
             scrollTop: scrollEl.scrollTop,
@@ -196,9 +194,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   }, []);
 
   useLayoutEffect(() => {
-    const scrollEl = document.querySelector<HTMLElement>(
-      "[data-pdf-scroll-container]",
-    );
+    const scrollEl = scrollRef.current;
     if (!scrollEl) return;
 
     const pending = pendingScrollCorrectionRef.current;
@@ -237,9 +233,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   });
 
   useEffect(() => {
-    const el = document.querySelector<HTMLElement>(
-      "[data-pdf-scroll-container]",
-    );
+    const el = scrollRef.current;
     if (!el) return;
     const onScroll = () => {
       if (scrollRafRef.current !== null) return;

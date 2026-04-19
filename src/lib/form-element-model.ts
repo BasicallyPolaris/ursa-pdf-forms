@@ -125,9 +125,18 @@ export type FormElement =
   | ButtonField
   | OptionListField;
 
+export const MAX_FIELD_NAME_LENGTH = 100;
+export const MAX_OPTION_COUNT = 200;
+export const MAX_OPTIONS_PER_FIELD = 100;
+
 let nextId = 1;
 function generateId(): string {
   return `el_${nextId++}_${Date.now().toString(36)}`;
+}
+
+function sanitizeCoordinate(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(value, 14400));
 }
 
 export function heightFromFontSize(fontSize: number): number {
@@ -161,17 +170,19 @@ export function getUniqueName(
   if (match) {
     const prefix = match[1];
     let num = parseInt(match[2], 10);
-    while (existingNames.has(`${prefix}${num}`)) {
+    for (let attempts = 0; attempts < 10000; attempts++) {
+      if (!existingNames.has(`${prefix}${num}`)) return `${prefix}${num}`;
       num++;
     }
-    return `${prefix}${num}`;
+    return `${baseName}_${Date.now().toString(36)}`;
   }
   if (!existingNames.has(baseName)) return baseName;
   let i = 2;
-  while (existingNames.has(`${baseName}_${i}`)) {
+  for (let attempts = 0; attempts < 10000; attempts++) {
+    if (!existingNames.has(`${baseName}_${i}`)) return `${baseName}_${i}`;
     i++;
   }
-  return `${baseName}_${i}`;
+  return `${baseName}_${Date.now().toString(36)}`;
 }
 
 interface TextFieldOptions {
@@ -196,15 +207,15 @@ export function createTextField(opts: TextFieldOptions): TextField {
   return {
     type: "text",
     id: generateId(),
-    x: opts.x,
-    y: opts.y,
+    x: sanitizeCoordinate(opts.x),
+    y: sanitizeCoordinate(opts.y),
     width: safePositive(opts.width, 150),
     height: safePositive(
       opts.height,
       multiline ? 60 : heightFromFontSize(fontSize),
     ),
     pageNumber: opts.pageNumber,
-    name: opts.name ?? "",
+    name: (opts.name ?? "").slice(0, MAX_FIELD_NAME_LENGTH),
     defaultValue: opts.defaultValue ?? "",
     fontSize,
     multiline,
@@ -233,12 +244,12 @@ export function createCheckbox(opts: CheckboxOptions): Checkbox {
   return {
     type: "checkbox",
     id: generateId(),
-    x: opts.x,
-    y: opts.y,
+    x: sanitizeCoordinate(opts.x),
+    y: sanitizeCoordinate(opts.y),
     width: safePositive(opts.width, 15),
     height: safePositive(opts.height, 15),
     pageNumber: opts.pageNumber,
-    name: opts.name ?? "",
+    name: (opts.name ?? "").slice(0, MAX_FIELD_NAME_LENGTH),
     defaultChecked: opts.defaultChecked ?? false,
   };
 }
@@ -266,12 +277,12 @@ export function createRadioButton(opts: RadioButtonOptions): RadioButton {
   return {
     type: "radio",
     id: generateId(),
-    x: opts.x,
-    y: opts.y,
+    x: sanitizeCoordinate(opts.x),
+    y: sanitizeCoordinate(opts.y),
     width: safePositive(opts.width, 15),
     height: safePositive(opts.height, 15),
     pageNumber: opts.pageNumber,
-    groupName: opts.groupName ?? "",
+    groupName: (opts.groupName ?? "").slice(0, MAX_FIELD_NAME_LENGTH),
     value: opts.value ?? "",
     label: opts.label ?? "",
   };
@@ -300,13 +311,13 @@ export function createDropdownField(opts: DropdownFieldOptions): DropdownField {
   return {
     type: "dropdown",
     id: generateId(),
-    x: opts.x,
-    y: opts.y,
+    x: sanitizeCoordinate(opts.x),
+    y: sanitizeCoordinate(opts.y),
     width: safePositive(opts.width, 150),
     height: safePositive(opts.height, heightFromFontSize(fontSize)),
     pageNumber: opts.pageNumber,
-    name: opts.name ?? "",
-    options: opts.options ?? ["Option 1", "Option 2"],
+    name: (opts.name ?? "").slice(0, MAX_FIELD_NAME_LENGTH),
+    options: (opts.options ?? ["Option 1", "Option 2"]).slice(0, MAX_OPTIONS_PER_FIELD),
     defaultValue: opts.defaultValue ?? "",
     fontSize,
     required: opts.required ?? false,
@@ -340,12 +351,12 @@ export function createButtonField(opts: ButtonFieldOptions): ButtonField {
   return {
     type: "button",
     id: generateId(),
-    x: opts.x,
-    y: opts.y,
+    x: sanitizeCoordinate(opts.x),
+    y: sanitizeCoordinate(opts.y),
     width: safePositive(opts.width, 80),
     height: safePositive(opts.height, heightFromFontSize(fontSize)),
     pageNumber: opts.pageNumber,
-    name: opts.name ?? "",
+    name: (opts.name ?? "").slice(0, MAX_FIELD_NAME_LENGTH),
     label: opts.label ?? "Button",
     fontSize,
     fontFamily: "Helvetica",
@@ -376,16 +387,16 @@ interface OptionListFieldOptions {
 
 export function createOptionListField(opts: OptionListFieldOptions): OptionListField {
   const fontSize = opts.fontSize ?? 12;
-  const options = opts.options ?? ["Option 1", "Option 2"];
+  const options = (opts.options ?? ["Option 1", "Option 2"]).slice(0, MAX_OPTIONS_PER_FIELD);
   return {
     type: "optionlist",
     id: generateId(),
-    x: opts.x,
-    y: opts.y,
+    x: sanitizeCoordinate(opts.x),
+    y: sanitizeCoordinate(opts.y),
     width: safePositive(opts.width, 150),
     height: safePositive(opts.height, heightFromOptions(fontSize, options.length)),
     pageNumber: opts.pageNumber,
-    name: opts.name ?? "",
+    name: (opts.name ?? "").slice(0, MAX_FIELD_NAME_LENGTH),
     options,
     defaultValue: opts.defaultValue ?? "",
     fontSize,
@@ -446,6 +457,21 @@ export function validateElementForExport(elements: FormElement[]): {
     } else {
       const count = names.get(name) ?? 0;
       names.set(name, count + 1);
+    }
+
+    if ("options" in el && Array.isArray((el as { options?: unknown }).options)) {
+      const options = (el as { options: string[] }).options;
+      if (options.length === 0) {
+        errors.push("empty-options");
+      }
+      const nonEmpty = options.filter((o) => o.trim() !== "");
+      if (nonEmpty.length < options.length) {
+        errors.push("empty-option-value");
+      }
+      const unique = new Set(options);
+      if (unique.size < options.length) {
+        errors.push("duplicate-options");
+      }
     }
   }
 

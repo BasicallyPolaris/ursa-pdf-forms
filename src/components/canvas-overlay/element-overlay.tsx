@@ -1,8 +1,9 @@
 import { memo, useCallback } from "react";
 import { Rnd } from "react-rnd";
 import { pdfToScreen } from "@/lib/coordinates";
+import { resolveCssVar } from "@/lib/css-vars";
 import { fontFamilyToCss, fontWeightToCss, fontStyleToCss } from "@/lib/font-utils";
-import { getElementStyleConfig } from "@/lib/element-style-map";
+import { getElementStyleConfig, getFieldTypeLabel } from "@/lib/element-style-map";
 import { getElementName, type FormElement } from "@/lib/form-element-model";
 import type { PageLayout } from "@/lib/page-layout";
 import {
@@ -15,17 +16,7 @@ import {
   Type,
 } from "lucide-react";
 
-const cssVarCache = new Map<string, string>();
-
-function resolveCssVar(varName: string): string {
-  let value = cssVarCache.get(varName);
-  if (value === undefined) {
-    const el = document.querySelector(".dark") ?? document.documentElement;
-    value = getComputedStyle(el).getPropertyValue(varName).trim();
-    cssVarCache.set(varName, value);
-  }
-  return value;
-}
+export { invalidateCssVarCache as invalidateElementColorCache } from "@/lib/css-vars";
 
 function getFieldColor(el: FormElement): string {
   const varMap: Record<string, string> = {
@@ -182,21 +173,21 @@ export const ElementOverlay = memo(function ElementOverlay({
     isResizing ? resizeSnapCorrection : undefined,
   );
 
-  const handleRndDragStart = useCallback((e: any) => {
+  const handleRndDragStart = useCallback((e: unknown) => {
     onDragStart(el, e as React.MouseEvent);
     onResetResize();
   }, [el, onDragStart, onResetResize]);
 
-  const handleRndDrag = useCallback((dragEvent: any, d: { x: number; y: number }) => {
-    onDrag(el, { x: screenX, y: screenY }, d, dragEvent as unknown as MouseEvent);
+  const handleRndDrag = useCallback((dragEvent: unknown, d: { x: number; y: number }) => {
+    onDrag(el, { x: screenX, y: screenY }, d, dragEvent as MouseEvent);
   }, [el, screenX, screenY, onDrag]);
 
-  const handleRndDragStop = useCallback((dragStopEvent: any, d: { x: number; y: number }) => {
-    onDragStop(el, { x: screenX, y: screenY }, d, dragStopEvent as unknown as MouseEvent);
+  const handleRndDragStop = useCallback((dragStopEvent: unknown, d: { x: number; y: number }) => {
+    onDragStop(el, { x: screenX, y: screenY }, d, dragStopEvent as MouseEvent);
   }, [el, screenX, screenY, onDragStop]);
 
-  const handleRndResize = useCallback((resizeEvent: any, dir: string, ref: HTMLElement, _delta: any, position: { x: number; y: number }) => {
-    onResize(el, dir, ref, position, resizeEvent as unknown as MouseEvent);
+  const handleRndResize = useCallback((resizeEvent: unknown, dir: string, ref: HTMLElement, _delta: unknown, position: { x: number; y: number }) => {
+    onResize(el, dir, ref, position, resizeEvent as MouseEvent);
   }, [el, onResize]);
 
   const handleRndResizeStop = useCallback(() => {
@@ -225,7 +216,7 @@ export const ElementOverlay = memo(function ElementOverlay({
     >
       <div
         role="button"
-        aria-label={`${getElementName(el)} (${el.type})`}
+        aria-label={`${getElementName(el)} (${getFieldTypeLabel(styleConfig)})`}
         aria-pressed={isSelected}
         tabIndex={-1}
         className={`h-full w-full flex items-center justify-center outline-none ring-0 ${
@@ -277,6 +268,8 @@ export const ElementOverlay = memo(function ElementOverlay({
               fontStyle: fontStyleToCss(el.fontWeight),
               opacity: 0.5,
               lineHeight: el.multiline ? "1.2" : undefined,
+              overflowWrap: "break-word",
+              wordBreak: "break-word",
             }}
           >
             {el.defaultValue}
@@ -298,6 +291,8 @@ export const ElementOverlay = memo(function ElementOverlay({
               fontWeight: fontWeightToCss(el.fontWeight),
               fontStyle: fontStyleToCss(el.fontWeight),
               opacity: 0.7,
+              overflowWrap: "break-word",
+              wordBreak: "break-word",
             }}
           >
             {el.label}
@@ -307,7 +302,7 @@ export const ElementOverlay = memo(function ElementOverlay({
           <List className={`h-3/5 w-3/5 ${styleConfig.colorClass}`} strokeWidth={2} />
         )}
         <span
-          className={`absolute -top-4 left-0 max-w-20 truncate overflow-hidden text-[10px] select-none ${styleConfig.textColorClass}`}
+          className={`absolute -top-4 left-0 max-w-28 min-w-0 truncate overflow-hidden text-[10px] select-none ${styleConfig.textColorClass}`}
         >
           {getElementName(el)}
         </span>

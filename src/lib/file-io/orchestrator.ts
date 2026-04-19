@@ -13,8 +13,11 @@ import type {
 import type { FileIO, FileIOLabels, UnsavedAction } from "./types";
 
 function extractFileName(filePath: string, fallback: string): string {
+  if (typeof filePath !== "string" || filePath.length === 0) return fallback;
   return filePath.split(/[/\\]/).pop() ?? fallback;
 }
+
+const MAX_PDF_SIZE = 100 * 1024 * 1024;
 
 export function createFileIO(
   ports: {
@@ -25,6 +28,19 @@ export function createFileIO(
   },
   getLabels: () => FileIOLabels,
 ): FileIO {
+  let operationInProgress = false;
+
+  async function withLock<T>(fn: () => Promise<T>): Promise<T> {
+    if (operationInProgress) {
+      throw new Error("Another file operation is in progress");
+    }
+    operationInProgress = true;
+    try {
+      return await fn();
+    } finally {
+      operationInProgress = false;
+    }
+  }
   async function loadPdfFromBytes(
     bytes: Uint8Array,
     fileName: string,
@@ -91,28 +107,35 @@ export function createFileIO(
       if (result === "cancel") return "cancel";
       return "discard";
     } catch {
-      return "discard";
+      return "cancel";
     }
   }
 
   async function openPdf(): Promise<string | null> {
     const labels = getLabels();
     try {
-      const action = await confirmUnsavedChanges();
-      if (action === "cancel") return null;
+      return await withLock(async () => {
+        const action = await confirmUnsavedChanges();
+        if (action === "cancel") return null;
 
-      const filePath = await ports.dialogs.pickOpenFile([
-        { name: labels.pdfFilterName, extensions: ["pdf"] },
-      ]);
-      if (!filePath) return null;
+        const filePath = await ports.dialogs.pickOpenFile([
+          { name: labels.pdfFilterName, extensions: ["pdf"] },
+        ]);
+        if (!filePath) return null;
 
-      const bytes = await ports.fs.readFile(filePath);
-      const fileName = extractFileName(filePath, labels.defaultPdfName);
-      await loadPdfFromBytes(bytes, fileName);
-      return null;
+        const bytes = await ports.fs.readFile(filePath);
+        if (bytes.length > MAX_PDF_SIZE) {
+          return labels.fileTooLarge ?? "File is too large to open";
+        }
+        const fileName = extractFileName(filePath, labels.defaultPdfName);
+        await loadPdfFromBytes(bytes, fileName);
+        return null;
+      });
     } catch (error) {
       console.error("Open PDF failed:", error);
-      return labels.openFailed;
+      return error instanceof Error && error.message === "Another file operation is in progress"
+        ? labels.operationInProgress ?? "Another file operation is in progress"
+        : labels.openFailed;
     }
   }
 
@@ -122,21 +145,25 @@ export function createFileIO(
     if (!pdfBytes) return null;
 
     try {
-      const elements = ports.store.getElements();
-      const resultBytes = await exportFormElements(pdfBytes, elements);
+      return await withLock(async () => {
+        const elements = ports.store.getElements();
+        const resultBytes = await exportFormElements(pdfBytes, elements);
 
-      const filePath = await ports.dialogs.pickSaveFile(
-        [{ name: labels.pdfFilterName, extensions: ["pdf"] }],
-        labels.defaultExportName,
-      );
-      if (!filePath) return null;
+        const filePath = await ports.dialogs.pickSaveFile(
+          [{ name: labels.pdfFilterName, extensions: ["pdf"] }],
+          labels.defaultExportName,
+        );
+        if (!filePath) return null;
 
-      await ports.fs.writeFile(filePath, resultBytes);
-      ports.store.markClean();
-      return null;
+        await ports.fs.writeFile(filePath, resultBytes);
+        ports.store.markClean();
+        return null;
+      });
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : labels.exportFailed;
+        error instanceof Error && error.message !== "Another file operation is in progress"
+          ? error.message
+          : labels.exportFailed;
       console.error("Export failed:", error);
       return message;
     }
@@ -149,7 +176,7 @@ export function createFileIO(
         const action = await confirmUnsavedChanges();
         return action !== "cancel";
       } catch {
-        return true;
+        return false;
       }
     });
   }
@@ -157,13 +184,20 @@ export function createFileIO(
   async function loadPdfFromPath(filePath: string): Promise<string | null> {
     const labels = getLabels();
     try {
-      const bytes = await ports.fs.readFile(filePath);
-      const fileName = extractFileName(filePath, labels.defaultPdfName);
-      await loadPdfFromBytes(bytes, fileName);
-      return null;
+      return await withLock(async () => {
+        const bytes = await ports.fs.readFile(filePath);
+        if (bytes.length > MAX_PDF_SIZE) {
+          return labels.fileTooLarge ?? "File is too large to open";
+        }
+        const fileName = extractFileName(filePath, labels.defaultPdfName);
+        await loadPdfFromBytes(bytes, fileName);
+        return null;
+      });
     } catch (error) {
       console.error("Load PDF from path failed:", error);
-      return labels.loadFailed;
+      return error instanceof Error && error.message === "Another file operation is in progress"
+        ? labels.operationInProgress ?? "Another file operation is in progress"
+        : labels.loadFailed;
     }
   }
 

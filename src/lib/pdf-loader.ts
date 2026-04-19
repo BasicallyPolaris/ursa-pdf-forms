@@ -115,13 +115,14 @@ async function loadDocument(pdfBytes: Uint8Array): Promise<PdfDocument> {
   ): CancellableRender => {
     let renderTask: ReturnType<pdfjsLib.PDFPageProxy["render"]> | null = null;
     let cancelled = false;
+    const safeScale = Number.isFinite(scale) && scale > 0 ? Math.min(scale, 10) : 1;
 
     const promise = getPage(pageNumber).then(async (page) => {
       if (cancelled) throw new Error("Render cancelled");
-      const viewport = page.getViewport({ scale });
+      const viewport = page.getViewport({ scale: safeScale });
       const canvas = document.createElement("canvas");
-      canvas.width = Math.ceil(viewport.width);
-      canvas.height = Math.ceil(viewport.height);
+      canvas.width = Math.min(Math.ceil(viewport.width), 16384);
+      canvas.height = Math.min(Math.ceil(viewport.height), 16384);
       const ctx = canvas.getContext("2d", { alpha: false });
       if (!ctx) throw new Error("Cannot get 2d context");
       renderTask = page.render({ canvas, canvasContext: ctx, viewport });
@@ -179,6 +180,10 @@ export async function createPdfDocument(
 export async function loadPdfDocument(
   pdfBytes: Uint8Array,
 ): Promise<PdfDocument> {
+  if (!pdfBytes || pdfBytes.length === 0) {
+    throw new Error("Cannot load PDF: no data provided");
+  }
+
   if (cachedBytes === pdfBytes && cachedDoc) {
     return cachedDoc;
   }

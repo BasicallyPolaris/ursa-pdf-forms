@@ -21,4 +21,6 @@ export interface FileIOLabels {
   save: string;
   discard: string;
   cancel: string;
+  fileTooLarge?: string;
+  operationInProgress?: string;
 }

@@ -1,9 +1,10 @@
-import { useRef } from "react";
+import { memo, useRef } from "react";
 import type { PageInfo } from "@/lib/pdf-loader";
 import type { PageLayout } from "@/lib/page-layout";
 import type { GuideLine } from "@/stores/editor-store";
 import { V_PADDING, H_PADDING } from "@/lib/coordinates";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
+import { useTranslation } from "react-i18next";
 
 interface GuideLinesLayerProps {
   guides: GuideLine[];
@@ -24,7 +25,7 @@ interface GuideLinesLayerProps {
   removeGuide: (id: string) => void;
 }
 
-export function GuideLinesLayer({
+export const GuideLinesLayer = memo(function GuideLinesLayer({
   guides,
   selectedGuideId,
   layouts,
@@ -40,6 +41,7 @@ export function GuideLinesLayer({
   setPreviewGuide,
   removeGuide,
 }: GuideLinesLayerProps) {
+  const { t } = useTranslation();
   const draggingGuideIdRef = useRef<string | null>(null);
 
   return (
@@ -120,6 +122,33 @@ export function GuideLinesLayer({
           draggingGuideIdRef.current = guide.id;
         };
 
+        const handleGuideKeyDown = (e: React.KeyboardEvent) => {
+          if (activeTool !== "select") return;
+          const NUDGE = 1;
+          if (guide.orientation === "horizontal") {
+            if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+              e.preventDefault();
+              e.stopPropagation();
+              const maxY = pages[0]?.height ?? 792;
+              const delta = e.key === "ArrowUp" ? -NUDGE : NUDGE;
+              updateGuidePosition(guide.id, Math.max(0, Math.min(maxY, guide.position + delta)));
+            }
+          } else {
+            if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+              e.preventDefault();
+              e.stopPropagation();
+              const maxX = pages[0]?.width ?? 612;
+              const delta = e.key === "ArrowLeft" ? -NUDGE : NUDGE;
+              updateGuidePosition(guide.id, Math.max(0, Math.min(maxX, guide.position + delta)));
+            }
+          }
+          if (e.key === "Delete" || e.key === "Backspace") {
+            e.preventDefault();
+            e.stopPropagation();
+            removeGuide(guide.id);
+          }
+        };
+
         const lineStyle: React.CSSProperties = {
           position: "absolute",
           backgroundColor: "var(--guide-ruler)",
@@ -141,6 +170,17 @@ export function GuideLinesLayer({
                 className={`absolute z-40 group ${isInteractive ? "cursor-ns-resize" : "pointer-events-none"}`}
                 style={{ left: 0, top: screenY - 4, width: overlayWidth, height: 9 }}
                 onMouseDown={isInteractive ? (e) => handleGuideMouseDown(e, page.pageNumber) : undefined}
+                {...(pi === 0 && isInteractive ? {
+                  role: "slider" as const,
+                  tabIndex: 0,
+                  onKeyDown: handleGuideKeyDown,
+                  onFocus: () => selectGuide(guide.id),
+                  "aria-label": t("announcements.guideHorizontal", { position: Math.round(guide.position) }),
+                  "aria-valuenow": Math.round(guide.position),
+                  "aria-valuemin": 0,
+                  "aria-valuemax": Math.round(page.height ?? 792),
+                  "aria-orientation": "horizontal" as const,
+                } : {})}
               >
                 <div
                   className="w-full group-hover:opacity-100"
@@ -162,6 +202,17 @@ export function GuideLinesLayer({
               className={`absolute z-40 group ${isInteractive ? "cursor-ew-resize" : "pointer-events-none"}`}
               style={{ left: screenX - 4, top: 0, width: 9, height: totalContentHeight }}
               onMouseDown={isInteractive ? (e) => handleGuideMouseDown(e, 1) : undefined}
+              {...(isInteractive ? {
+                role: "slider" as const,
+                tabIndex: 0,
+                onKeyDown: handleGuideKeyDown,
+                onFocus: () => selectGuide(guide.id),
+                "aria-label": t("announcements.guideVertical", { position: Math.round(guide.position) }),
+                "aria-valuenow": Math.round(guide.position),
+                "aria-valuemin": 0,
+                "aria-valuemax": Math.round(pages[0]?.width ?? 612),
+                "aria-orientation": "vertical" as const,
+              } : {})}
             >
               <div
                 className="h-full group-hover:opacity-100"
@@ -173,4 +224,4 @@ export function GuideLinesLayer({
       })}
     </>
   );
-}
+});

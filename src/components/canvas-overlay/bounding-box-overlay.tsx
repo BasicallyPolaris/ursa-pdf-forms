@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { Rnd } from "react-rnd";
+import { resolveCssVar } from "@/lib/css-vars";
 
 interface ScreenRect {
   x: number;
@@ -174,18 +175,6 @@ function MultiResizeRnd({
 }
 
 const MIN_SCREEN = 10;
-
-const cssVarCache = new Map<string, string>();
-
-function resolveCssVar(varName: string): string {
-  let value = cssVarCache.get(varName);
-  if (value === undefined) {
-    const el = document.querySelector(".dark") ?? document.documentElement;
-    value = getComputedStyle(el).getPropertyValue(varName).trim();
-    cssVarCache.set(varName, value);
-  }
-  return value;
-}
 
 const ALL_HANDLES = {
   topLeft: true,

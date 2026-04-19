@@ -14,6 +14,7 @@ import {
   RECT_DRAW_TOOLS,
 } from "@/components/canvas-overlay/shared-constants";
 import { SnapGuidesLayer } from "@/components/canvas-overlay/snap-guides-layer";
+import { useScrollContainerRef } from "@/contexts/scroll-container-context";
 import { useVisiblePages } from "@/contexts/visible-pages";
 import { useDrawingTool } from "@/hooks/use-drawing-tool";
 import { useElementDrag } from "@/hooks/use-element-drag";
@@ -34,19 +35,118 @@ import {
   findPageAtScreenPoint,
   getVisiblePageNumbers,
   getTotalContentHeight,
+  type PageLayout,
 } from "@/lib/page-layout";
 import type { SnapContext } from "@/lib/snap-engine";
 import { useEditorStore } from "@/stores/editor-store";
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  type RefObject,
 } from "react";
+import { useTranslation } from "react-i18next";
+
+interface ElementOverlayListProps {
+  elements: FormElement[];
+  visiblePages: Set<number>;
+  layouts: Map<number, PageLayout>;
+  selectedIds: Set<string>;
+  dragLivePositions: Map<string, { x: number; y: number; width: number; height: number }> | null;
+  snapTargetIds: Set<string>;
+  zoom: number;
+  dragOffset: { dx: number; dy: number } | null;
+  dragDraggingIdRef: RefObject<string | null>;
+  dragSnapCorrection: { dx: number; dy: number } | null;
+  resizeResizingIdRef: RefObject<string | null>;
+  resizeSnapCorrection: { dx: number; dy: number; dw: number; dh: number } | null;
+  multiResizeActiveRef: RefObject<boolean>;
+  onDragStart: (el: FormElement, e: React.MouseEvent) => void;
+  onDrag: (el: FormElement, screen: { x: number; y: number }, d: { x: number; y: number }, me: MouseEvent) => void;
+  onDragStop: (el: FormElement, screen: { x: number; y: number }, d: { x: number; y: number }, me: MouseEvent) => void;
+  onResize: (el: FormElement, dir: string, ref: HTMLElement, position: { x: number; y: number }, me: MouseEvent) => void;
+  onResizeStop: (el: FormElement) => void;
+  onResetResize: () => void;
+}
+
+const ElementOverlayList = memo(function ElementOverlayList({
+  elements,
+  visiblePages,
+  layouts,
+  selectedIds,
+  dragLivePositions,
+  snapTargetIds,
+  zoom,
+  dragOffset,
+  dragDraggingIdRef,
+  dragSnapCorrection,
+  resizeResizingIdRef,
+  resizeSnapCorrection,
+  multiResizeActiveRef,
+  onDragStart,
+  onDrag,
+  onDragStop,
+  onResize,
+  onResizeStop,
+  onResetResize,
+}: ElementOverlayListProps) {
+  return (
+    <>
+      {elements.map((el) => {
+        if (!visiblePages.has(el.pageNumber)) return null;
+        const layout = layouts.get(el.pageNumber);
+        if (!layout) return null;
+
+        const isSelected = selectedIds.has(el.id);
+        const livePos = isSelected ? dragLivePositions?.get(el.id) ?? null : null;
+        const isMultiResize =
+          multiResizeActiveRef.current &&
+          !!livePos &&
+          (Math.abs(livePos.width - el.width) > 0.01 ||
+            Math.abs(livePos.height - el.height) > 0.01);
+        const isDragging = dragDraggingIdRef.current === el.id;
+        const isResizing = resizeResizingIdRef.current === el.id;
+
+        return (
+          <ElementOverlay
+            key={el.id}
+            element={el}
+            layout={layout}
+            zoom={zoom}
+            isSelected={isSelected}
+            isMultiSelected={selectedIds.size >= 2 && isSelected}
+            livePos={livePos}
+            isMultiResize={isMultiResize}
+            isSnapTarget={snapTargetIds.has(el.id)}
+            effectiveDragOffset={
+              !isMultiResize && isSelected && !isDragging
+                ? dragOffset
+                : null
+            }
+            isDragging={isDragging}
+            isResizing={isResizing}
+            dragSnapCorrection={isDragging ? dragSnapCorrection : null}
+            resizeSnapCorrection={isResizing ? resizeSnapCorrection : null}
+            onDragStart={onDragStart}
+            onDrag={onDrag}
+            onDragStop={onDragStop}
+            onResize={onResize}
+            onResizeStop={onResizeStop}
+            onResetResize={onResetResize}
+          />
+        );
+      })}
+    </>
+  );
+});
 
 export function CanvasOverlay() {
+  const { t } = useTranslation();
+  const scrollRef = useScrollContainerRef();
   const elements = useEditorStore((s) => s.elements);
   const activeTool = useEditorStore((s) => s.activeTool);
   const zoom = useEditorStore((s) => s.zoom);
@@ -149,9 +249,7 @@ export function CanvasOverlay() {
         id?: string;
       }> = [];
 
-      const scrollEl = document.querySelector<HTMLElement>(
-        "[data-pdf-scroll-container]",
-      );
+      const scrollEl = scrollRef.current;
       const snapVisible =
         scrollEl && pages.length > 0
           ? getVisiblePageNumbers(
@@ -256,6 +354,11 @@ export function CanvasOverlay() {
     ],
   );
   const drag = useElementDrag(dragConfig);
+
+  const stableDragOffset = useMemo(() => {
+    if (drag.dragOffset === null) return null;
+    return { dx: drag.dragOffset.dx, dy: drag.dragOffset.dy };
+  }, [drag.dragOffset?.dx, drag.dragOffset?.dy]);
 
   const resizeConfig = useMemo(
     () => ({
@@ -444,9 +547,7 @@ export function CanvasOverlay() {
         e.preventDefault();
         const currentLayouts = getPageLayouts();
         if (currentLayouts.size === 0) return;
-        const scrollEl = document.querySelector<HTMLElement>(
-          "[data-pdf-scroll-container]",
-        );
+        const scrollEl = scrollRef.current;
         if (!scrollEl) return;
         const scrollCenter = scrollEl.scrollTop + scrollEl.clientHeight / 2;
         let closestPage = 1;
@@ -631,56 +732,11 @@ export function CanvasOverlay() {
 
   if (!pdfBytes) return null;
 
-  const elementOverlays = elements.map((el) => {
-    if (!visiblePages.has(el.pageNumber)) return null;
-    const layout = layouts.get(el.pageNumber);
-    if (!layout) return null;
-
-    const isSelected = selectedIds.has(el.id);
-    const livePos = isSelected ? dragLivePositions?.get(el.id) ?? null : null;
-    const isMultiResize =
-      multiResize.isActive.current &&
-      !!livePos &&
-      (Math.abs(livePos.width - el.width) > 0.01 ||
-        Math.abs(livePos.height - el.height) > 0.01);
-    const isDragging = drag.draggingId.current === el.id;
-    const isResizing = resize.resizingId.current === el.id;
-
-    return (
-      <ElementOverlay
-        key={el.id}
-        element={el}
-        layout={layout}
-        zoom={zoom}
-        isSelected={isSelected}
-        isMultiSelected={selectedIds.size >= 2 && isSelected}
-        livePos={livePos}
-        isMultiResize={isMultiResize}
-        isSnapTarget={snapTargetIds.has(el.id)}
-        effectiveDragOffset={
-          !isMultiResize && isSelected && !isDragging
-            ? drag.dragOffset
-            : null
-        }
-        isDragging={isDragging}
-        isResizing={isResizing}
-        dragSnapCorrection={isDragging ? drag.dragSnapCorrection : null}
-        resizeSnapCorrection={isResizing ? resize.resizeSnapCorrection : null}
-        onDragStart={drag.handleDragStart}
-        onDrag={drag.handleDrag}
-        onDragStop={drag.handleDragStop}
-        onResize={resize.handleResize}
-        onResizeStop={resize.handleResizeStop}
-        onResetResize={resize.resetState}
-      />
-    );
-  });
-
   return (
     <div
       ref={overlayRef}
       role="application"
-      aria-label="PDF form canvas"
+      aria-label={t("canvas.formCanvas")}
       className="absolute inset-0 select-none"
       onMouseDown={handleCanvasMouseDown}
       onMouseMove={handleCanvasMouseMove}
@@ -688,7 +744,27 @@ export function CanvasOverlay() {
       onContextMenu={handleOverlayContextMenu}
       style={{ cursor: activeTool !== "select" ? "crosshair" : "default" }}
     >
-      {elementOverlays}
+      <ElementOverlayList
+        elements={elements}
+        visiblePages={visiblePages}
+        layouts={layouts}
+        selectedIds={selectedIds}
+        dragLivePositions={dragLivePositions}
+        snapTargetIds={snapTargetIds}
+        zoom={zoom}
+        dragOffset={stableDragOffset}
+        dragDraggingIdRef={drag.draggingId}
+        dragSnapCorrection={drag.dragSnapCorrection}
+        resizeResizingIdRef={resize.resizingId}
+        resizeSnapCorrection={resize.resizeSnapCorrection}
+        multiResizeActiveRef={multiResize.isActive}
+        onDragStart={drag.handleDragStart}
+        onDrag={drag.handleDrag}
+        onDragStop={drag.handleDragStop}
+        onResize={resize.handleResize}
+        onResizeStop={resize.handleResizeStop}
+        onResetResize={resize.resetState}
+      />
       <BoundingBoxOverlay
         boundingBox={boundingBox}
         isDragging={!!drag.dragOffset}

@@ -25,6 +25,8 @@ import {
   isOptionListField,
   isRadioButton,
   isTextField,
+  MAX_FIELD_NAME_LENGTH,
+  MAX_OPTIONS_PER_FIELD,
   type ButtonField,
   type Checkbox,
   type DropdownField,
@@ -44,7 +46,8 @@ import {
   AlignStartVertical,
   BetweenHorizontalStart,
   BetweenVerticalStart,
-  ChevronRight,
+   ChevronLeft,
+   ChevronRight,
   Expand,
   GripVertical,
   Heart,
@@ -58,7 +61,6 @@ import {
   Trash2,
 } from "lucide-react";
 import {
-  cloneElement,
   useCallback,
   useEffect,
   useId,
@@ -180,13 +182,11 @@ function PropertyField({
 }) {
   const id = useId();
   return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id} className="text-[11px] text-muted-foreground">
+    <div className="flex flex-col gap-1.5" role="group" aria-labelledby={id}>
+      <Label id={id} className="text-[11px] text-muted-foreground">
         {label}
       </Label>
-      {cloneElement(children as React.ReactElement<Record<string, unknown>>, {
-        id,
-      })}
+      {children}
     </div>
   );
 }
@@ -361,11 +361,13 @@ function BoldItalicButtons({
   fontWeight: string;
   onChange: (w: "regular" | "bold" | "italic" | "bold-italic") => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex gap-0.5">
       <button
         type="button"
-        aria-label="Bold"
+        aria-label={t("properties.bold")}
+        aria-pressed={fontWeight === "bold" || fontWeight === "bold-italic"}
         className={`flex h-6 w-6 items-center justify-center rounded text-[10px] font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
           fontWeight === "bold" || fontWeight === "bold-italic"
             ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
@@ -387,7 +389,8 @@ function BoldItalicButtons({
       </button>
       <button
         type="button"
-        aria-label="Italic"
+        aria-label={t("properties.italic")}
+        aria-pressed={fontWeight === "italic" || fontWeight === "bold-italic"}
         className={`flex h-6 w-6 items-center justify-center rounded text-[10px] italic transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
           fontWeight === "italic" || fontWeight === "bold-italic"
             ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
@@ -566,6 +569,7 @@ function TypographySection({
 
 function TextFieldProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
+  const requiredId = useId();
   const element = useEditorStore((s) =>
     s.elements.find((el) => el.id === elementId),
   );
@@ -589,7 +593,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
     <div className="flex flex-col gap-3">
       <CollapsibleSection label={t("properties.general")}>
         <PropertyField label={t("properties.name")}>
-          <Input {...nameField} className="h-7 text-xs" />
+          <Input {...nameField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
         </PropertyField>
 
         <PropertyField label={t("properties.defaultValue")}>
@@ -597,10 +601,11 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
         </PropertyField>
 
         <div className="flex items-center justify-between">
-          <Label className="text-[11px] text-muted-foreground">
+          <Label id={requiredId} className="text-[11px] text-muted-foreground">
             {t("properties.required")}
           </Label>
           <Switch
+            aria-labelledby={requiredId}
             checked={element.required}
             onCheckedChange={(checked) =>
               updateElement(element.id, { required: checked })
@@ -647,6 +652,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
 
 function CheckboxProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
+  const defaultCheckedId = useId();
   const element = useEditorStore((s) =>
     s.elements.find((el) => el.id === elementId),
   );
@@ -662,14 +668,15 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
     <div className="flex flex-col gap-3">
       <CollapsibleSection label={t("properties.general")}>
         <PropertyField label={t("properties.name")}>
-          <Input {...nameField} className="h-7 text-xs" />
+          <Input {...nameField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
         </PropertyField>
 
         <div className="flex items-center justify-between">
-          <Label className="text-[11px] text-muted-foreground">
+          <Label id={defaultCheckedId} className="text-[11px] text-muted-foreground">
             {t("properties.defaultChecked")}
           </Label>
           <Switch
+            aria-labelledby={defaultCheckedId}
             checked={element.defaultChecked}
             onCheckedChange={(checked) =>
               updateElement(element.id, { defaultChecked: checked })
@@ -704,11 +711,11 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
     <div className="flex flex-col gap-3">
       <CollapsibleSection label={t("properties.general")}>
         <PropertyField label={t("properties.groupName")}>
-          <Input {...groupNameField} className="h-7 text-xs" />
+          <Input {...groupNameField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
         </PropertyField>
 
         <PropertyField label={t("properties.value")}>
-          <Input {...valueField} className="h-7 text-xs" />
+          <Input {...valueField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
         </PropertyField>
 
         <PropertyField label={t("properties.label")}>
@@ -736,6 +743,7 @@ function DraggableOptionList({
   onReorderOptions: (fromIndex: number, toIndex: number) => void;
   onSetDefault: (value: string) => void;
 }) {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const dragIndexRef = useRef<number | null>(null);
   const insertIndexRef = useRef<number | null>(null);
@@ -812,7 +820,7 @@ function DraggableOptionList({
   );
 
   return (
-    <div ref={containerRef} className="relative flex flex-col gap-1.5">
+    <div ref={containerRef} className="relative flex flex-col gap-1.5 overflow-hidden">
       {indicatorY !== null && containerRef.current && (
         <div
           className="pointer-events-none absolute left-0 right-0 h-0.5 -translate-y-1/2 rounded-full bg-primary"
@@ -833,7 +841,7 @@ function DraggableOptionList({
           >
             <button
               type="button"
-              aria-label={`Drag option ${i + 1}`}
+              aria-label={t("properties.dragOption", { index: i + 1 })}
               className="flex h-6 w-4 shrink-0 cursor-grab items-center justify-center text-muted-foreground/40 hover:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card rounded-sm"
               onPointerDown={(e) => handlePointerDown(i, e)}
             >
@@ -842,7 +850,7 @@ function DraggableOptionList({
             <input
               type="radio"
               name={`default-${elementId}`}
-              aria-label={`Set option ${i + 1} as default`}
+              aria-label={t("properties.setDefaultOption", { index: i + 1 })}
               checked={defaultValue === opt}
               onChange={() => onSetDefault(opt)}
               className="h-3.5 w-3.5 shrink-0 accent-primary rounded-full ring-offset-1 ring-offset-card outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
@@ -850,11 +858,11 @@ function DraggableOptionList({
             <Input
               value={opt}
               onChange={(e) => onUpdateOption(i, e.target.value)}
-              className="h-6 flex-1 text-xs"
+              className="h-6 min-w-0 flex-1 text-xs"
             />
             <button
               type="button"
-              aria-label={`Remove option ${i + 1}`}
+              aria-label={t("properties.removeOption", { index: i + 1 })}
               onClick={() => onRemoveOption(i)}
               className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-destructive outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
             >
@@ -869,6 +877,8 @@ function DraggableOptionList({
 
 function DropdownProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
+  const requiredId = useId();
+  const editableId = useId();
   const element = useEditorStore((s) =>
     s.elements.find((el) => el.id === elementId),
   );
@@ -881,9 +891,10 @@ function DropdownProperties({ elementId }: { elementId: string }) {
   );
 
   const addOption = () => {
+    if (element.options.length >= MAX_OPTIONS_PER_FIELD) return;
     const next = element.options.length + 1;
     updateElement(element.id, {
-      options: [...element.options, `Option ${next}`],
+      options: [...element.options, t("properties.newOption", { index: next })],
     });
   };
 
@@ -910,14 +921,15 @@ function DropdownProperties({ elementId }: { elementId: string }) {
     <div className="flex flex-col gap-3">
       <CollapsibleSection label={t("properties.general")}>
         <PropertyField label={t("properties.name")}>
-          <Input {...nameField} className="h-7 text-xs" />
+          <Input {...nameField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
         </PropertyField>
 
         <div className="flex items-center justify-between">
-          <Label className="text-[11px] text-muted-foreground">
+          <Label id={requiredId} className="text-[11px] text-muted-foreground">
             {t("properties.required")}
           </Label>
           <Switch
+            aria-labelledby={requiredId}
             checked={element.required}
             onCheckedChange={(checked) =>
               updateElement(element.id, { required: checked })
@@ -957,16 +969,18 @@ function DropdownProperties({ elementId }: { elementId: string }) {
           type="button"
           aria-label={t("properties.addOption")}
           onClick={addOption}
-          className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
+          disabled={element.options.length >= MAX_OPTIONS_PER_FIELD}
+          className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card disabled:opacity-40 disabled:cursor-not-allowed"
         >
           +
         </button>
 
         <div className="flex items-center justify-between">
-          <Label className="text-[11px] text-muted-foreground">
+          <Label id={editableId} className="text-[11px] text-muted-foreground">
             {t("properties.editable")}
           </Label>
           <Switch
+            aria-labelledby={editableId}
             checked={element.editable}
             onCheckedChange={(checked) =>
               updateElement(element.id, { editable: checked })
@@ -1006,7 +1020,7 @@ function ButtonProperties({ elementId }: { elementId: string }) {
     <div className="flex flex-col gap-3">
       <CollapsibleSection label={t("properties.general")}>
         <PropertyField label={t("properties.name")}>
-          <Input {...nameField} className="h-7 text-xs" />
+          <Input {...nameField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
         </PropertyField>
 
         <PropertyField label={t("properties.label")}>
@@ -1035,6 +1049,7 @@ function ButtonProperties({ elementId }: { elementId: string }) {
 
 function OptionListProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
+  const requiredId = useId();
   const element = useEditorStore((s) =>
     s.elements.find((el) => el.id === elementId),
   );
@@ -1047,8 +1062,9 @@ function OptionListProperties({ elementId }: { elementId: string }) {
   );
 
   const addOption = () => {
+    if (element.options.length >= MAX_OPTIONS_PER_FIELD) return;
     const next = element.options.length + 1;
-    const newOptions = [...element.options, `Option ${next}`];
+    const newOptions = [...element.options, t("properties.newOption", { index: next })];
     updateElement(element.id, {
       options: newOptions,
       height: heightFromOptions(element.fontSize, newOptions.length),
@@ -1080,14 +1096,15 @@ function OptionListProperties({ elementId }: { elementId: string }) {
     <div className="flex flex-col gap-3">
       <CollapsibleSection label={t("properties.general")}>
         <PropertyField label={t("properties.name")}>
-          <Input {...nameField} className="h-7 text-xs" />
+          <Input {...nameField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
         </PropertyField>
 
         <div className="flex items-center justify-between">
-          <Label className="text-[11px] text-muted-foreground">
+          <Label id={requiredId} className="text-[11px] text-muted-foreground">
             {t("properties.required")}
           </Label>
           <Switch
+            aria-labelledby={requiredId}
             checked={element.required}
             onCheckedChange={(checked) =>
               updateElement(element.id, { required: checked })
@@ -1127,7 +1144,8 @@ function OptionListProperties({ elementId }: { elementId: string }) {
           type="button"
           aria-label={t("properties.addOption")}
           onClick={addOption}
-          className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
+          disabled={element.options.length >= MAX_OPTIONS_PER_FIELD}
+          className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card disabled:opacity-40 disabled:cursor-not-allowed"
         >
           +
         </button>
@@ -1360,6 +1378,7 @@ function MultiNameField({
     <PropertyField label={t("properties.name")}>
       <Input
         {...nameField}
+        maxLength={MAX_FIELD_NAME_LENGTH}
         placeholder={allSame ? undefined : t("properties.mixed")}
         className="h-7 text-xs"
       />
@@ -1373,15 +1392,17 @@ function MultiRequiredSwitch({
   elements: { required: boolean; id: string }[];
 }) {
   const { t } = useTranslation();
+  const requiredId = useId();
   const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
   const allSame = elements.every((el) => el.required === elements[0].required);
 
   return (
     <div className="flex items-center justify-between">
-      <Label className="text-[11px] text-muted-foreground">
+      <Label id={requiredId} className="text-[11px] text-muted-foreground">
         {t("properties.required")}
       </Label>
       <Switch
+        aria-labelledby={requiredId}
         checked={allSame ? elements[0].required : false}
         onCheckedChange={(checked) =>
           batchUpdateElements(
@@ -1451,6 +1472,7 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
 
 function MultiCheckboxProperties({ elements }: { elements: Checkbox[] }) {
   const { t } = useTranslation();
+  const defaultCheckedId = useId();
   const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
 
   if (elements.length === 0) return null;
@@ -1461,10 +1483,11 @@ function MultiCheckboxProperties({ elements }: { elements: Checkbox[] }) {
   return (
     <>
       <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-muted-foreground">
+        <Label id={defaultCheckedId} className="text-[11px] text-muted-foreground">
           {t("properties.defaultChecked")}
         </Label>
         <Switch
+          aria-labelledby={defaultCheckedId}
           checked={allSameChecked ? elements[0].defaultChecked : false}
           onCheckedChange={(checked) =>
             batchUpdateElements(
@@ -1515,6 +1538,7 @@ function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
 
 function MultiDropdownProperties({ elements }: { elements: DropdownField[] }) {
   const { t } = useTranslation();
+  const editableId = useId();
   const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
 
   if (elements.length === 0) return null;
@@ -1525,10 +1549,11 @@ function MultiDropdownProperties({ elements }: { elements: DropdownField[] }) {
 
   return (
     <div className="flex items-center justify-between">
-      <Label className="text-[11px] text-muted-foreground">
+      <Label id={editableId} className="text-[11px] text-muted-foreground">
         {t("properties.editable")}
       </Label>
       <Switch
+        aria-labelledby={editableId}
         checked={allSameEditable ? elements[0].editable : false}
         onCheckedChange={(checked) =>
           batchUpdateElements(
@@ -1741,6 +1766,7 @@ function ToolButton({
   return (
     <Tooltip>
       <TooltipTrigger
+        aria-label={title}
         className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
         onClick={onClick}
       >
@@ -1903,22 +1929,53 @@ function DistributeButtons() {
 }
 
 export function PropertiesPanel() {
+  const { t } = useTranslation();
+  const collapsed = useEditorStore((s) => s.propertiesPanelCollapsed);
+  const togglePropertiesPanel = useEditorStore((s) => s.togglePropertiesPanel);
+
   return (
     <ErrorBoundary>
       <div className="flex h-full flex-col">
-        <div className="min-h-0 flex-1">
-          <PropertiesPanelContent />
-        </div>
-        <div className="shrink-0 border-t border-border px-3 py-2.5">
-          <button
-            type="button"
-            onClick={() => openUrl("https://ko-fi.com/basicallypolaris")}
-            className="flex w-full items-center justify-center gap-1.5 rounded-sm px-2 py-1.5 text-[11px] text-muted-foreground/60 transition-colors hover:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-          >
-            <Heart className="h-3 w-3" />
-            Buy me a ko-fi
-          </button>
-        </div>
+        {collapsed ? (
+          <div className="flex flex-1 items-center justify-center">
+            <button
+              type="button"
+              onClick={togglePropertiesPanel}
+              aria-label={t("properties.expandPanel")}
+              aria-expanded={false}
+              className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="flex shrink-0 items-center justify-end px-1.5 pt-1.5">
+              <button
+                type="button"
+                onClick={togglePropertiesPanel}
+                aria-label={t("properties.collapsePanel")}
+                aria-expanded={true}
+                className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1">
+              <PropertiesPanelContent />
+            </div>
+            <div className="shrink-0 border-t border-border px-3 py-2.5">
+              <button
+                type="button"
+                onClick={() => openUrl("https://ko-fi.com/basicallypolaris")}
+                className="flex w-full items-center justify-center gap-1.5 rounded-sm px-2 py-1.5 text-[11px] text-muted-foreground/60 transition-colors hover:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              >
+                <Heart className="h-3 w-3" />
+                {t("properties.kofi")}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </ErrorBoundary>
   );
@@ -2178,13 +2235,13 @@ function PropertiesPanelContent() {
     <div className="h-full overflow-y-auto select-none">
       <div className="flex flex-col gap-3 p-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <span
-              className={`flex h-5 w-5 items-center justify-center rounded ${config.colorClass}`}
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded ${config.colorClass}`}
             >
               <Icon className="h-3 w-3" />
             </span>
-            <span className="text-xs font-medium text-foreground">
+            <span className="text-xs font-medium text-foreground truncate">
               {isMultilineText
                 ? t("fieldTypes.multiline")
                 : getFieldTypeLabel(config)}

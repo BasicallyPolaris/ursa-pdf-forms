@@ -37,6 +37,8 @@ export const fileIO = createFileIO(
     openFailed: i18n.t("file.openFailed"),
     loadFailed: i18n.t("file.openFailed"),
     exportFailed: i18n.t("file.exportFailed"),
+    fileTooLarge: i18n.t("file.fileTooLarge"),
+    operationInProgress: i18n.t("file.operationInProgress"),
     unsavedTitle: i18n.t("dialog.unsavedTitle"),
     unsavedMessage: i18n.t("dialog.unsavedChanges"),
     save: i18n.t("dialog.save"),

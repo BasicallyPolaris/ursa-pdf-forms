@@ -97,6 +97,7 @@ export function OnboardingDialog() {
             <div className="grid grid-cols-2 gap-3 py-4">
               <button
                 type="button"
+                aria-pressed={selectedLayout === "figma"}
                 onClick={() => setSelectedLayout("figma")}
                 className={`group flex flex-col items-start rounded-lg border p-3.5 text-left transition-colors ${
                   selectedLayout === "figma"
@@ -141,6 +142,7 @@ export function OnboardingDialog() {
 
               <button
                 type="button"
+                aria-pressed={selectedLayout === "office"}
                 onClick={() => setSelectedLayout("office")}
                 className={`group flex flex-col items-start rounded-lg border p-3.5 text-left transition-colors ${
                   selectedLayout === "office"

@@ -38,7 +38,7 @@ export function ShortcutsDialog() {
         <div className="px-5 pt-5 pb-2 select-none">
           <DialogHeader>
             <DialogTitle>{t("shortcuts.title")}</DialogTitle>
-            <DialogClose aria-label="Close">
+            <DialogClose aria-label={t("dialog.close")}>
               <X className="h-3.5 w-3.5" />
             </DialogClose>
           </DialogHeader>
@@ -80,7 +80,7 @@ export function ShortcutsDialog() {
                             {altShortcut && (
                               <>
                                 <span className="text-muted-foreground/50 text-[10px]">
-                                  /
+                                  {t("shortcuts.or")}
                                 </span>
                                 <ShortcutKbd shortcutId={altShortcut.id} />
                               </>

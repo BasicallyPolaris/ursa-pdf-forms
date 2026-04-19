@@ -43,6 +43,30 @@ describe("pdfToScreen", () => {
     expect(result.x).toBeCloseTo(80);
     expect(result.y).toBeCloseTo(60);
   });
+
+  it("falls back to zoom=1 when zoom is 0", () => {
+    const result = pdfToScreen({ x: 100, y: 200 }, { zoom: 0, pageX: 0, pageY: 0 });
+    expect(result.x).toBeCloseTo(100);
+    expect(result.y).toBeCloseTo(200);
+  });
+
+  it("falls back to zoom=1 when zoom is negative", () => {
+    const result = pdfToScreen({ x: 100, y: 200 }, { zoom: -2, pageX: 0, pageY: 0 });
+    expect(result.x).toBeCloseTo(100);
+    expect(result.y).toBeCloseTo(200);
+  });
+
+  it("falls back to zoom=1 when zoom is NaN", () => {
+    const result = pdfToScreen({ x: 100, y: 200 }, { zoom: NaN, pageX: 0, pageY: 0 });
+    expect(result.x).toBeCloseTo(100);
+    expect(result.y).toBeCloseTo(200);
+  });
+
+  it("falls back to zoom=1 when zoom is Infinity", () => {
+    const result = pdfToScreen({ x: 100, y: 200 }, { zoom: Infinity, pageX: 0, pageY: 0 });
+    expect(result.x).toBeCloseTo(100);
+    expect(result.y).toBeCloseTo(200);
+  });
 });
 
 describe("screenToPdf", () => {
@@ -74,6 +98,24 @@ describe("screenToPdf", () => {
     const result = screenToPdf({ x: 158, y: 654 }, { zoom: 1.5, pageX: 50, pageY: 600 });
     expect(result.x).toBeCloseTo(72);
     expect(result.y).toBeCloseTo(36);
+  });
+
+  it("falls back to zoom=1 when zoom is 0", () => {
+    const result = screenToPdf({ x: 100, y: 200 }, { zoom: 0, pageX: 0, pageY: 0 });
+    expect(result.x).toBeCloseTo(100);
+    expect(result.y).toBeCloseTo(200);
+  });
+
+  it("falls back to zoom=1 when zoom is NaN", () => {
+    const result = screenToPdf({ x: 100, y: 200 }, { zoom: NaN, pageX: 0, pageY: 0 });
+    expect(result.x).toBeCloseTo(100);
+    expect(result.y).toBeCloseTo(200);
+  });
+
+  it("falls back to zoom=1 when zoom is Infinity", () => {
+    const result = screenToPdf({ x: 100, y: 200 }, { zoom: Infinity, pageX: 0, pageY: 0 });
+    expect(result.x).toBeCloseTo(100);
+    expect(result.y).toBeCloseTo(200);
   });
 });
 

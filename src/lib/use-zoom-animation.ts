@@ -7,6 +7,8 @@
  * PDF rasterization is debounced separately in PdfCanvas.
  */
 
+import { prefersReducedMotion } from "@/lib/use-prefers-reduced-motion";
+
 export interface ZoomListener {
   /**
    * Called once immediately before the zoom is committed to the store.
@@ -44,7 +46,11 @@ class ZoomEngine {
 
   setTarget(target: number): void {
     this.target = target;
-    this.scheduleRaf();
+    if (prefersReducedMotion()) {
+      this.notifyAndCommit(target);
+    } else {
+      this.scheduleRaf();
+    }
   }
 
   /** Instant jump without batching (e.g. Ctrl+0 fit-page). */

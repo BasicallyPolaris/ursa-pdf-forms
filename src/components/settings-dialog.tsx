@@ -38,7 +38,7 @@ export function SettingsDialog() {
         <div className="px-5 pt-5 pb-2 select-none">
           <DialogHeader>
             <DialogTitle>{t("settings.title")}</DialogTitle>
-            <DialogClose aria-label="Close">
+            <DialogClose aria-label={t("dialog.close")}>
               <span className="text-muted-foreground hover:text-foreground">×</span>
             </DialogClose>
           </DialogHeader>
