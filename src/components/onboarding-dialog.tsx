@@ -237,10 +237,18 @@ export function OnboardingDialog() {
         </div>
 
         <div className="flex items-center justify-between border-t border-border px-6 py-3">
-          <div className="flex items-center gap-1">
+          <div
+            className="flex items-center gap-1"
+            role="progressbar"
+            aria-valuenow={step + 1}
+            aria-valuemin={1}
+            aria-valuemax={3}
+            aria-label={t("onboarding.stepProgress", { current: step + 1, total: 3 })}
+          >
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
+                aria-hidden="true"
                 className={`h-1 rounded-full transition-all duration-200 ${
                   i === step
                     ? "w-5 bg-primary"

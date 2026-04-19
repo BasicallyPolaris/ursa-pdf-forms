@@ -4,6 +4,7 @@ import {
 } from "@/components/canvas-context-menu";
 import { BoundingBoxOverlay } from "@/components/canvas-overlay/bounding-box-overlay";
 import { DrawPreviewLayer } from "@/components/canvas-overlay/draw-preview-layer";
+import { ElementOverlay } from "@/components/canvas-overlay/element-overlay";
 import { GuideLinesLayer } from "@/components/canvas-overlay/guide-lines-layer";
 import { MarqueeOverlay } from "@/components/canvas-overlay/marquee-overlay";
 import { PreviewGuideLayer } from "@/components/canvas-overlay/preview-guide-layer";
@@ -20,8 +21,6 @@ import { useElementResize } from "@/hooks/use-element-resize";
 import { useMultiResize } from "@/hooks/use-multi-resize";
 import { useMarqueeSelection } from "@/hooks/use-marquee-selection";
 import { pdfToScreen, screenToPdf } from "@/lib/coordinates";
-import { fontFamilyToCss, fontWeightToCss, fontStyleToCss } from "@/lib/font-utils";
-import { getElementStyleConfig } from "@/lib/element-style-map";
 import {
   createCheckbox,
   createRadioButton,
@@ -29,7 +28,6 @@ import {
   heightFromFontSize,
   heightFromOptions,
   type FormElement,
-  getElementName,
 } from "@/lib/form-element-model";
 import {
   computePageLayouts,
@@ -47,113 +45,6 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  AlignLeft,
-  CircleDot,
-  List,
-  Square,
-  SquareChevronDown,
-  SquareMousePointer,
-  Type,
-} from "lucide-react";
-import { Rnd } from "react-rnd";
-
-const FIELD_COLORS: Record<string, string> = {
-  text: "oklch(0.623 0.214 259)",
-  checkbox: "oklch(0.723 0.219 149)",
-  radio: "oklch(0.657 0.229 310)",
-  multiline: "oklch(0.769 0.167 70)",
-  dropdown: "oklch(0.72 0.18 55)",
-  button: "oklch(0.75 0.15 340)",
-  optionlist: "oklch(0.7 0.16 180)",
-};
-
-function getFieldColor(el: FormElement): string {
-  if (el.type === "text" && "multiline" in el && el.multiline) return FIELD_COLORS.multiline;
-  return FIELD_COLORS[el.type] ?? FIELD_COLORS.text;
-}
-
-function applySnapToHandleStyles(
-  baseStyles: Record<string, React.CSSProperties>,
-  snap: { dx: number; dy: number; dw: number; dh: number },
-): Record<string, React.CSSProperties> {
-  const { dx, dy, dw, dh } = snap;
-  const offsets: Record<string, [number, number]> = {
-    topLeft: [dx, dy],
-    top: [dx + dw / 2, dy],
-    topRight: [dx + dw, dy],
-    right: [dx + dw, dy + dh / 2],
-    bottomRight: [dx + dw, dy + dh],
-    bottom: [dx + dw / 2, dy + dh],
-    bottomLeft: [dx, dy + dh],
-    left: [dx, dy + dh / 2],
-  };
-  const result: Record<string, React.CSSProperties> = {};
-  for (const [key, style] of Object.entries(baseStyles)) {
-    const [tx, ty] = offsets[key] ?? [0, 0];
-    result[key] = {
-      ...style,
-      ...(tx !== 0 || ty !== 0
-        ? { transform: `translate(${tx}px, ${ty}px)` }
-        : {}),
-    };
-  }
-  return result;
-}
-
-function getHandleConfig(
-  el: FormElement,
-  isSelected: boolean,
-  isMultiSelected: boolean,
-  isDragging: boolean,
-  snapCorrection?: { dx: number; dy: number; dw: number; dh: number } | null,
-) {
-  if (!isSelected || isMultiSelected || isDragging) {
-    return { enabled: false as const, styles: undefined };
-  }
-  const color = getFieldColor(el);
-  const isInput =
-    (el.type === "text" && !("multiline" in el && el.multiline)) ||
-    el.type === "dropdown" ||
-    el.type === "optionlist";
-  const hs: React.CSSProperties = {
-    width: "7px",
-    height: "7px",
-    background: "oklch(0.98 0 0)",
-    border: `1.5px solid ${color}`,
-    borderRadius: "1px",
-  };
-  if (isInput) {
-    let styles: Record<string, React.CSSProperties> = {
-      left: { ...hs, top: "calc(50% - 3.5px)", left: "-4px", cursor: "col-resize" },
-      right: { ...hs, top: "calc(50% - 3.5px)", right: "-4px", cursor: "col-resize" },
-    };
-    if (snapCorrection) styles = applySnapToHandleStyles(styles, snapCorrection);
-    return {
-      enabled: { left: true, right: true } as Record<string, boolean>,
-      styles,
-    };
-  }
-  let styles: Record<string, React.CSSProperties> = {
-    topLeft: { ...hs, top: "-4px", left: "-4px", cursor: "nwse-resize" },
-    top: { ...hs, top: "-4px", left: "calc(50% - 3.5px)", cursor: "ns-resize" },
-    topRight: { ...hs, top: "-4px", right: "-4px", cursor: "nesw-resize" },
-    right: { ...hs, top: "calc(50% - 3.5px)", right: "-4px", cursor: "ew-resize" },
-    bottomRight: { ...hs, bottom: "-4px", right: "-4px", cursor: "nwse-resize" },
-    bottom: { ...hs, bottom: "-4px", left: "calc(50% - 3.5px)", cursor: "ns-resize" },
-    bottomLeft: { ...hs, bottom: "-4px", left: "-4px", cursor: "nesw-resize" },
-    left: { ...hs, top: "calc(50% - 3.5px)", left: "-4px", cursor: "ew-resize" },
-  };
-  if (snapCorrection) styles = applySnapToHandleStyles(styles, snapCorrection);
-  return {
-    enabled: {
-      topLeft: true, top: true, topRight: true,
-      right: true, bottomRight: true, bottom: true,
-      bottomLeft: true, left: true,
-    },
-    styles,
-  };
-}
 
 export function CanvasOverlay() {
   const elements = useEditorStore((s) => s.elements);
@@ -678,180 +569,22 @@ export function CanvasOverlay() {
     [zoom, getPageLayouts, selectElements, selectGuide],
   );
 
-  // --- Render ---
-
-  if (!pdfBytes) return null;
-
-  const totalContentHeight = getTotalContentHeight(pages, zoom);
-  const snapTargetIds = new Set<string>(
-    activeGuides
-      .filter((g) => g.type === "element" && g.elementId)
-      .map((g) => g.elementId!),
+  const totalContentHeight = useMemo(
+    () => getTotalContentHeight(pages, zoom),
+    [pages, zoom],
   );
 
-  const elementOverlays = elements.map((el) => {
-    if (!visiblePages.has(el.pageNumber)) return null;
-    const layout = layouts.get(el.pageNumber);
-    if (!layout) return null;
+  const snapTargetIds = useMemo(
+    () =>
+      new Set<string>(
+        activeGuides
+          .filter((g) => g.type === "element" && g.elementId)
+          .map((g) => g.elementId!),
+      ),
+    [activeGuides],
+  );
 
-    const isSelected = selectedIds.has(el.id);
-    const livePos = isSelected ? dragLivePositions?.get(el.id) : null;
-    const isMultiResize =
-      multiResize.isActive.current &&
-      livePos &&
-      (Math.abs(livePos.width - el.width) > 0.01 ||
-        Math.abs(livePos.height - el.height) > 0.01);
-
-    const screen = pdfToScreen(
-      { x: isMultiResize ? livePos.x : el.x, y: isMultiResize ? livePos.y : el.y },
-      { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
-    );
-    if (!isMultiResize && isSelected && drag.dragOffset && drag.draggingId.current !== el.id) {
-      screen.x += drag.dragOffset.dx;
-      screen.y += drag.dragOffset.dy;
-    }
-    const screenWidth = (isMultiResize ? livePos.width : el.width) * zoom;
-    const screenHeight = (isMultiResize ? livePos.height : el.height) * zoom;
-
-    const isMultiSelected = selectedIds.size >= 2 && isSelected;
-    const handleConfig = getHandleConfig(el, isSelected, isMultiSelected, drag.draggingId.current === el.id, resize.resizingId.current === el.id ? resize.resizeSnapCorrection : undefined);
-
-    return (
-      <Rnd
-        key={el.id}
-        data-element-overlay
-        data-element-id={el.id}
-        scale={1}
-        style={{ zIndex: isSelected ? 55 : undefined }}
-        size={{ width: screenWidth, height: screenHeight }}
-        position={{ x: screen.x, y: screen.y }}
-        minWidth={10}
-        minHeight={10}
-        enableResizing={handleConfig.enabled}
-        resizeHandleStyles={handleConfig.styles}
-        onDragStart={(e) => {
-          drag.handleDragStart(el, e as React.MouseEvent);
-          resize.resetState();
-        }}
-        onDrag={(dragEvent, d) => {
-          drag.handleDrag(el, screen, d, dragEvent as unknown as MouseEvent);
-        }}
-        onDragStop={(dragStopEvent, d) => {
-          drag.handleDragStop(
-            el,
-            screen,
-            d,
-            dragStopEvent as unknown as MouseEvent,
-          );
-        }}
-        onResize={(resizeEvent, dir, ref, _delta, position) => {
-          resize.handleResize(
-            el,
-            dir,
-            ref,
-            position,
-            resizeEvent as unknown as MouseEvent,
-          );
-        }}
-        onResizeStop={() => {
-          resize.handleResizeStop(el);
-        }}
-      >
-        <div
-          role="button"
-          aria-label={`${getElementName(el)} (${el.type})`}
-          aria-pressed={isSelected}
-          tabIndex={-1}
-          className={`h-full w-full flex items-center justify-center outline-none ring-0 ${
-            isSelected
-              ? getElementStyleConfig(el).borderBgClass(true)
-              : `border border-dashed ${getElementStyleConfig(el).dimBorderClass} ${getElementStyleConfig(el).borderBgClass(false).split(' ').find(c => c.startsWith('bg-')) ?? ''}`
-          } ${
-            snapTargetIds.has(el.id) ? "border-2" : ""
-          }`}
-          style={{
-            ...(snapTargetIds.has(el.id)
-              ? { borderColor: "var(--guide-snap)" }
-              : !isSelected
-                ? { borderColor: getFieldColor(el), opacity: 0.5 }
-                : {}),
-            ...(resize.resizingId.current === el.id &&
-            resize.resizeSnapCorrection
-              ? {
-                  transform: `translate(${resize.resizeSnapCorrection.dx}px, ${resize.resizeSnapCorrection.dy}px)`,
-                  width: `calc(100% + ${resize.resizeSnapCorrection.dw}px)`,
-                  height: `calc(100% + ${resize.resizeSnapCorrection.dh}px)`,
-                }
-              : drag.draggingId.current === el.id && drag.dragSnapCorrection
-                ? {
-                    transform: `translate(${drag.dragSnapCorrection.dx}px, ${drag.dragSnapCorrection.dy}px)`,
-                  }
-                : {}),
-          }}
-        >
-          {el.type === "checkbox" && (
-            <Square className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`} strokeWidth={2} />
-          )}
-          {el.type === "radio" && (
-            <CircleDot className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`} strokeWidth={2} />
-          )}
-          {el.type === "text" && el.multiline && !el.defaultValue && (
-            <AlignLeft className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass} opacity-50`} strokeWidth={2} />
-          )}
-          {el.type === "text" && !el.multiline && !el.defaultValue && (
-            <Type className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass} opacity-50`} strokeWidth={2} />
-          )}
-          {el.type === "text" && el.defaultValue && (
-            <span
-              className="pointer-events-none truncate px-0.5"
-              style={{
-                fontSize: `${Math.max(8, el.fontSize * zoom * 0.6)}px`,
-                color: el.textColor ?? "currentColor",
-                fontFamily: fontFamilyToCss(el.fontFamily),
-                fontWeight: fontWeightToCss(el.fontWeight),
-                fontStyle: fontStyleToCss(el.fontWeight),
-                opacity: 0.5,
-                lineHeight: el.multiline ? "1.2" : undefined,
-              }}
-            >
-              {el.defaultValue}
-            </span>
-          )}
-          {el.type === "dropdown" && (
-            <SquareChevronDown className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`} strokeWidth={2} />
-          )}
-          {el.type === "button" && !el.label && (
-            <SquareMousePointer className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`} strokeWidth={2} />
-          )}
-          {el.type === "button" && el.label && (
-            <span
-              className="pointer-events-none truncate px-0.5"
-              style={{
-                fontSize: `${Math.max(8, el.fontSize * zoom * 0.6)}px`,
-                color: el.textColor ?? "currentColor",
-                fontFamily: fontFamilyToCss(el.fontFamily),
-                fontWeight: fontWeightToCss(el.fontWeight),
-                fontStyle: fontStyleToCss(el.fontWeight),
-                opacity: 0.7,
-              }}
-            >
-              {el.label}
-            </span>
-          )}
-          {el.type === "optionlist" && (
-            <List className={`h-3/5 w-3/5 ${getElementStyleConfig(el).colorClass}`} strokeWidth={2} />
-          )}
-          <span
-            className={`absolute -top-4 left-0 max-w-20 truncate overflow-hidden text-[10px] select-none ${getElementStyleConfig(el).textColorClass}`}
-          >
-            {getElementName(el)}
-          </span>
-        </div>
-      </Rnd>
-    );
-  });
-
-  const boundingBox = (() => {
+  const boundingBox = useMemo(() => {
     if (selectedIds.size < 2) return null;
     if (multiResize.isActive.current && multiResize.currentBbox.current) {
       return multiResize.currentBbox.current;
@@ -878,11 +611,76 @@ export function CanvasOverlay() {
       if (r.y + r.height > maxY) maxY = r.y + r.height;
     }
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-  })();
+  }, [selectedIds, elements, layouts, zoom, dragLivePositions, multiResize.snapCorrection]);
+
+  const anyHeightLocked = useMemo(() => {
+    if (selectedIds.size < 2) return false;
+    const selected = elements.filter((el) => selectedIds.has(el.id));
+    return (
+      selected.length >= 2 &&
+      selected.some(
+        (el) =>
+          (el.type === "text" && !("multiline" in el && el.multiline)) ||
+          el.type === "dropdown" ||
+          el.type === "optionlist",
+      )
+    );
+  }, [selectedIds, elements]);
+
+  // --- Render ---
+
+  if (!pdfBytes) return null;
+
+  const elementOverlays = elements.map((el) => {
+    if (!visiblePages.has(el.pageNumber)) return null;
+    const layout = layouts.get(el.pageNumber);
+    if (!layout) return null;
+
+    const isSelected = selectedIds.has(el.id);
+    const livePos = isSelected ? dragLivePositions?.get(el.id) ?? null : null;
+    const isMultiResize =
+      multiResize.isActive.current &&
+      !!livePos &&
+      (Math.abs(livePos.width - el.width) > 0.01 ||
+        Math.abs(livePos.height - el.height) > 0.01);
+    const isDragging = drag.draggingId.current === el.id;
+    const isResizing = resize.resizingId.current === el.id;
+
+    return (
+      <ElementOverlay
+        key={el.id}
+        element={el}
+        layout={layout}
+        zoom={zoom}
+        isSelected={isSelected}
+        isMultiSelected={selectedIds.size >= 2 && isSelected}
+        livePos={livePos}
+        isMultiResize={isMultiResize}
+        isSnapTarget={snapTargetIds.has(el.id)}
+        effectiveDragOffset={
+          !isMultiResize && isSelected && !isDragging
+            ? drag.dragOffset
+            : null
+        }
+        isDragging={isDragging}
+        isResizing={isResizing}
+        dragSnapCorrection={isDragging ? drag.dragSnapCorrection : null}
+        resizeSnapCorrection={isResizing ? resize.resizeSnapCorrection : null}
+        onDragStart={drag.handleDragStart}
+        onDrag={drag.handleDrag}
+        onDragStop={drag.handleDragStop}
+        onResize={resize.handleResize}
+        onResizeStop={resize.handleResizeStop}
+        onResetResize={resize.resetState}
+      />
+    );
+  });
 
   return (
     <div
       ref={overlayRef}
+      role="application"
+      aria-label="PDF form canvas"
       className="absolute inset-0 select-none"
       onMouseDown={handleCanvasMouseDown}
       onMouseMove={handleCanvasMouseMove}
@@ -894,15 +692,7 @@ export function CanvasOverlay() {
       <BoundingBoxOverlay
         boundingBox={boundingBox}
         isDragging={!!drag.dragOffset}
-        anyHeightLocked={(() => {
-          if (selectedIds.size < 2) return false;
-          const selected = elements.filter((el) => selectedIds.has(el.id));
-          return selected.length >= 2 && selected.some((el) =>
-            (el.type === "text" && !("multiline" in el && el.multiline)) ||
-            el.type === "dropdown" ||
-            el.type === "optionlist"
-          );
-        })()}
+        anyHeightLocked={anyHeightLocked}
         snapCorrection={multiResize.snapCorrection}
         onResizeStart={multiResize.handleResizeStart}
         onResize={multiResize.handleResize}

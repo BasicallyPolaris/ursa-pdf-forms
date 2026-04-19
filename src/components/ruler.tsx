@@ -323,7 +323,7 @@ export function HorizontalRuler({
   return (
     <div
       ref={containerRef}
-      role="slider"
+      role="button"
       aria-label={t("ruler.horizontal")}
       className={`shrink-0 bg-ruler-bg border-b border-border relative overflow-hidden select-none ${pdfBytes ? "cursor-ew-resize" : "cursor-default"}`}
       style={{ height: RULER_SIZE, width: overlayWidth }}
@@ -497,7 +497,7 @@ export function VerticalRuler({
   return (
     <div
       ref={containerRef}
-      role="slider"
+      role="button"
       aria-label={t("ruler.vertical")}
       className={`shrink-0 bg-ruler-bg border-r border-border relative select-none ${pdfBytes ? "cursor-ns-resize" : "cursor-default"}`}
       style={{ width: RULER_SIZE, height: canvasHeight, overflow: "hidden" }}

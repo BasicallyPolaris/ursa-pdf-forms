@@ -4,7 +4,7 @@ import {
   useSettingsStore,
 } from "@/stores/settings-store";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 interface SpotlightRect {
@@ -29,6 +29,40 @@ export function TourSpotlight() {
     "top" | "bottom" | "left" | "right"
   >("bottom");
   const rafRef = useRef<number>(0);
+  const prevRectRef = useRef<SpotlightRect | null>(null);
+  const prevTooltipPosRef = useRef<string>("bottom");
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  const handleTrapKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key !== "Tab") return;
+    const container = tooltipRef.current;
+    if (!container) return;
+    const focusable = container.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!tourActive) return;
+    document.addEventListener("keydown", handleTrapKeyDown);
+    const firstBtn = tooltipRef.current?.querySelector<HTMLElement>("button");
+    firstBtn?.focus();
+    return () => document.removeEventListener("keydown", handleTrapKeyDown);
+  }, [tourActive, tourStep, handleTrapKeyDown]);
 
   useEffect(() => {
     if (!tourActive) return;
@@ -47,7 +81,20 @@ export function TourSpotlight() {
         width: r.width,
         height: r.height,
       };
-      setRect(next);
+
+      const prev = prevRectRef.current;
+      const rectChanged =
+        !prev ||
+        prev.top !== next.top ||
+        prev.left !== next.left ||
+        prev.right !== next.right ||
+        prev.bottom !== next.bottom ||
+        prev.width !== next.width ||
+        prev.height !== next.height;
+      if (rectChanged) {
+        prevRectRef.current = next;
+        setRect(next);
+      }
 
       const vh = window.innerHeight;
       const vw = window.innerWidth;
@@ -56,11 +103,17 @@ export function TourSpotlight() {
       const spaceRight = vw - next.right;
       const spaceLeft = next.left;
 
-      if (spaceBelow > 120) setTooltipPos("bottom");
-      else if (spaceAbove > 120) setTooltipPos("top");
-      else if (spaceRight > 200) setTooltipPos("right");
-      else if (spaceLeft > 200) setTooltipPos("left");
-      else setTooltipPos("bottom");
+      let pos: "top" | "bottom" | "left" | "right";
+      if (spaceBelow > 120) pos = "bottom";
+      else if (spaceAbove > 120) pos = "top";
+      else if (spaceRight > 200) pos = "right";
+      else if (spaceLeft > 200) pos = "left";
+      else pos = "bottom";
+
+      if (prevTooltipPosRef.current !== pos) {
+        prevTooltipPosRef.current = pos;
+        setTooltipPos(pos);
+      }
     }
 
     update();
@@ -124,7 +177,7 @@ export function TourSpotlight() {
 
   return (
     <div className="fixed inset-0 z-[100]" data-tour-overlay>
-      <svg className="absolute inset-0 h-full w-full">
+      <svg className="absolute inset-0 h-full w-full" aria-hidden="true">
         <defs>
           <mask id="tour-hole">
             <rect x="0" y="0" width="100%" height="100%" fill="white" />
@@ -143,7 +196,7 @@ export function TourSpotlight() {
           y="0"
           width="100%"
           height="100%"
-          fill="black/40"
+          fill="rgba(0, 0, 0, 0.4)"
           mask="url(#tour-hole)"
         />
         <rect
@@ -153,13 +206,14 @@ export function TourSpotlight() {
           height={r.height + PAD * 2}
           rx="6"
           fill="none"
-          stroke="hsl(var(--primary))"
+          stroke="var(--primary)"
           strokeWidth="2"
           className="opacity-80"
         />
       </svg>
 
       <div
+        ref={tooltipRef}
         className="absolute z-[101] w-64 rounded-lg border border-border bg-popover p-3 shadow-xl"
         style={getTooltipStyle()}
       >
@@ -167,11 +221,12 @@ export function TourSpotlight() {
           <p className="text-xs font-medium text-foreground">
             {t(`onboarding.tour.${stepInfo.key}Title`)}
           </p>
-          <button
-            type="button"
-            onClick={endTour}
-            className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
-          >
+           <button
+             type="button"
+             onClick={endTour}
+             aria-label={t("onboarding.closeTour")}
+             className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
+           >
             <X className="h-3 w-3" />
           </button>
         </div>

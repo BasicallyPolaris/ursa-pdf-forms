@@ -33,6 +33,7 @@ function ZoomControls() {
           onClick={() =>
             zoomFromUi(getZoomEngine().getTargetZoom() - ZOOM_STEP)
           }
+          aria-label={t("header.zoomOut")}
           className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
         >
           <Minus className="h-3 w-3" />
@@ -64,6 +65,7 @@ function ZoomControls() {
           onClick={() =>
             zoomFromUi(getZoomEngine().getTargetZoom() + ZOOM_STEP)
           }
+          aria-label={t("header.zoomIn")}
           className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
         >
           <Plus className="h-3 w-3" />
@@ -126,6 +128,7 @@ export function AppHeader({ children }: { children?: React.ReactNode }) {
                   <ToolButton
                     onClick={() => undo()}
                     disabled={!(hasPdf && hasPast)}
+                    aria-label={t("header.undo")}
                   />
                 }
               >
@@ -144,6 +147,7 @@ export function AppHeader({ children }: { children?: React.ReactNode }) {
                   <ToolButton
                     onClick={() => redo()}
                     disabled={!(hasPdf && hasFuture)}
+                    aria-label={t("header.redo")}
                   />
                 }
               >

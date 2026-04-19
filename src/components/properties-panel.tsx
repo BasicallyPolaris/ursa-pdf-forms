@@ -10,6 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { lockCursor, unlockCursor } from "@/lib/cursor";
 import {
   getElementStyleConfig,
   getElementStyleConfigByType,
@@ -17,23 +18,23 @@ import {
 } from "@/lib/element-style-map";
 import {
   heightFromFontSize,
+  heightFromOptions,
+  isButtonField,
   isCheckbox,
+  isDropdownField,
+  isOptionListField,
   isRadioButton,
   isTextField,
-  isDropdownField,
-  isButtonField,
-  isOptionListField,
-  heightFromOptions,
-  type FormElement,
+  type ButtonField,
   type Checkbox,
+  type DropdownField,
+  type FormElement,
   type RadioButton,
   type TextField,
-  type DropdownField,
-  type ButtonField,
 } from "@/lib/form-element-model";
 import { resolveElementPosition } from "@/lib/page-coordinates";
-import { lockCursor, unlockCursor } from "@/lib/cursor";
 import { useEditorStore, type GuideLine } from "@/stores/editor-store";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -46,6 +47,7 @@ import {
   ChevronRight,
   Expand,
   GripVertical,
+  Heart,
   MousePointer2,
   MoveHorizontal,
   MoveVertical,
@@ -55,7 +57,15 @@ import {
   SquareSquare,
   Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  cloneElement,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 const BASE_FONT_FAMILIES = [
@@ -168,10 +178,15 @@ function PropertyField({
   label: string;
   children: React.ReactNode;
 }) {
+  const id = useId();
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-[11px] text-muted-foreground">{label}</Label>
-      {children}
+      <Label htmlFor={id} className="text-[11px] text-muted-foreground">
+        {label}
+      </Label>
+      {cloneElement(children as React.ReactElement<Record<string, unknown>>, {
+        id,
+      })}
     </div>
   );
 }
@@ -271,6 +286,7 @@ function PageSelector({
         ref={inputRef}
         type="text"
         inputMode="numeric"
+        aria-label={t("properties.editPageNumber")}
         className="h-5 w-8 rounded bg-accent px-1 text-center text-[10px] font-mono tabular-nums text-foreground outline-none ring-1 ring-ring/50"
         value={text}
         onChange={(e) => {
@@ -304,10 +320,21 @@ type TypographyField = {
 type ElementWithTypography = FormElement & TypographyField;
 
 function elementHasTypography(el: FormElement): el is ElementWithTypography {
-  return el.type === "text" || el.type === "dropdown" || el.type === "button" || el.type === "optionlist";
+  return (
+    el.type === "text" ||
+    el.type === "dropdown" ||
+    el.type === "button" ||
+    el.type === "optionlist"
+  );
 }
 
-function FontFamilySelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function FontFamilySelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
   const { t } = useTranslation();
   return (
     <PropertyField label={t("properties.fontFamily")}>
@@ -327,7 +354,13 @@ function FontFamilySelect({ value, onChange }: { value: string; onChange: (v: st
   );
 }
 
-function BoldItalicButtons({ fontWeight, onChange }: { fontWeight: string; onChange: (w: "regular" | "bold" | "italic" | "bold-italic") => void }) {
+function BoldItalicButtons({
+  fontWeight,
+  onChange,
+}: {
+  fontWeight: string;
+  onChange: (w: "regular" | "bold" | "italic" | "bold-italic") => void;
+}) {
   return (
     <div className="flex gap-0.5">
       <button
@@ -335,8 +368,8 @@ function BoldItalicButtons({ fontWeight, onChange }: { fontWeight: string; onCha
         aria-label="Bold"
         className={`flex h-6 w-6 items-center justify-center rounded text-[10px] font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
           fontWeight === "bold" || fontWeight === "bold-italic"
-          ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
-          : "text-muted-foreground hover:bg-accent"
+            ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
+            : "text-muted-foreground hover:bg-accent"
         }`}
         onClick={() => {
           const next =
@@ -357,8 +390,8 @@ function BoldItalicButtons({ fontWeight, onChange }: { fontWeight: string; onCha
         aria-label="Italic"
         className={`flex h-6 w-6 items-center justify-center rounded text-[10px] italic transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
           fontWeight === "italic" || fontWeight === "bold-italic"
-          ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
-          : "text-muted-foreground hover:bg-accent"
+            ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
+            : "text-muted-foreground hover:bg-accent"
         }`}
         onClick={() => {
           const next =
@@ -378,7 +411,13 @@ function BoldItalicButtons({ fontWeight, onChange }: { fontWeight: string; onCha
   );
 }
 
-function TextColorPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function TextColorPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
   const { t } = useTranslation();
   return (
     <PropertyField label={t("properties.textColor")}>
@@ -398,7 +437,13 @@ function TextColorPicker({ value, onChange }: { value: string; onChange: (v: str
   );
 }
 
-function AppearanceSection({ element, onUpdate }: { element: TypographyField; onUpdate: (updates: Partial<TypographyField>) => void }) {
+function AppearanceSection({
+  element,
+  onUpdate,
+}: {
+  element: TypographyField;
+  onUpdate: (updates: Partial<TypographyField>) => void;
+}) {
   const { t } = useTranslation();
   return (
     <>
@@ -465,7 +510,9 @@ function AppearanceSection({ element, onUpdate }: { element: TypographyField; on
               max={5}
               step={0.5}
               value={element.borderWidth}
-              onChange={(e) => onUpdate({ borderWidth: Number(e.target.value) })}
+              onChange={(e) =>
+                onUpdate({ borderWidth: Number(e.target.value) })
+              }
               className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-accent outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             />
             <span className="w-6 text-right text-[10px] font-mono tabular-nums text-muted-foreground">
@@ -478,7 +525,13 @@ function AppearanceSection({ element, onUpdate }: { element: TypographyField; on
   );
 }
 
-function TypographySection({ element, onUpdate }: { element: ElementWithTypography; onUpdate: (updates: Partial<ElementWithTypography>) => void }) {
+function TypographySection({
+  element,
+  onUpdate,
+}: {
+  element: ElementWithTypography;
+  onUpdate: (updates: Partial<ElementWithTypography>) => void;
+}) {
   const { t } = useTranslation();
   const fontSizeField = useDeferredValue(element.fontSize, (v) => {
     const fs = Number(v);
@@ -628,8 +681,6 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
   );
 }
 
-
-
 function RadioButtonProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
   const element = useEditorStore((s) =>
@@ -693,7 +744,8 @@ function DraggableOptionList({
 
   const getRowRects = useCallback(() => {
     if (!containerRef.current) return [];
-    const rows = containerRef.current.querySelectorAll<HTMLElement>("[data-opt-row]");
+    const rows =
+      containerRef.current.querySelectorAll<HTMLElement>("[data-opt-row]");
     return Array.from(rows).map((row) => row.getBoundingClientRect());
   }, []);
 
@@ -764,7 +816,9 @@ function DraggableOptionList({
       {indicatorY !== null && containerRef.current && (
         <div
           className="pointer-events-none absolute left-0 right-0 h-0.5 -translate-y-1/2 rounded-full bg-primary"
-          style={{ top: indicatorY - containerRef.current.getBoundingClientRect().top }}
+          style={{
+            top: indicatorY - containerRef.current.getBoundingClientRect().top,
+          }}
         />
       )}
       {options.map((opt, i) => {
@@ -1090,8 +1144,6 @@ function OptionListProperties({ elementId }: { elementId: string }) {
   );
 }
 
-
-
 function SinglePositionProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
   const element = useEditorStore((s) =>
@@ -1169,7 +1221,11 @@ function SinglePositionProperties({ elementId }: { elementId: string }) {
   );
 }
 
-function MultiTypographySection({ elements }: { elements: ElementWithTypography[] }) {
+function MultiTypographySection({
+  elements,
+}: {
+  elements: ElementWithTypography[];
+}) {
   const { t } = useTranslation();
   const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
 
@@ -1206,9 +1262,7 @@ function MultiTypographySection({ elements }: { elements: ElementWithTypography[
   );
 
   const mixed = t("properties.mixed");
-  const hasSingleLine = elements.some(
-    (el) => isTextField(el) && !el.multiline,
-  );
+  const hasSingleLine = elements.some((el) => isTextField(el) && !el.multiline);
 
   return (
     <>
@@ -1232,9 +1286,9 @@ function MultiTypographySection({ elements }: { elements: ElementWithTypography[
           onChange={(w) =>
             batchUpdateElements(
               elements.map((el) => ({ id: el.id, changes: { fontWeight: w } })),
-              )
-            }
-          />
+            )
+          }
+        />
       </div>
       <TextColorPicker
         value={allSameTextColor ? elements[0].textColor : "#000000"}
@@ -1253,7 +1307,11 @@ function MultiTypographySection({ elements }: { elements: ElementWithTypography[
   );
 }
 
-function MultiAppearanceSection({ elements }: { elements: ElementWithTypography[] }) {
+function MultiAppearanceSection({
+  elements,
+}: {
+  elements: ElementWithTypography[];
+}) {
   const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
 
   const allSameBg = elements.every(
@@ -1285,16 +1343,18 @@ function MultiAppearanceSection({ elements }: { elements: ElementWithTypography[
   );
 }
 
-function MultiNameField({ elements }: { elements: { name: string; id: string }[] }) {
+function MultiNameField({
+  elements,
+}: {
+  elements: { name: string; id: string }[];
+}) {
   const { t } = useTranslation();
   const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
   const allSame = elements.every((el) => el.name === elements[0].name);
-  const nameField = useDeferredValue(
-    allSame ? elements[0].name : "",
-    (v) =>
-      batchUpdateElements(
-        elements.map((el) => ({ id: el.id, changes: { name: v } })),
-      ),
+  const nameField = useDeferredValue(allSame ? elements[0].name : "", (v) =>
+    batchUpdateElements(
+      elements.map((el) => ({ id: el.id, changes: { name: v } })),
+    ),
   );
   return (
     <PropertyField label={t("properties.name")}>
@@ -1307,7 +1367,11 @@ function MultiNameField({ elements }: { elements: { name: string; id: string }[]
   );
 }
 
-function MultiRequiredSwitch({ elements }: { elements: { required: boolean; id: string }[] }) {
+function MultiRequiredSwitch({
+  elements,
+}: {
+  elements: { required: boolean; id: string }[];
+}) {
   const { t } = useTranslation();
   const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
   const allSame = elements.every((el) => el.required === elements[0].required);
@@ -1321,7 +1385,10 @@ function MultiRequiredSwitch({ elements }: { elements: { required: boolean; id: 
         checked={allSame ? elements[0].required : false}
         onCheckedChange={(checked) =>
           batchUpdateElements(
-            elements.map((el) => ({ id: el.id, changes: { required: checked } })),
+            elements.map((el) => ({
+              id: el.id,
+              changes: { required: checked },
+            })),
           )
         }
       />
@@ -1401,7 +1468,10 @@ function MultiCheckboxProperties({ elements }: { elements: Checkbox[] }) {
           checked={allSameChecked ? elements[0].defaultChecked : false}
           onCheckedChange={(checked) =>
             batchUpdateElements(
-              elements.map((el) => ({ id: el.id, changes: { defaultChecked: checked } })),
+              elements.map((el) => ({
+                id: el.id,
+                changes: { defaultChecked: checked },
+              })),
             )
           }
         />
@@ -1439,7 +1509,6 @@ function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
           className="h-7 text-xs"
         />
       </PropertyField>
-
     </>
   );
 }
@@ -1463,7 +1532,10 @@ function MultiDropdownProperties({ elements }: { elements: DropdownField[] }) {
         checked={allSameEditable ? elements[0].editable : false}
         onCheckedChange={(checked) =>
           batchUpdateElements(
-            elements.map((el) => ({ id: el.id, changes: { editable: checked } })),
+            elements.map((el) => ({
+              id: el.id,
+              changes: { editable: checked },
+            })),
           )
         }
       />
@@ -1477,9 +1549,7 @@ function MultiButtonProperties({ elements }: { elements: ButtonField[] }) {
 
   if (elements.length === 0) return null;
 
-  const allSameLabel = elements.every(
-    (el) => el.label === elements[0].label,
-  );
+  const allSameLabel = elements.every((el) => el.label === elements[0].label);
 
   const labelField = useDeferredValue(
     allSameLabel ? elements[0].label : "",
@@ -1835,7 +1905,21 @@ function DistributeButtons() {
 export function PropertiesPanel() {
   return (
     <ErrorBoundary>
-      <PropertiesPanelContent />
+      <div className="flex h-full flex-col">
+        <div className="min-h-0 flex-1">
+          <PropertiesPanelContent />
+        </div>
+        <div className="shrink-0 border-t border-border px-3 py-2.5">
+          <button
+            type="button"
+            onClick={() => openUrl("https://ko-fi.com/basicallypolaris")}
+            className="flex w-full items-center justify-center gap-1.5 rounded-sm px-2 py-1.5 text-[11px] text-muted-foreground/60 transition-colors hover:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          >
+            <Heart className="h-3 w-3" />
+            Buy me a ko-fi
+          </button>
+        </div>
+      </div>
     </ErrorBoundary>
   );
 }
@@ -1855,13 +1939,16 @@ function GuideProperties({ guideId }: { guideId: string }) {
     selectedGuideId === guideId &&
     previewGuide !== null &&
     previewGuide.orientation === guide.orientation;
-  const livePosition = isLiveDragging ? previewGuide!.position : (guide?.position ?? 0);
+  const livePosition = isLiveDragging
+    ? previewGuide!.position
+    : (guide?.position ?? 0);
   const maxPos = isHorizontal
     ? (pages[0]?.height ?? Infinity)
     : (pages[0]?.width ?? Infinity);
 
   const posField = useDeferredValue(Math.round(livePosition), (v) => {
-    if (guide) updateGuidePosition(guide.id, Math.max(0, Math.min(Number(v), maxPos)));
+    if (guide)
+      updateGuidePosition(guide.id, Math.max(0, Math.min(Number(v), maxPos)));
   });
 
   if (!guide) return null;
@@ -1917,7 +2004,50 @@ function PropertiesPanelContent() {
     );
   }
 
-  const selectedElements = elements.filter((el) => selectedIds.has(el.id));
+  const selectedElements = useMemo(
+    () => elements.filter((el) => selectedIds.has(el.id)),
+    [elements, selectedIds],
+  );
+
+  const multiSelectMemo = useMemo(() => {
+    if (selectedIds.size <= 1) return null;
+    const types = new Set(selectedElements.map((el) => el.type));
+    const allSameType = types.size === 1;
+    const singleType = allSameType ? [...types][0] : null;
+    const config = singleType ? getElementStyleConfigByType(singleType) : null;
+
+    const namedEls = selectedElements.filter(
+      (el): el is FormElement & { name: string } => "name" in el,
+    );
+    const requiredEls = selectedElements.filter(
+      (el): el is FormElement & { required: boolean } => "required" in el,
+    );
+    const textEls =
+      singleType === "text" ? selectedElements.filter(isTextField) : [];
+    const checkboxEls =
+      singleType === "checkbox" ? selectedElements.filter(isCheckbox) : [];
+    const radioEls =
+      singleType === "radio" ? selectedElements.filter(isRadioButton) : [];
+    const dropdownEls =
+      singleType === "dropdown" ? selectedElements.filter(isDropdownField) : [];
+    const buttonEls =
+      singleType === "button" ? selectedElements.filter(isButtonField) : [];
+    const typoEls = selectedElements.filter(elementHasTypography);
+
+    return {
+      types,
+      singleType,
+      config,
+      namedEls,
+      requiredEls,
+      textEls,
+      checkboxEls,
+      radioEls,
+      dropdownEls,
+      buttonEls,
+      typoEls,
+    };
+  }, [selectedElements, selectedIds]);
 
   if (selectedIds.size === 0) {
     return (
@@ -1930,11 +2060,19 @@ function PropertiesPanelContent() {
     );
   }
 
-  if (selectedIds.size > 1) {
-    const types = new Set(selectedElements.map((el) => el.type));
-    const allSameType = types.size === 1;
-    const singleType = allSameType ? [...types][0] : null;
-    const config = singleType ? getElementStyleConfigByType(singleType) : null;
+  if (selectedIds.size > 1 && multiSelectMemo) {
+    const {
+      singleType,
+      config,
+      namedEls,
+      requiredEls,
+      textEls,
+      checkboxEls,
+      radioEls,
+      dropdownEls,
+      buttonEls,
+      typoEls,
+    } = multiSelectMemo;
 
     return (
       <div className="h-full overflow-y-auto">
@@ -1967,61 +2105,42 @@ function PropertiesPanelContent() {
           </div>
           <Separator />
 
-          {(() => {
-            const namedEls = selectedElements.filter(
-              (el): el is FormElement & { name: string } => "name" in el,
-            );
-            const requiredEls = selectedElements.filter(
-              (el): el is FormElement & { required: boolean } => "required" in el,
-            );
-            return namedEls.length > 0 || requiredEls.length > 0 ? (
-              <CollapsibleSection label={t("properties.general")}>
-                {namedEls.length > 0 && <MultiNameField elements={namedEls} />}
-                {requiredEls.length > 0 && <MultiRequiredSwitch elements={requiredEls} />}
-                {singleType === "text" && (
-                  <MultiTextFieldProperties
-                    elements={selectedElements.filter(isTextField)}
-                  />
-                )}
-                {singleType === "checkbox" && (
-                  <MultiCheckboxProperties
-                    elements={selectedElements.filter(isCheckbox)}
-                  />
-                )}
-                {singleType === "radio" && (
-                  <MultiRadioProperties
-                    elements={selectedElements.filter(isRadioButton)}
-                  />
-                )}
-                {singleType === "dropdown" && (
-                  <MultiDropdownProperties
-                    elements={selectedElements.filter(isDropdownField)}
-                  />
-                )}
-                {singleType === "button" && (
-                  <MultiButtonProperties
-                    elements={selectedElements.filter(isButtonField)}
-                  />
-                )}
-              </CollapsibleSection>
-            ) : null;
-          })()}
+          {namedEls.length > 0 || requiredEls.length > 0 ? (
+            <CollapsibleSection label={t("properties.general")}>
+              {namedEls.length > 0 && <MultiNameField elements={namedEls} />}
+              {requiredEls.length > 0 && (
+                <MultiRequiredSwitch elements={requiredEls} />
+              )}
+              {textEls.length > 0 && (
+                <MultiTextFieldProperties elements={textEls} />
+              )}
+              {checkboxEls.length > 0 && (
+                <MultiCheckboxProperties elements={checkboxEls} />
+              )}
+              {radioEls.length > 0 && (
+                <MultiRadioProperties elements={radioEls} />
+              )}
+              {dropdownEls.length > 0 && (
+                <MultiDropdownProperties elements={dropdownEls} />
+              )}
+              {buttonEls.length > 0 && (
+                <MultiButtonProperties elements={buttonEls} />
+              )}
+            </CollapsibleSection>
+          ) : null}
 
-          {(() => {
-            const typoEls = selectedElements.filter(elementHasTypography);
-            return typoEls.length > 0 ? (
-              <>
-                <Separator />
-                <CollapsibleSection label={t("properties.typography")}>
-                  <MultiTypographySection elements={typoEls} />
-                </CollapsibleSection>
-                <Separator />
-                <CollapsibleSection label={t("properties.appearance")}>
-                  <MultiAppearanceSection elements={typoEls} />
-                </CollapsibleSection>
-              </>
-            ) : null;
-          })()}
+          {typoEls.length > 0 ? (
+            <>
+              <Separator />
+              <CollapsibleSection label={t("properties.typography")}>
+                <MultiTypographySection elements={typoEls} />
+              </CollapsibleSection>
+              <Separator />
+              <CollapsibleSection label={t("properties.appearance")}>
+                <MultiAppearanceSection elements={typoEls} />
+              </CollapsibleSection>
+            </>
+          ) : null}
 
           <Separator />
 
@@ -2087,9 +2206,7 @@ function PropertiesPanelContent() {
         {isDropdownField(element) && (
           <DropdownProperties elementId={element.id} />
         )}
-        {isButtonField(element) && (
-          <ButtonProperties elementId={element.id} />
-        )}
+        {isButtonField(element) && <ButtonProperties elementId={element.id} />}
         {isOptionListField(element) && (
           <OptionListProperties elementId={element.id} />
         )}

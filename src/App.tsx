@@ -2,18 +2,15 @@ import { AppHeader } from "@/components/app-header";
 import { CanvasOverlay } from "@/components/canvas-overlay";
 import { FloatingToolbar } from "@/components/floating-toolbar";
 import { OfficeRibbon } from "@/components/header-toolbar";
-import { OnboardingDialog } from "@/components/onboarding-dialog";
 import { PageSidebar } from "@/components/page-sidebar";
 import { PdfCanvas } from "@/components/pdf-canvas";
 import { PropertiesPanel } from "@/components/properties-panel";
-import { SettingsDialog } from "@/components/settings-dialog";
 import {
   HorizontalRuler,
   RulerCorner,
   VerticalRuler,
 } from "@/components/ruler";
 import { StatusBar } from "@/components/status-bar";
-import { TourSpotlight } from "@/components/tour-spotlight";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
@@ -22,8 +19,18 @@ import { fileIO } from "@/lib/file-io";
 import { useEditorStore } from "@/stores/editor-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { FileDown, FileX } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useTranslation } from "react-i18next";
+
+const OnboardingDialog = lazy(() =>
+  import("@/components/onboarding-dialog").then((m) => ({ default: m.OnboardingDialog })),
+);
+const SettingsDialog = lazy(() =>
+  import("@/components/settings-dialog").then((m) => ({ default: m.SettingsDialog })),
+);
+const TourSpotlight = lazy(() =>
+  import("@/components/tour-spotlight").then((m) => ({ default: m.TourSpotlight })),
+);
 
 function App() {
   useFileDrop();
@@ -168,9 +175,15 @@ function App() {
       </div>
 
       <StatusBar />
-      <OnboardingDialog />
-      <SettingsDialog />
-      <TourSpotlight />
+      <Suspense fallback={null}>
+        <OnboardingDialog />
+      </Suspense>
+      <Suspense fallback={null}>
+        <SettingsDialog />
+      </Suspense>
+      <Suspense fallback={null}>
+        <TourSpotlight />
+      </Suspense>
     </div>
   );
 }

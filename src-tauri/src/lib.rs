@@ -16,6 +16,7 @@ pub fn run() {
             WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title("PDF Form Maker")
                 .inner_size(1280.0, 800.0)
+                .min_inner_size(900.0, 600.0)
                 .visible(false)
                 .background_color(Color(30, 30, 30, 255))
                 .on_page_load(|window, payload| {

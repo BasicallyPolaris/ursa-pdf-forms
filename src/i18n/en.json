@@ -243,7 +243,8 @@
     "back": "Back",
     "next": "Next",
     "done": "Done",
-    "getStarted": "Get Started"
+    "getStarted": "Get Started",
+    "closeTour": "Close tour"
   },
   "settings": {
     "title": "Settings",

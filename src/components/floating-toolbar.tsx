@@ -40,6 +40,7 @@ export function FloatingToolbar() {
                       variant="icon"
                       onClick={() => setActiveTool(id)}
                       active={activeTool === id}
+                      aria-label={t(labelKey)}
                     />
                   }
                 >

@@ -12,9 +12,9 @@ import {
   CircleDot,
   List,
   MousePointer2,
+  SquareCheck,
   SquareChevronDown,
   SquareMousePointer,
-  Square,
   Type,
 } from "lucide-react";
 import React from "react";
@@ -37,10 +37,15 @@ export const TOOL_KEYS = [
   {
     id: "checkbox" as const,
     labelKey: "toolbar.checkbox",
-    icon: Square,
+    icon: SquareCheck,
     group: 1,
   },
-  { id: "radio" as const, labelKey: "toolbar.radio", icon: CircleDot, group: 1 },
+  {
+    id: "radio" as const,
+    labelKey: "toolbar.radio",
+    icon: CircleDot,
+    group: 1,
+  },
   {
     id: "dropdown" as const,
     labelKey: "toolbar.dropdown",
@@ -95,9 +100,7 @@ export function OfficeRibbon() {
             <TooltipContent>
               <span className="flex items-center gap-2">
                 {t(labelKey)}
-                <ShortcutKbd
-                  shortcutId={TOOL_SHORTCUT_MAP[id] as ShortcutId}
-                />
+                <ShortcutKbd shortcutId={TOOL_SHORTCUT_MAP[id] as ShortcutId} />
               </span>
             </TooltipContent>
           </Tooltip>

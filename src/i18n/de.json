@@ -243,7 +243,8 @@
     "back": "Zurück",
     "next": "Weiter",
     "done": "Fertig",
-    "getStarted": "Loslegen"
+    "getStarted": "Loslegen",
+    "closeTour": "Tour schließen"
   },
   "settings": {
     "title": "Einstellungen",

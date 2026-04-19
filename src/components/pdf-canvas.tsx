@@ -290,6 +290,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
             viewBox="0 0 48 48"
             fill="none"
             className="text-border"
+            aria-hidden="true"
           >
             <rect
               x="8"
@@ -360,7 +361,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     return (
       <div className="flex h-full items-center justify-center select-none">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
-          <svg className="h-6 w-6 animate-spin" viewBox="0 0 24 24" fill="none">
+          <svg className="h-6 w-6 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle
               cx="12"
               cy="12"
