@@ -9,6 +9,8 @@ Built with Tauri, React, and TypeScript.
 [![License](https://img.shields.io/github/license/BasicallyPolaris/ursa-pdf-forms?style=flat-square)](LICENSE)
 [![Version](https://img.shields.io/github/v/release/BasicallyPolaris/ursa-pdf-forms?style=flat-square)](https://github.com/BasicallyPolaris/ursa-pdf-forms/releases)
 
+[![Support me on Ko-fi](https://storage.ko-fi.com/cdn/brandasset/v2/support_me_on_kofi_blue.png)](https://ko-fi.com/basicallypolaris)
+
 <!-- Uncomment when screenshot is available -->
 <!-- <img src=".github/assets/screenshot-main.png" alt="Ursa PDF Forms Interface" width="100%" /> -->
 
