@@ -60,23 +60,27 @@ const PdfPage = memo(function PdfPage({ pageNumber, zoom }: PdfPageProps) {
       handle.promise
         .then(({ bitmap, renderedScale }: RenderResult) => {
           handleRef.current = null;
-          const canvas = canvasRef.current;
-          if (!canvas) {
+          // rAF: the first drawImage on a just-mounted canvas can land before
+          // WebKit allocates its GPU backing, producing a blank page until
+          // something (e.g. zoom change) reallocates the canvas.
+          requestAnimationFrame(() => {
+            const canvas = canvasRef.current;
+            if (!canvas) {
+              bitmap.close();
+              return;
+            }
+            if (
+              canvas.width !== bitmap.width ||
+              canvas.height !== bitmap.height
+            ) {
+              canvas.width = bitmap.width;
+              canvas.height = bitmap.height;
+            }
+            const displayCtx = canvas.getContext("2d", { alpha: false });
+            displayCtx?.drawImage(bitmap, 0, 0);
             bitmap.close();
-            return;
-          }
-
-          if (
-            canvas.width !== bitmap.width ||
-            canvas.height !== bitmap.height
-          ) {
-            canvas.width = bitmap.width;
-            canvas.height = bitmap.height;
-          }
-          const displayCtx = canvas.getContext("2d", { alpha: false });
-          displayCtx?.drawImage(bitmap, 0, 0);
-          bitmap.close();
-          rasterZoomRef.current = renderedScale;
+            rasterZoomRef.current = renderedScale;
+          });
         })
         .catch((err) => {
           if (!(err instanceof Error) || !err.message.includes("cancelled"))
