@@ -30,12 +30,14 @@ export function computePageLayouts(
   zoom: number,
   containerWidth: number,
 ): Map<number, PageLayout> {
+  const safeZoom =
+    Number.isFinite(zoom) && zoom > 0 ? Math.min(zoom, 10) : 1;
   const layouts = new Map<number, PageLayout>();
-  const cw = getLayoutContentWidth(pages, zoom, containerWidth);
+  const cw = getLayoutContentWidth(pages, safeZoom, containerWidth);
   let currentY = V_PADDING;
   for (const page of pages) {
-    const screenWidth = page.width * zoom;
-    const screenHeight = page.height * zoom;
+    const screenWidth = page.width * safeZoom;
+    const screenHeight = page.height * safeZoom;
     const xOffset = Math.max(H_PADDING, (cw - screenWidth) / 2);
     layouts.set(page.pageNumber, {
       xOffset,
@@ -69,9 +71,11 @@ export function getVisiblePageNumbers(
 }
 
 export function getTotalContentHeight(pages: PageInfo[], zoom: number): number {
+  const safeZoom =
+    Number.isFinite(zoom) && zoom > 0 ? Math.min(zoom, 10) : 1;
   if (pages.length === 0) return 0;
   return (
-    pages.reduce((acc, p) => acc + p.height * zoom, 0) +
+    pages.reduce((acc, p) => acc + p.height * safeZoom, 0) +
     V_PADDING +
     PAGE_GAP * (pages.length - 1) +
     V_PADDING

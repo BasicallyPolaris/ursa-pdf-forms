@@ -64,6 +64,7 @@
     --color-guide-snap: var(--guide-snap);
     --color-guide-page: var(--guide-page);
     --color-bounding-rect: var(--bounding-rect);
+    --color-handle-bg: var(--handle-bg);
     --color-ruler-bg: var(--ruler-bg);
     --color-toolbar-bg: var(--toolbar-bg);
     --radius-sm: calc(var(--radius) * 0.6);
@@ -113,6 +114,7 @@
     --ruler-tick-minor: oklch(0.7 0 0);
     --ruler-tick-sub: oklch(0.8 0 0);
     --ruler-label: oklch(0.35 0 0);
+    --handle-bg: oklch(0.145 0 0);
     --toolbar-bg: oklch(0.92 0 0 / 90%);
 }
 
@@ -178,6 +180,7 @@
     --ruler-tick-minor: oklch(0.38 0 0);
     --ruler-tick-sub: oklch(0.33 0 0);
     --ruler-label: oklch(0.68 0 0);
+    --handle-bg: oklch(0.98 0 0);
     --toolbar-bg: oklch(0.145 0 0 / 90%);
     --scrollbar-track: oklch(0.15 0 0);
     --scrollbar-thumb: oklch(0.4 0 0);
@@ -262,5 +265,16 @@
 
     [data-pdf-scroll-container]::-webkit-scrollbar-thumb:hover {
         background: var(--scrollbar-thumb-hover);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
     }
 }

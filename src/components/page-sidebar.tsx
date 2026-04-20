@@ -1,3 +1,4 @@
+import { useScrollContainerRef } from "@/contexts/scroll-container-context";
 import { computePageLayouts } from "@/lib/page-layout";
 import { createPdfDocument, type PdfDocument } from "@/lib/pdf-loader";
 import { useEditorStore } from "@/stores/editor-store";
@@ -122,6 +123,7 @@ function getThumbDimensions(pageWidth: number, pageHeight: number) {
 
 export function PageSidebar() {
   const { t } = useTranslation();
+  const scrollRef = useScrollContainerRef();
   const pdfBytes = useEditorStore((s) => s.renderPdfBytes ?? s.pdfBytes);
   const pages = useEditorStore((s) => s.pages);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -308,9 +310,7 @@ export function PageSidebar() {
 
   const scrollToPage = useCallback(
     (pageNumber: number) => {
-      const scrollContainer = document.querySelector(
-        "[data-pdf-scroll-container]",
-      );
+      const scrollContainer = scrollRef.current;
       if (!scrollContainer) return;
 
       const zoom = useEditorStore.getState().zoom;
@@ -344,8 +344,10 @@ export function PageSidebar() {
   return (
     <aside
       data-testid="left-sidebar"
+      data-tour="page-sidebar"
       className="flex w-44 flex-col border-r border-border bg-card select-none"
     >
+      <h2 className="sr-only">{t("sidebar.pages")}</h2>
       <div className="px-2.5 py-1.5 flex items-center justify-between">
         <span className="text-[11px] font-medium text-muted-foreground">
           {t("sidebar.pages")}

@@ -10,6 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { lockCursor, unlockCursor } from "@/lib/cursor";
 import {
   getElementStyleConfig,
   getElementStyleConfigByType,
@@ -17,23 +18,25 @@ import {
 } from "@/lib/element-style-map";
 import {
   heightFromFontSize,
+  heightFromOptions,
+  isButtonField,
   isCheckbox,
+  isDropdownField,
+  isOptionListField,
   isRadioButton,
   isTextField,
-  isDropdownField,
-  isButtonField,
-  isOptionListField,
-  heightFromOptions,
-  type FormElement,
+  MAX_FIELD_NAME_LENGTH,
+  MAX_OPTIONS_PER_FIELD,
+  type ButtonField,
   type Checkbox,
+  type DropdownField,
+  type FormElement,
   type RadioButton,
   type TextField,
-  type DropdownField,
-  type ButtonField,
 } from "@/lib/form-element-model";
 import { resolveElementPosition } from "@/lib/page-coordinates";
-import { lockCursor, unlockCursor } from "@/lib/cursor";
 import { useEditorStore, type GuideLine } from "@/stores/editor-store";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -43,9 +46,11 @@ import {
   AlignStartVertical,
   BetweenHorizontalStart,
   BetweenVerticalStart,
-  ChevronRight,
+   ChevronLeft,
+   ChevronRight,
   Expand,
   GripVertical,
+  Heart,
   MousePointer2,
   MoveHorizontal,
   MoveVertical,
@@ -55,7 +60,14 @@ import {
   SquareSquare,
   Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 const BASE_FONT_FAMILIES = [
@@ -168,9 +180,12 @@ function PropertyField({
   label: string;
   children: React.ReactNode;
 }) {
+  const id = useId();
   return (
-    <div className="flex flex-col gap-1.5">
-      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+    <div className="flex flex-col gap-1.5" role="group" aria-labelledby={id}>
+      <Label id={id} className="text-[11px] text-muted-foreground">
+        {label}
+      </Label>
       {children}
     </div>
   );
@@ -271,6 +286,7 @@ function PageSelector({
         ref={inputRef}
         type="text"
         inputMode="numeric"
+        aria-label={t("properties.editPageNumber")}
         className="h-5 w-8 rounded bg-accent px-1 text-center text-[10px] font-mono tabular-nums text-foreground outline-none ring-1 ring-ring/50"
         value={text}
         onChange={(e) => {
@@ -304,10 +320,21 @@ type TypographyField = {
 type ElementWithTypography = FormElement & TypographyField;
 
 function elementHasTypography(el: FormElement): el is ElementWithTypography {
-  return el.type === "text" || el.type === "dropdown" || el.type === "button" || el.type === "optionlist";
+  return (
+    el.type === "text" ||
+    el.type === "dropdown" ||
+    el.type === "button" ||
+    el.type === "optionlist"
+  );
 }
 
-function FontFamilySelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function FontFamilySelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
   const { t } = useTranslation();
   return (
     <PropertyField label={t("properties.fontFamily")}>
@@ -327,16 +354,24 @@ function FontFamilySelect({ value, onChange }: { value: string; onChange: (v: st
   );
 }
 
-function BoldItalicButtons({ fontWeight, onChange }: { fontWeight: string; onChange: (w: "regular" | "bold" | "italic" | "bold-italic") => void }) {
+function BoldItalicButtons({
+  fontWeight,
+  onChange,
+}: {
+  fontWeight: string;
+  onChange: (w: "regular" | "bold" | "italic" | "bold-italic") => void;
+}) {
+  const { t } = useTranslation();
   return (
     <div className="flex gap-0.5">
       <button
         type="button"
-        aria-label="Bold"
+        aria-label={t("properties.bold")}
+        aria-pressed={fontWeight === "bold" || fontWeight === "bold-italic"}
         className={`flex h-6 w-6 items-center justify-center rounded text-[10px] font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
           fontWeight === "bold" || fontWeight === "bold-italic"
-          ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
-          : "text-muted-foreground hover:bg-accent"
+            ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
+            : "text-muted-foreground hover:bg-accent"
         }`}
         onClick={() => {
           const next =
@@ -354,11 +389,12 @@ function BoldItalicButtons({ fontWeight, onChange }: { fontWeight: string; onCha
       </button>
       <button
         type="button"
-        aria-label="Italic"
+        aria-label={t("properties.italic")}
+        aria-pressed={fontWeight === "italic" || fontWeight === "bold-italic"}
         className={`flex h-6 w-6 items-center justify-center rounded text-[10px] italic transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
           fontWeight === "italic" || fontWeight === "bold-italic"
-          ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
-          : "text-muted-foreground hover:bg-accent"
+            ? "bg-accent text-accent-foreground ring-1 ring-ring/50"
+            : "text-muted-foreground hover:bg-accent"
         }`}
         onClick={() => {
           const next =
@@ -378,7 +414,13 @@ function BoldItalicButtons({ fontWeight, onChange }: { fontWeight: string; onCha
   );
 }
 
-function TextColorPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function TextColorPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
   const { t } = useTranslation();
   return (
     <PropertyField label={t("properties.textColor")}>
@@ -398,7 +440,13 @@ function TextColorPicker({ value, onChange }: { value: string; onChange: (v: str
   );
 }
 
-function AppearanceSection({ element, onUpdate }: { element: TypographyField; onUpdate: (updates: Partial<TypographyField>) => void }) {
+function AppearanceSection({
+  element,
+  onUpdate,
+}: {
+  element: TypographyField;
+  onUpdate: (updates: Partial<TypographyField>) => void;
+}) {
   const { t } = useTranslation();
   return (
     <>
@@ -465,7 +513,9 @@ function AppearanceSection({ element, onUpdate }: { element: TypographyField; on
               max={5}
               step={0.5}
               value={element.borderWidth}
-              onChange={(e) => onUpdate({ borderWidth: Number(e.target.value) })}
+              onChange={(e) =>
+                onUpdate({ borderWidth: Number(e.target.value) })
+              }
               className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-accent outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             />
             <span className="w-6 text-right text-[10px] font-mono tabular-nums text-muted-foreground">
@@ -478,7 +528,13 @@ function AppearanceSection({ element, onUpdate }: { element: TypographyField; on
   );
 }
 
-function TypographySection({ element, onUpdate }: { element: ElementWithTypography; onUpdate: (updates: Partial<ElementWithTypography>) => void }) {
+function TypographySection({
+  element,
+  onUpdate,
+}: {
+  element: ElementWithTypography;
+  onUpdate: (updates: Partial<ElementWithTypography>) => void;
+}) {
   const { t } = useTranslation();
   const fontSizeField = useDeferredValue(element.fontSize, (v) => {
     const fs = Number(v);
@@ -513,6 +569,7 @@ function TypographySection({ element, onUpdate }: { element: ElementWithTypograp
 
 function TextFieldProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
+  const requiredId = useId();
   const element = useEditorStore((s) =>
     s.elements.find((el) => el.id === elementId),
   );
@@ -536,7 +593,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
     <div className="flex flex-col gap-3">
       <CollapsibleSection label={t("properties.general")}>
         <PropertyField label={t("properties.name")}>
-          <Input {...nameField} className="h-7 text-xs" />
+          <Input {...nameField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
         </PropertyField>
 
         <PropertyField label={t("properties.defaultValue")}>
@@ -544,10 +601,11 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
         </PropertyField>
 
         <div className="flex items-center justify-between">
-          <Label className="text-[11px] text-muted-foreground">
+          <Label id={requiredId} className="text-[11px] text-muted-foreground">
             {t("properties.required")}
           </Label>
           <Switch
+            aria-labelledby={requiredId}
             checked={element.required}
             onCheckedChange={(checked) =>
               updateElement(element.id, { required: checked })
@@ -594,6 +652,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
 
 function CheckboxProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
+  const defaultCheckedId = useId();
   const element = useEditorStore((s) =>
     s.elements.find((el) => el.id === elementId),
   );
@@ -609,14 +668,15 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
     <div className="flex flex-col gap-3">
       <CollapsibleSection label={t("properties.general")}>
         <PropertyField label={t("properties.name")}>
-          <Input {...nameField} className="h-7 text-xs" />
+          <Input {...nameField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
         </PropertyField>
 
         <div className="flex items-center justify-between">
-          <Label className="text-[11px] text-muted-foreground">
+          <Label id={defaultCheckedId} className="text-[11px] text-muted-foreground">
             {t("properties.defaultChecked")}
           </Label>
           <Switch
+            aria-labelledby={defaultCheckedId}
             checked={element.defaultChecked}
             onCheckedChange={(checked) =>
               updateElement(element.id, { defaultChecked: checked })
@@ -627,8 +687,6 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
     </div>
   );
 }
-
-
 
 function RadioButtonProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
@@ -653,11 +711,11 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
     <div className="flex flex-col gap-3">
       <CollapsibleSection label={t("properties.general")}>
         <PropertyField label={t("properties.groupName")}>
-          <Input {...groupNameField} className="h-7 text-xs" />
+          <Input {...groupNameField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
         </PropertyField>
 
         <PropertyField label={t("properties.value")}>
-          <Input {...valueField} className="h-7 text-xs" />
+          <Input {...valueField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
         </PropertyField>
 
         <PropertyField label={t("properties.label")}>
@@ -685,6 +743,7 @@ function DraggableOptionList({
   onReorderOptions: (fromIndex: number, toIndex: number) => void;
   onSetDefault: (value: string) => void;
 }) {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const dragIndexRef = useRef<number | null>(null);
   const insertIndexRef = useRef<number | null>(null);
@@ -693,7 +752,8 @@ function DraggableOptionList({
 
   const getRowRects = useCallback(() => {
     if (!containerRef.current) return [];
-    const rows = containerRef.current.querySelectorAll<HTMLElement>("[data-opt-row]");
+    const rows =
+      containerRef.current.querySelectorAll<HTMLElement>("[data-opt-row]");
     return Array.from(rows).map((row) => row.getBoundingClientRect());
   }, []);
 
@@ -760,11 +820,13 @@ function DraggableOptionList({
   );
 
   return (
-    <div ref={containerRef} className="relative flex flex-col gap-1.5">
+    <div ref={containerRef} className="relative flex flex-col gap-1.5 overflow-hidden">
       {indicatorY !== null && containerRef.current && (
         <div
           className="pointer-events-none absolute left-0 right-0 h-0.5 -translate-y-1/2 rounded-full bg-primary"
-          style={{ top: indicatorY - containerRef.current.getBoundingClientRect().top }}
+          style={{
+            top: indicatorY - containerRef.current.getBoundingClientRect().top,
+          }}
         />
       )}
       {options.map((opt, i) => {
@@ -779,7 +841,7 @@ function DraggableOptionList({
           >
             <button
               type="button"
-              aria-label={`Drag option ${i + 1}`}
+              aria-label={t("properties.dragOption", { index: i + 1 })}
               className="flex h-6 w-4 shrink-0 cursor-grab items-center justify-center text-muted-foreground/40 hover:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card rounded-sm"
               onPointerDown={(e) => handlePointerDown(i, e)}
             >
@@ -788,7 +850,7 @@ function DraggableOptionList({
             <input
               type="radio"
               name={`default-${elementId}`}
-              aria-label={`Set option ${i + 1} as default`}
+              aria-label={t("properties.setDefaultOption", { index: i + 1 })}
               checked={defaultValue === opt}
               onChange={() => onSetDefault(opt)}
               className="h-3.5 w-3.5 shrink-0 accent-primary rounded-full ring-offset-1 ring-offset-card outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
@@ -796,11 +858,11 @@ function DraggableOptionList({
             <Input
               value={opt}
               onChange={(e) => onUpdateOption(i, e.target.value)}
-              className="h-6 flex-1 text-xs"
+              className="h-6 min-w-0 flex-1 text-xs"
             />
             <button
               type="button"
-              aria-label={`Remove option ${i + 1}`}
+              aria-label={t("properties.removeOption", { index: i + 1 })}
               onClick={() => onRemoveOption(i)}
               className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-destructive outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
             >
@@ -815,6 +877,8 @@ function DraggableOptionList({
 
 function DropdownProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
+  const requiredId = useId();
+  const editableId = useId();
   const element = useEditorStore((s) =>
     s.elements.find((el) => el.id === elementId),
   );
@@ -827,9 +891,10 @@ function DropdownProperties({ elementId }: { elementId: string }) {
   );
 
   const addOption = () => {
+    if (element.options.length >= MAX_OPTIONS_PER_FIELD) return;
     const next = element.options.length + 1;
     updateElement(element.id, {
-      options: [...element.options, `Option ${next}`],
+      options: [...element.options, t("properties.newOption", { index: next })],
     });
   };
 
@@ -856,14 +921,15 @@ function DropdownProperties({ elementId }: { elementId: string }) {
     <div className="flex flex-col gap-3">
       <CollapsibleSection label={t("properties.general")}>
         <PropertyField label={t("properties.name")}>
-          <Input {...nameField} className="h-7 text-xs" />
+          <Input {...nameField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
         </PropertyField>
 
         <div className="flex items-center justify-between">
-          <Label className="text-[11px] text-muted-foreground">
+          <Label id={requiredId} className="text-[11px] text-muted-foreground">
             {t("properties.required")}
           </Label>
           <Switch
+            aria-labelledby={requiredId}
             checked={element.required}
             onCheckedChange={(checked) =>
               updateElement(element.id, { required: checked })
@@ -903,16 +969,18 @@ function DropdownProperties({ elementId }: { elementId: string }) {
           type="button"
           aria-label={t("properties.addOption")}
           onClick={addOption}
-          className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
+          disabled={element.options.length >= MAX_OPTIONS_PER_FIELD}
+          className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card disabled:opacity-40 disabled:cursor-not-allowed"
         >
           +
         </button>
 
         <div className="flex items-center justify-between">
-          <Label className="text-[11px] text-muted-foreground">
+          <Label id={editableId} className="text-[11px] text-muted-foreground">
             {t("properties.editable")}
           </Label>
           <Switch
+            aria-labelledby={editableId}
             checked={element.editable}
             onCheckedChange={(checked) =>
               updateElement(element.id, { editable: checked })
@@ -952,7 +1020,7 @@ function ButtonProperties({ elementId }: { elementId: string }) {
     <div className="flex flex-col gap-3">
       <CollapsibleSection label={t("properties.general")}>
         <PropertyField label={t("properties.name")}>
-          <Input {...nameField} className="h-7 text-xs" />
+          <Input {...nameField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
         </PropertyField>
 
         <PropertyField label={t("properties.label")}>
@@ -981,6 +1049,7 @@ function ButtonProperties({ elementId }: { elementId: string }) {
 
 function OptionListProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
+  const requiredId = useId();
   const element = useEditorStore((s) =>
     s.elements.find((el) => el.id === elementId),
   );
@@ -993,8 +1062,9 @@ function OptionListProperties({ elementId }: { elementId: string }) {
   );
 
   const addOption = () => {
+    if (element.options.length >= MAX_OPTIONS_PER_FIELD) return;
     const next = element.options.length + 1;
-    const newOptions = [...element.options, `Option ${next}`];
+    const newOptions = [...element.options, t("properties.newOption", { index: next })];
     updateElement(element.id, {
       options: newOptions,
       height: heightFromOptions(element.fontSize, newOptions.length),
@@ -1026,14 +1096,15 @@ function OptionListProperties({ elementId }: { elementId: string }) {
     <div className="flex flex-col gap-3">
       <CollapsibleSection label={t("properties.general")}>
         <PropertyField label={t("properties.name")}>
-          <Input {...nameField} className="h-7 text-xs" />
+          <Input {...nameField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
         </PropertyField>
 
         <div className="flex items-center justify-between">
-          <Label className="text-[11px] text-muted-foreground">
+          <Label id={requiredId} className="text-[11px] text-muted-foreground">
             {t("properties.required")}
           </Label>
           <Switch
+            aria-labelledby={requiredId}
             checked={element.required}
             onCheckedChange={(checked) =>
               updateElement(element.id, { required: checked })
@@ -1073,7 +1144,8 @@ function OptionListProperties({ elementId }: { elementId: string }) {
           type="button"
           aria-label={t("properties.addOption")}
           onClick={addOption}
-          className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
+          disabled={element.options.length >= MAX_OPTIONS_PER_FIELD}
+          className="flex h-6 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card disabled:opacity-40 disabled:cursor-not-allowed"
         >
           +
         </button>
@@ -1089,8 +1161,6 @@ function OptionListProperties({ elementId }: { elementId: string }) {
     </div>
   );
 }
-
-
 
 function SinglePositionProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
@@ -1169,7 +1239,11 @@ function SinglePositionProperties({ elementId }: { elementId: string }) {
   );
 }
 
-function MultiTypographySection({ elements }: { elements: ElementWithTypography[] }) {
+function MultiTypographySection({
+  elements,
+}: {
+  elements: ElementWithTypography[];
+}) {
   const { t } = useTranslation();
   const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
 
@@ -1206,9 +1280,7 @@ function MultiTypographySection({ elements }: { elements: ElementWithTypography[
   );
 
   const mixed = t("properties.mixed");
-  const hasSingleLine = elements.some(
-    (el) => isTextField(el) && !el.multiline,
-  );
+  const hasSingleLine = elements.some((el) => isTextField(el) && !el.multiline);
 
   return (
     <>
@@ -1232,9 +1304,9 @@ function MultiTypographySection({ elements }: { elements: ElementWithTypography[
           onChange={(w) =>
             batchUpdateElements(
               elements.map((el) => ({ id: el.id, changes: { fontWeight: w } })),
-              )
-            }
-          />
+            )
+          }
+        />
       </div>
       <TextColorPicker
         value={allSameTextColor ? elements[0].textColor : "#000000"}
@@ -1253,7 +1325,11 @@ function MultiTypographySection({ elements }: { elements: ElementWithTypography[
   );
 }
 
-function MultiAppearanceSection({ elements }: { elements: ElementWithTypography[] }) {
+function MultiAppearanceSection({
+  elements,
+}: {
+  elements: ElementWithTypography[];
+}) {
   const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
 
   const allSameBg = elements.every(
@@ -1285,21 +1361,24 @@ function MultiAppearanceSection({ elements }: { elements: ElementWithTypography[
   );
 }
 
-function MultiNameField({ elements }: { elements: { name: string; id: string }[] }) {
+function MultiNameField({
+  elements,
+}: {
+  elements: { name: string; id: string }[];
+}) {
   const { t } = useTranslation();
   const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
   const allSame = elements.every((el) => el.name === elements[0].name);
-  const nameField = useDeferredValue(
-    allSame ? elements[0].name : "",
-    (v) =>
-      batchUpdateElements(
-        elements.map((el) => ({ id: el.id, changes: { name: v } })),
-      ),
+  const nameField = useDeferredValue(allSame ? elements[0].name : "", (v) =>
+    batchUpdateElements(
+      elements.map((el) => ({ id: el.id, changes: { name: v } })),
+    ),
   );
   return (
     <PropertyField label={t("properties.name")}>
       <Input
         {...nameField}
+        maxLength={MAX_FIELD_NAME_LENGTH}
         placeholder={allSame ? undefined : t("properties.mixed")}
         className="h-7 text-xs"
       />
@@ -1307,21 +1386,30 @@ function MultiNameField({ elements }: { elements: { name: string; id: string }[]
   );
 }
 
-function MultiRequiredSwitch({ elements }: { elements: { required: boolean; id: string }[] }) {
+function MultiRequiredSwitch({
+  elements,
+}: {
+  elements: { required: boolean; id: string }[];
+}) {
   const { t } = useTranslation();
+  const requiredId = useId();
   const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
   const allSame = elements.every((el) => el.required === elements[0].required);
 
   return (
     <div className="flex items-center justify-between">
-      <Label className="text-[11px] text-muted-foreground">
+      <Label id={requiredId} className="text-[11px] text-muted-foreground">
         {t("properties.required")}
       </Label>
       <Switch
+        aria-labelledby={requiredId}
         checked={allSame ? elements[0].required : false}
         onCheckedChange={(checked) =>
           batchUpdateElements(
-            elements.map((el) => ({ id: el.id, changes: { required: checked } })),
+            elements.map((el) => ({
+              id: el.id,
+              changes: { required: checked },
+            })),
           )
         }
       />
@@ -1384,6 +1472,7 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
 
 function MultiCheckboxProperties({ elements }: { elements: Checkbox[] }) {
   const { t } = useTranslation();
+  const defaultCheckedId = useId();
   const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
 
   if (elements.length === 0) return null;
@@ -1394,14 +1483,18 @@ function MultiCheckboxProperties({ elements }: { elements: Checkbox[] }) {
   return (
     <>
       <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-muted-foreground">
+        <Label id={defaultCheckedId} className="text-[11px] text-muted-foreground">
           {t("properties.defaultChecked")}
         </Label>
         <Switch
+          aria-labelledby={defaultCheckedId}
           checked={allSameChecked ? elements[0].defaultChecked : false}
           onCheckedChange={(checked) =>
             batchUpdateElements(
-              elements.map((el) => ({ id: el.id, changes: { defaultChecked: checked } })),
+              elements.map((el) => ({
+                id: el.id,
+                changes: { defaultChecked: checked },
+              })),
             )
           }
         />
@@ -1439,13 +1532,13 @@ function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
           className="h-7 text-xs"
         />
       </PropertyField>
-
     </>
   );
 }
 
 function MultiDropdownProperties({ elements }: { elements: DropdownField[] }) {
   const { t } = useTranslation();
+  const editableId = useId();
   const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
 
   if (elements.length === 0) return null;
@@ -1456,14 +1549,18 @@ function MultiDropdownProperties({ elements }: { elements: DropdownField[] }) {
 
   return (
     <div className="flex items-center justify-between">
-      <Label className="text-[11px] text-muted-foreground">
+      <Label id={editableId} className="text-[11px] text-muted-foreground">
         {t("properties.editable")}
       </Label>
       <Switch
+        aria-labelledby={editableId}
         checked={allSameEditable ? elements[0].editable : false}
         onCheckedChange={(checked) =>
           batchUpdateElements(
-            elements.map((el) => ({ id: el.id, changes: { editable: checked } })),
+            elements.map((el) => ({
+              id: el.id,
+              changes: { editable: checked },
+            })),
           )
         }
       />
@@ -1477,9 +1574,7 @@ function MultiButtonProperties({ elements }: { elements: ButtonField[] }) {
 
   if (elements.length === 0) return null;
 
-  const allSameLabel = elements.every(
-    (el) => el.label === elements[0].label,
-  );
+  const allSameLabel = elements.every((el) => el.label === elements[0].label);
 
   const labelField = useDeferredValue(
     allSameLabel ? elements[0].label : "",
@@ -1507,9 +1602,9 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
 
   if (elements.length === 0) return null;
 
-  const allSameX = elements.every((el) => el.x === elements[0].x);
-  const allSameY = elements.every((el) => el.y === elements[0].y);
-  const allSameW = elements.every((el) => el.width === elements[0].width);
+  const allSameX = elements.every((el) => Math.round(el.x) === Math.round(elements[0].x));
+  const allSameY = elements.every((el) => Math.round(el.y) === Math.round(elements[0].y));
+  const allSameW = elements.every((el) => Math.round(el.width) === Math.round(elements[0].width));
   const resizableElements = elements.filter(
     (el) =>
       !(isTextField(el) && !el.multiline) &&
@@ -1671,6 +1766,7 @@ function ToolButton({
   return (
     <Tooltip>
       <TooltipTrigger
+        aria-label={title}
         className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
         onClick={onClick}
       >
@@ -1833,9 +1929,54 @@ function DistributeButtons() {
 }
 
 export function PropertiesPanel() {
+  const { t } = useTranslation();
+  const collapsed = useEditorStore((s) => s.propertiesPanelCollapsed);
+  const togglePropertiesPanel = useEditorStore((s) => s.togglePropertiesPanel);
+
   return (
     <ErrorBoundary>
-      <PropertiesPanelContent />
+      <div className="flex h-full flex-col">
+        {collapsed ? (
+          <div className="flex flex-1 items-center justify-center">
+            <button
+              type="button"
+              onClick={togglePropertiesPanel}
+              aria-label={t("properties.expandPanel")}
+              aria-expanded={false}
+              className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="flex shrink-0 items-center justify-end px-1.5 pt-1.5">
+              <button
+                type="button"
+                onClick={togglePropertiesPanel}
+                aria-label={t("properties.collapsePanel")}
+                aria-expanded={true}
+                className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1">
+              <PropertiesPanelContent />
+            </div>
+            <div className="shrink-0 border-t border-border px-3 py-2.5">
+              <button
+                type="button"
+                onClick={() => openUrl("https://ko-fi.com/basicallypolaris")}
+                className="flex w-full items-center justify-center gap-1.5 rounded-sm px-2 py-1.5 text-[11px] text-muted-foreground/60 transition-colors hover:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              >
+                <Heart className="h-3 w-3" />
+                {t("properties.kofi")}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </ErrorBoundary>
   );
 }
@@ -1855,13 +1996,16 @@ function GuideProperties({ guideId }: { guideId: string }) {
     selectedGuideId === guideId &&
     previewGuide !== null &&
     previewGuide.orientation === guide.orientation;
-  const livePosition = isLiveDragging ? previewGuide!.position : (guide?.position ?? 0);
+  const livePosition = isLiveDragging
+    ? previewGuide!.position
+    : (guide?.position ?? 0);
   const maxPos = isHorizontal
     ? (pages[0]?.height ?? Infinity)
     : (pages[0]?.width ?? Infinity);
 
   const posField = useDeferredValue(Math.round(livePosition), (v) => {
-    if (guide) updateGuidePosition(guide.id, Math.max(0, Math.min(Number(v), maxPos)));
+    if (guide)
+      updateGuidePosition(guide.id, Math.max(0, Math.min(Number(v), maxPos)));
   });
 
   if (!guide) return null;
@@ -1917,7 +2061,50 @@ function PropertiesPanelContent() {
     );
   }
 
-  const selectedElements = elements.filter((el) => selectedIds.has(el.id));
+  const selectedElements = useMemo(
+    () => elements.filter((el) => selectedIds.has(el.id)),
+    [elements, selectedIds],
+  );
+
+  const multiSelectMemo = useMemo(() => {
+    if (selectedIds.size <= 1) return null;
+    const types = new Set(selectedElements.map((el) => el.type));
+    const allSameType = types.size === 1;
+    const singleType = allSameType ? [...types][0] : null;
+    const config = singleType ? getElementStyleConfigByType(singleType) : null;
+
+    const namedEls = selectedElements.filter(
+      (el): el is FormElement & { name: string } => "name" in el,
+    );
+    const requiredEls = selectedElements.filter(
+      (el): el is FormElement & { required: boolean } => "required" in el,
+    );
+    const textEls =
+      singleType === "text" ? selectedElements.filter(isTextField) : [];
+    const checkboxEls =
+      singleType === "checkbox" ? selectedElements.filter(isCheckbox) : [];
+    const radioEls =
+      singleType === "radio" ? selectedElements.filter(isRadioButton) : [];
+    const dropdownEls =
+      singleType === "dropdown" ? selectedElements.filter(isDropdownField) : [];
+    const buttonEls =
+      singleType === "button" ? selectedElements.filter(isButtonField) : [];
+    const typoEls = selectedElements.filter(elementHasTypography);
+
+    return {
+      types,
+      singleType,
+      config,
+      namedEls,
+      requiredEls,
+      textEls,
+      checkboxEls,
+      radioEls,
+      dropdownEls,
+      buttonEls,
+      typoEls,
+    };
+  }, [selectedElements, selectedIds]);
 
   if (selectedIds.size === 0) {
     return (
@@ -1930,11 +2117,19 @@ function PropertiesPanelContent() {
     );
   }
 
-  if (selectedIds.size > 1) {
-    const types = new Set(selectedElements.map((el) => el.type));
-    const allSameType = types.size === 1;
-    const singleType = allSameType ? [...types][0] : null;
-    const config = singleType ? getElementStyleConfigByType(singleType) : null;
+  if (selectedIds.size > 1 && multiSelectMemo) {
+    const {
+      singleType,
+      config,
+      namedEls,
+      requiredEls,
+      textEls,
+      checkboxEls,
+      radioEls,
+      dropdownEls,
+      buttonEls,
+      typoEls,
+    } = multiSelectMemo;
 
     return (
       <div className="h-full overflow-y-auto">
@@ -1967,61 +2162,42 @@ function PropertiesPanelContent() {
           </div>
           <Separator />
 
-          {(() => {
-            const namedEls = selectedElements.filter(
-              (el): el is FormElement & { name: string } => "name" in el,
-            );
-            const requiredEls = selectedElements.filter(
-              (el): el is FormElement & { required: boolean } => "required" in el,
-            );
-            return namedEls.length > 0 || requiredEls.length > 0 ? (
-              <CollapsibleSection label={t("properties.general")}>
-                {namedEls.length > 0 && <MultiNameField elements={namedEls} />}
-                {requiredEls.length > 0 && <MultiRequiredSwitch elements={requiredEls} />}
-                {singleType === "text" && (
-                  <MultiTextFieldProperties
-                    elements={selectedElements.filter(isTextField)}
-                  />
-                )}
-                {singleType === "checkbox" && (
-                  <MultiCheckboxProperties
-                    elements={selectedElements.filter(isCheckbox)}
-                  />
-                )}
-                {singleType === "radio" && (
-                  <MultiRadioProperties
-                    elements={selectedElements.filter(isRadioButton)}
-                  />
-                )}
-                {singleType === "dropdown" && (
-                  <MultiDropdownProperties
-                    elements={selectedElements.filter(isDropdownField)}
-                  />
-                )}
-                {singleType === "button" && (
-                  <MultiButtonProperties
-                    elements={selectedElements.filter(isButtonField)}
-                  />
-                )}
-              </CollapsibleSection>
-            ) : null;
-          })()}
+          {namedEls.length > 0 || requiredEls.length > 0 ? (
+            <CollapsibleSection label={t("properties.general")}>
+              {namedEls.length > 0 && <MultiNameField elements={namedEls} />}
+              {requiredEls.length > 0 && (
+                <MultiRequiredSwitch elements={requiredEls} />
+              )}
+              {textEls.length > 0 && (
+                <MultiTextFieldProperties elements={textEls} />
+              )}
+              {checkboxEls.length > 0 && (
+                <MultiCheckboxProperties elements={checkboxEls} />
+              )}
+              {radioEls.length > 0 && (
+                <MultiRadioProperties elements={radioEls} />
+              )}
+              {dropdownEls.length > 0 && (
+                <MultiDropdownProperties elements={dropdownEls} />
+              )}
+              {buttonEls.length > 0 && (
+                <MultiButtonProperties elements={buttonEls} />
+              )}
+            </CollapsibleSection>
+          ) : null}
 
-          {(() => {
-            const typoEls = selectedElements.filter(elementHasTypography);
-            return typoEls.length > 0 ? (
-              <>
-                <Separator />
-                <CollapsibleSection label={t("properties.typography")}>
-                  <MultiTypographySection elements={typoEls} />
-                </CollapsibleSection>
-                <Separator />
-                <CollapsibleSection label={t("properties.appearance")}>
-                  <MultiAppearanceSection elements={typoEls} />
-                </CollapsibleSection>
-              </>
-            ) : null;
-          })()}
+          {typoEls.length > 0 ? (
+            <>
+              <Separator />
+              <CollapsibleSection label={t("properties.typography")}>
+                <MultiTypographySection elements={typoEls} />
+              </CollapsibleSection>
+              <Separator />
+              <CollapsibleSection label={t("properties.appearance")}>
+                <MultiAppearanceSection elements={typoEls} />
+              </CollapsibleSection>
+            </>
+          ) : null}
 
           <Separator />
 
@@ -2059,13 +2235,13 @@ function PropertiesPanelContent() {
     <div className="h-full overflow-y-auto select-none">
       <div className="flex flex-col gap-3 p-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <span
-              className={`flex h-5 w-5 items-center justify-center rounded ${config.colorClass}`}
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded ${config.colorClass}`}
             >
               <Icon className="h-3 w-3" />
             </span>
-            <span className="text-xs font-medium text-foreground">
+            <span className="text-xs font-medium text-foreground truncate">
               {isMultilineText
                 ? t("fieldTypes.multiline")
                 : getFieldTypeLabel(config)}
@@ -2087,9 +2263,7 @@ function PropertiesPanelContent() {
         {isDropdownField(element) && (
           <DropdownProperties elementId={element.id} />
         )}
-        {isButtonField(element) && (
-          <ButtonProperties elementId={element.id} />
-        )}
+        {isButtonField(element) && <ButtonProperties elementId={element.id} />}
         {isOptionListField(element) && (
           <OptionListProperties elementId={element.id} />
         )}

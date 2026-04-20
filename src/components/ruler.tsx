@@ -3,6 +3,7 @@
  * Redraws on committedZoom change (via useLayoutEffect) and on scroll.
  */
 
+import { useScrollContainerRef } from "@/contexts/scroll-container-context";
 import { H_PADDING, PAGE_GAP, V_PADDING } from "@/lib/coordinates";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
 import { getLayoutContentWidth } from "@/lib/page-layout";
@@ -23,6 +24,50 @@ const MINOR_INTERVAL = 10;
 const SUB_INTERVAL = 5;
 const MIN_VERTICAL_TICK_PX = 2.5;
 
+interface RulerColors {
+  bg: string;
+  majorColor: string;
+  minorColor: string;
+  subColor: string;
+  labelColor: string;
+}
+
+const FALLBACKS: Record<string, string> = {
+  "--ruler-bg": "#1e1e1e",
+  "--ruler-tick-major": "#555",
+  "--ruler-tick-minor": "#444",
+  "--ruler-tick-sub": "#333",
+  "--ruler-label": "#888",
+};
+
+let cachedColors: RulerColors | null = null;
+
+function resolveRulerColors(canvas: HTMLCanvasElement): RulerColors {
+  if (cachedColors) return cachedColors;
+  const style = getComputedStyle(canvas);
+  cachedColors = {
+    bg:
+      style.getPropertyValue("--ruler-bg").trim() || FALLBACKS["--ruler-bg"],
+    majorColor:
+      style.getPropertyValue("--ruler-tick-major").trim() ||
+      FALLBACKS["--ruler-tick-major"],
+    minorColor:
+      style.getPropertyValue("--ruler-tick-minor").trim() ||
+      FALLBACKS["--ruler-tick-minor"],
+    subColor:
+      style.getPropertyValue("--ruler-tick-sub").trim() ||
+      FALLBACKS["--ruler-tick-sub"],
+    labelColor:
+      style.getPropertyValue("--ruler-label").trim() ||
+      FALLBACKS["--ruler-label"],
+  };
+  return cachedColors;
+}
+
+export function invalidateRulerColorCache(): void {
+  cachedColors = null;
+}
+
 // ─── Draw helpers ────────────────────────────────────────────────────────────
 
 function drawHorizontalRuler(
@@ -41,9 +86,8 @@ function drawHorizontalRuler(
   if (!ctx) return;
   ctx.scale(devicePixelRatio, devicePixelRatio);
 
-  const bg =
-    getComputedStyle(canvas).getPropertyValue("--ruler-bg").trim() || "#1e1e1e";
-  ctx.fillStyle = bg;
+  const colors = resolveRulerColors(canvas);
+  ctx.fillStyle = colors.bg;
   ctx.fillRect(0, 0, W, H);
 
   if (pages.length === 0) return;
@@ -54,18 +98,6 @@ function drawHorizontalRuler(
   );
   const screenWidth = widestPage.width * zoom;
   const xOffset = Math.max(H_PADDING, (contentWidth - screenWidth) / 2);
-
-  const majorColor =
-    getComputedStyle(canvas).getPropertyValue("--ruler-tick-major").trim() ||
-    "#555";
-  const minorColor =
-    getComputedStyle(canvas).getPropertyValue("--ruler-tick-minor").trim() ||
-    "#444";
-  const subColor =
-    getComputedStyle(canvas).getPropertyValue("--ruler-tick-sub").trim() ||
-    "#333";
-  const labelColor =
-    getComputedStyle(canvas).getPropertyValue("--ruler-label").trim() || "#888";
 
   const screenSub = SUB_INTERVAL * zoom;
 
@@ -86,7 +118,7 @@ function drawHorizontalRuler(
     const isMinor = px % MINOR_INTERVAL === 0;
 
     const startY = isMajor ? 0 : isMinor ? H * 0.5 : H * 0.65;
-    ctx.strokeStyle = isMajor ? majorColor : isMinor ? minorColor : subColor;
+    ctx.strokeStyle = isMajor ? colors.majorColor : isMinor ? colors.minorColor : colors.subColor;
     ctx.lineWidth = isMajor ? 1 : 0.5;
     ctx.beginPath();
     ctx.moveTo(screenX, startY);
@@ -94,7 +126,7 @@ function drawHorizontalRuler(
     ctx.stroke();
 
     if (isMajor && screenX > 2) {
-      ctx.fillStyle = labelColor;
+      ctx.fillStyle = colors.labelColor;
       ctx.fillText(String(px), screenX + 3, 3);
     }
   }
@@ -116,24 +148,11 @@ function drawVerticalRuler(
   if (!ctx) return;
   ctx.scale(devicePixelRatio, devicePixelRatio);
 
-  const bg =
-    getComputedStyle(canvas).getPropertyValue("--ruler-bg").trim() || "#1e1e1e";
-  ctx.fillStyle = bg;
+  const colors = resolveRulerColors(canvas);
+  ctx.fillStyle = colors.bg;
   ctx.fillRect(0, 0, W, H);
 
   if (pages.length === 0) return;
-
-  const majorColor =
-    getComputedStyle(canvas).getPropertyValue("--ruler-tick-major").trim() ||
-    "#555";
-  const minorColor =
-    getComputedStyle(canvas).getPropertyValue("--ruler-tick-minor").trim() ||
-    "#444";
-  const subColor =
-    getComputedStyle(canvas).getPropertyValue("--ruler-tick-sub").trim() ||
-    "#333";
-  const labelColor =
-    getComputedStyle(canvas).getPropertyValue("--ruler-label").trim() || "#888";
 
   ctx.font = "10px monospace";
   ctx.textBaseline = "bottom";
@@ -153,7 +172,7 @@ function drawVerticalRuler(
       const isMinor = py % MINOR_INTERVAL === 0;
 
       const startX = isMajor ? 0 : isMinor ? W * 0.5 : W * 0.65;
-      ctx.strokeStyle = isMajor ? majorColor : isMinor ? minorColor : subColor;
+      ctx.strokeStyle = isMajor ? colors.majorColor : isMinor ? colors.minorColor : colors.subColor;
       ctx.lineWidth = isMajor ? 1 : 0.5;
       ctx.beginPath();
       ctx.moveTo(startX, screenY);
@@ -162,7 +181,7 @@ function drawVerticalRuler(
 
       if (isMajor && py > 0) {
         ctx.save();
-        ctx.fillStyle = labelColor;
+        ctx.fillStyle = colors.labelColor;
         ctx.translate(W / 2, screenY - 2);
         ctx.rotate(-Math.PI / 2);
         ctx.fillText(String(py), 0, 0);
@@ -185,6 +204,7 @@ export function HorizontalRuler({
   containerRef,
 }: HorizontalRulerProps) {
   const { t } = useTranslation();
+  const scrollRef = useScrollContainerRef();
   const pages = useEditorStore((s) => s.pages);
   const committedZoom = useEditorStore((s) => s.zoom);
   const pdfBytes = useEditorStore((s) => s.pdfBytes);
@@ -199,14 +219,12 @@ export function HorizontalRuler({
   const drawHorizontalAt = useCallback(
     (zoom: number) => {
       if (!canvasRef.current) return;
-      const scrollEl = document.querySelector<HTMLElement>(
-        "[data-pdf-scroll-container]",
-      );
+      const scrollEl = scrollRef.current;
       const sl = scrollEl?.scrollLeft ?? 0;
       const cw = getLayoutContentWidth(pages, zoom, overlayWidth);
       drawHorizontalRuler(canvasRef.current, zoom, pages, cw, sl);
     },
-    [pages, overlayWidth],
+    [pages, overlayWidth, scrollRef],
   );
 
   useLayoutEffect(() => {
@@ -215,14 +233,22 @@ export function HorizontalRuler({
   }, [committedZoom, drawHorizontalAt]);
 
   useEffect(() => {
-    const scrollEl = document.querySelector<HTMLElement>(
-      "[data-pdf-scroll-container]",
-    );
+    const scrollEl = scrollRef.current;
     if (!scrollEl) return;
-    const onScroll = () => drawHorizontalAt(committedZoomRef.current);
+    let rafId: number | null = null;
+    const onScroll = () => {
+      if (rafId != null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        drawHorizontalAt(committedZoomRef.current);
+      });
+    };
     scrollEl.addEventListener("scroll", onScroll, { passive: true });
-    return () => scrollEl.removeEventListener("scroll", onScroll);
-  }, [drawHorizontalAt]);
+    return () => {
+      scrollEl.removeEventListener("scroll", onScroll);
+      if (rafId != null) cancelAnimationFrame(rafId);
+    };
+  }, [drawHorizontalAt, scrollRef]);
 
   const getPdfXFromClientX = useCallback(
     (clientX: number, zoom = committedZoomRef.current): number | null => {
@@ -233,15 +259,13 @@ export function HorizontalRuler({
       const xOff = Math.max(H_PADDING, (cw - screenWidth) / 2);
       const rulerEl = containerRef.current;
       if (!rulerEl) return null;
-      const scrollEl = document.querySelector<HTMLElement>(
-        "[data-pdf-scroll-container]",
-      );
+      const scrollEl = scrollRef.current;
       const sl = scrollEl?.scrollLeft ?? rulerEl.scrollLeft;
       const rulerLeft = rulerEl.getBoundingClientRect().left;
       const relX = clientX - rulerLeft + sl;
       return Math.max(0, Math.min(page.width, (relX - xOff) / zoom));
     },
-    [pages, overlayWidth, containerRef],
+    [pages, overlayWidth, containerRef, scrollRef],
   );
 
   const handleMouseDown = useCallback(
@@ -253,9 +277,7 @@ export function HorizontalRuler({
         if (g.orientation !== "vertical") return false;
         const rulerEl = containerRef.current;
         if (!rulerEl) return false;
-        const scrollEl = document.querySelector<HTMLElement>(
-          "[data-pdf-scroll-container]",
-        );
+        const scrollEl = scrollRef.current;
         const sl = scrollEl?.scrollLeft ?? rulerEl.scrollLeft;
         const zoom = committedZoomRef.current;
         const cw = getLayoutContentWidth(pages, zoom, overlayWidth);
@@ -317,20 +339,31 @@ export function HorizontalRuler({
       addGuide,
       removeGuide,
       setPreviewGuide,
+      scrollRef,
     ],
   );
 
   return (
     <div
       ref={containerRef}
-      role="slider"
+      role="button"
+      tabIndex={0}
       aria-label={t("ruler.horizontal")}
       className={`shrink-0 bg-ruler-bg border-b border-border relative overflow-hidden select-none ${pdfBytes ? "cursor-ew-resize" : "cursor-default"}`}
       style={{ height: RULER_SIZE, width: overlayWidth }}
       onMouseDown={handleMouseDown}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (!pdfBytes || pages.length === 0) return;
+          const page = pages[0];
+          addGuide("vertical", Math.round(page.width / 2 * 10) / 10);
+        }
+      }}
     >
       <canvas
         ref={canvasRef}
+        aria-hidden="true"
         style={{ display: "block", width: overlayWidth, height: RULER_SIZE }}
       />
     </div>
@@ -349,6 +382,7 @@ export function VerticalRuler({
   containerRef,
 }: VerticalRulerProps) {
   const { t } = useTranslation();
+  const scrollRef = useScrollContainerRef();
   const pages = useEditorStore((s) => s.pages);
   const committedZoom = useEditorStore((s) => s.zoom);
   const pdfBytes = useEditorStore((s) => s.pdfBytes);
@@ -363,13 +397,11 @@ export function VerticalRuler({
   const drawVerticalAt = useCallback(
     (zoom: number) => {
       if (!canvasRef.current) return;
-      const scrollEl = document.querySelector<HTMLElement>(
-        "[data-pdf-scroll-container]",
-      );
+      const scrollEl = scrollRef.current;
       const st = scrollEl?.scrollTop ?? 0;
       drawVerticalRuler(canvasRef.current, zoom, pages, canvasHeight, st);
     },
-    [pages, canvasHeight],
+    [pages, canvasHeight, scrollRef],
   );
 
   useLayoutEffect(() => {
@@ -378,23 +410,29 @@ export function VerticalRuler({
   }, [committedZoom, canvasHeight, drawVerticalAt]);
 
   useEffect(() => {
-    const scrollEl = document.querySelector<HTMLElement>(
-      "[data-pdf-scroll-container]",
-    );
+    const scrollEl = scrollRef.current;
     if (!scrollEl) return;
-    const onScroll = () => drawVerticalAt(committedZoomRef.current);
+    let rafId: number | null = null;
+    const onScroll = () => {
+      if (rafId != null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        drawVerticalAt(committedZoomRef.current);
+      });
+    };
     scrollEl.addEventListener("scroll", onScroll, { passive: true });
-    return () => scrollEl.removeEventListener("scroll", onScroll);
-  }, [drawVerticalAt]);
+    return () => {
+      scrollEl.removeEventListener("scroll", onScroll);
+      if (rafId != null) cancelAnimationFrame(rafId);
+    };
+  }, [drawVerticalAt, scrollRef]);
 
   const getPdfYFromClientY = useCallback(
     (clientY: number, zoom = committedZoomRef.current): number | null => {
       if (pages.length === 0) return null;
       const rulerEl = containerRef.current;
       if (!rulerEl) return null;
-      const scrollEl = document.querySelector<HTMLElement>(
-        "[data-pdf-scroll-container]",
-      );
+      const scrollEl = scrollRef.current;
       const st = scrollEl?.scrollTop ?? 0;
       const rulerTop = rulerEl.getBoundingClientRect().top;
       const relY = clientY - rulerTop + st;
@@ -414,7 +452,7 @@ export function VerticalRuler({
         ),
       );
     },
-    [pages, containerRef],
+    [pages, containerRef, scrollRef],
   );
 
   const handleMouseDown = useCallback(
@@ -426,9 +464,7 @@ export function VerticalRuler({
         if (g.orientation !== "horizontal") return false;
         const rulerEl = containerRef.current;
         if (!rulerEl) return false;
-        const scrollEl = document.querySelector<HTMLElement>(
-          "[data-pdf-scroll-container]",
-        );
+        const scrollEl = scrollRef.current;
         const st = scrollEl?.scrollTop ?? 0;
         const zoom = committedZoomRef.current;
         const rulerTop = rulerEl.getBoundingClientRect().top;
@@ -491,20 +527,31 @@ export function VerticalRuler({
       addGuide,
       removeGuide,
       setPreviewGuide,
+      scrollRef,
     ],
   );
 
   return (
     <div
       ref={containerRef}
-      role="slider"
+      role="button"
+      tabIndex={0}
       aria-label={t("ruler.vertical")}
       className={`shrink-0 bg-ruler-bg border-r border-border relative select-none ${pdfBytes ? "cursor-ns-resize" : "cursor-default"}`}
       style={{ width: RULER_SIZE, height: canvasHeight, overflow: "hidden" }}
       onMouseDown={handleMouseDown}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (!pdfBytes || pages.length === 0) return;
+          const page = pages[0];
+          addGuide("horizontal", Math.round(page.height / 2 * 10) / 10);
+        }
+      }}
     >
       <canvas
         ref={canvasRef}
+        aria-hidden="true"
         style={{ display: "block", width: RULER_SIZE, height: canvasHeight }}
       />
     </div>

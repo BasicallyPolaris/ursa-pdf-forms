@@ -35,7 +35,7 @@ export interface SnapResult {
 }
 
 export function snapToGrid(pos: number, gridSize: number): number {
-  if (gridSize <= 0) return pos;
+  if (!Number.isFinite(gridSize) || gridSize <= 0) return pos;
   return Math.round(pos / gridSize) * gridSize;
 }
 

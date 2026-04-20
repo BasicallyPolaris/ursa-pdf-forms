@@ -188,13 +188,13 @@ export function useElementResize(config: ElementResizeConfig) {
     [config],
   );
 
-  function resetState() {
+  const resetState = useCallback(() => {
     resizeHappenedRef.current = false;
     lastResizeSnap.current = null;
     setResizeSnapCorrection(null);
     resizingId.current = null;
     prevSnapRef.current = null;
-  }
+  }, []);
 
   return {
     resizingId,

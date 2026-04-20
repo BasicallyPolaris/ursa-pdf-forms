@@ -15,10 +15,50 @@ import {
   matchWidthToNarrowest,
   matchWidthToWidest,
 } from "@/lib/alignment";
-import { type FormElement, getUniqueName } from "@/lib/form-element-model";
+import {
+  type FormElement,
+  getUniqueName,
+  MAX_FIELD_NAME_LENGTH,
+} from "@/lib/form-element-model";
 import type { PageInfo } from "@/lib/pdf-loader";
+import { announce } from "@/stores/announcement-store";
+import i18n from "@/i18n";
 import { temporal } from "zundo";
 import { create } from "zustand";
+
+const NUMERIC_KEYS: ReadonlySet<string> = new Set([
+  "x",
+  "y",
+  "width",
+  "height",
+  "fontSize",
+  "borderWidth",
+  "maxLength",
+]);
+
+function sanitizePartial(
+  updates: Partial<FormElement>,
+): Partial<FormElement> {
+  const result: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(updates)) {
+    if (NUMERIC_KEYS.has(key) && typeof val === "number") {
+      if (!Number.isFinite(val)) continue;
+    }
+    if (key === "pageNumber" && typeof val === "number") {
+      if (!Number.isFinite(val) || val < 1) continue;
+    }
+    if (key === "name" && typeof val === "string") {
+      result[key] = val.slice(0, MAX_FIELD_NAME_LENGTH);
+      continue;
+    }
+    if (key === "groupName" && typeof val === "string") {
+      result[key] = val.slice(0, MAX_FIELD_NAME_LENGTH);
+      continue;
+    }
+    result[key] = val;
+  }
+  return result as Partial<FormElement>;
+}
 
 function applyPositionUpdates(
   elements: FormElement[],
@@ -35,7 +75,7 @@ function mergeElement(
   el: FormElement,
   updates: Partial<FormElement>,
 ): FormElement {
-  return { ...el, ...updates } as FormElement;
+  return { ...el, ...sanitizePartial(updates) } as FormElement;
 }
 
 function cloneElementsWithNewIds(
@@ -84,6 +124,7 @@ function cloneElementsWithNewIds(
 
 const PDF_RESET_STATE = {
   pdfFileName: null as string | null,
+  pdfFilePath: null as string | null,
   pdfBytes: null as Uint8Array | null,
   renderPdfBytes: null as Uint8Array | null,
   pages: [] as PageInfo[],
@@ -136,6 +177,19 @@ function valuesDiffer(a: unknown, b: unknown): boolean {
 
 const PASTE_OFFSET = 10;
 
+function getTypeLabelKey(el: FormElement): string {
+  if (el.type === "text" && "multiline" in el && el.multiline) return "fieldTypes.multiline";
+  const map: Record<string, string> = {
+    text: "fieldTypes.textField",
+    checkbox: "fieldTypes.checkbox",
+    radio: "fieldTypes.radioButton",
+    dropdown: "fieldTypes.dropdown",
+    button: "fieldTypes.button",
+    optionlist: "fieldTypes.optionlist",
+  };
+  return map[el.type] ?? "fieldTypes.textField";
+}
+
 export interface GuideLine {
   id: string;
   orientation: "horizontal" | "vertical";
@@ -144,6 +198,7 @@ export interface GuideLine {
 
 export interface EditorState {
   pdfFileName: string | null;
+  pdfFilePath: string | null;
   pdfBytes: Uint8Array | null;
   renderPdfBytes: Uint8Array | null;
   pages: PageInfo[];
@@ -169,12 +224,14 @@ export interface EditorState {
   selectedGuideId: string | null;
   isFileDragOver: boolean;
   isDragFileValid: boolean;
+  propertiesPanelCollapsed: boolean;
   dragLivePositions: Map<
     string,
     { x: number; y: number; width: number; height: number }
   >;
 
   setPdf: (fileName: string, bytes: Uint8Array, pages: PageInfo[]) => void;
+  setPdfFilePath: (path: string | null) => void;
   setPdfPages: (pages: PageInfo[]) => void;
   setZoom: (zoom: number) => void;
   setActiveTool: (tool: EditorState["activeTool"]) => void;
@@ -228,6 +285,7 @@ export interface EditorState {
   ) => void;
   setFileDragOver: (value: boolean) => void;
   setDragFileValid: (valid: boolean) => void;
+  togglePropertiesPanel: () => void;
 }
 
 function guidesEqual(a: GuideLine[], b: GuideLine[]): boolean {
@@ -284,6 +342,7 @@ export const useEditorStore = create<EditorState>()(
   temporal(
     (set, get) => ({
       pdfFileName: null,
+      pdfFilePath: null,
       pdfBytes: null,
       renderPdfBytes: null,
       pages: [],
@@ -300,6 +359,7 @@ export const useEditorStore = create<EditorState>()(
       dragLivePositions: new Map(),
       isFileDragOver: false,
       isDragFileValid: false,
+      propertiesPanelCollapsed: false,
 
       setPdf: (fileName, bytes, pages) => {
         set({
@@ -312,9 +372,14 @@ export const useEditorStore = create<EditorState>()(
         _cleanSnapshot = { elements: [], guides: [] };
       },
 
+      setPdfFilePath: (path) => set({ pdfFilePath: path }),
+
       setPdfPages: (pages) => set({ pages }),
 
-      setZoom: (zoom) => set({ zoom }),
+      setZoom: (zoom) =>
+        set({
+          zoom: Number.isFinite(zoom) && zoom > 0 ? Math.min(zoom, 10) : 1,
+        }),
 
       setActiveTool: (activeTool) => set({ activeTool }),
 
@@ -337,6 +402,7 @@ export const useEditorStore = create<EditorState>()(
 
       addElement: (element) => {
         set((s) => ({ elements: [...s.elements, element] }));
+        announce(i18n.t("announcements.elementAdded", { type: i18n.t(getTypeLabelKey(element)) }));
       },
 
       updateElement: (id, updates) => {
@@ -382,9 +448,11 @@ export const useEditorStore = create<EditorState>()(
       },
 
       removeElements: (ids) => {
+        let didRemove = false;
         set((s) => {
           const remaining = s.elements.filter((el) => !ids.includes(el.id));
           if (remaining.length === s.elements.length) return s;
+          didRemove = true;
           return {
             elements: remaining,
             selectedIds: new Set(
@@ -392,6 +460,9 @@ export const useEditorStore = create<EditorState>()(
             ),
           };
         });
+        if (didRemove) {
+          announce(i18n.t("announcements.elementsDeleted", { count: ids.length }));
+        }
       },
 
       selectElements: (ids) => set({ selectedIds: ids, selectedGuideId: null }),
@@ -466,6 +537,7 @@ export const useEditorStore = create<EditorState>()(
       },
 
       duplicateSelection: (targetPage?: number) => {
+        let count = 0;
         set((s) => {
           const selected = s.elements.filter((el) => s.selectedIds.has(el.id));
           if (selected.length === 0) return s;
@@ -477,11 +549,15 @@ export const useEditorStore = create<EditorState>()(
               offsetIfSamePage: PASTE_OFFSET,
             },
           );
+          count = cloned.length;
           return {
             elements: [...s.elements, ...cloned],
             selectedIds: newIds,
           };
         });
+        if (count > 0) {
+          announce(i18n.t("announcements.elementsDuplicated", { count }));
+        }
       },
 
       addGuide: (orientation, position) => {
@@ -590,7 +666,9 @@ export const useEditorStore = create<EditorState>()(
       centerSelectionOnPage: () => {
         const state = get();
         if (state.selectedIds.size === 0 || state.pages.length === 0) return;
-        const page = state.pages[0];
+        const firstSelected = state.elements.find((el) => state.selectedIds.has(el.id));
+        const pageIdx = firstSelected ? Math.min(firstSelected.pageNumber - 1, state.pages.length - 1) : 0;
+        const page = state.pages[pageIdx];
         const updates = centerOnPage(
           state.elements,
           state.selectedIds,
@@ -605,7 +683,9 @@ export const useEditorStore = create<EditorState>()(
       centerSelectionOnPageH: () => {
         const state = get();
         if (state.selectedIds.size === 0 || state.pages.length === 0) return;
-        const page = state.pages[0];
+        const firstSelected = state.elements.find((el) => state.selectedIds.has(el.id));
+        const pageIdx = firstSelected ? Math.min(firstSelected.pageNumber - 1, state.pages.length - 1) : 0;
+        const page = state.pages[pageIdx];
         const updates = centerOnPageH(
           state.elements,
           state.selectedIds,
@@ -619,7 +699,9 @@ export const useEditorStore = create<EditorState>()(
       centerSelectionOnPageV: () => {
         const state = get();
         if (state.selectedIds.size === 0 || state.pages.length === 0) return;
-        const page = state.pages[0];
+        const firstSelected = state.elements.find((el) => state.selectedIds.has(el.id));
+        const pageIdx = firstSelected ? Math.min(firstSelected.pageNumber - 1, state.pages.length - 1) : 0;
+        const page = state.pages[pageIdx];
         const updates = centerOnPageV(
           state.elements,
           state.selectedIds,
@@ -633,6 +715,9 @@ export const useEditorStore = create<EditorState>()(
       setFileDragOver: (value) => set({ isFileDragOver: value }),
 
       setDragFileValid: (valid) => set({ isDragFileValid: valid }),
+
+      togglePropertiesPanel: () =>
+        set((s) => ({ propertiesPanelCollapsed: !s.propertiesPanelCollapsed })),
 
       matchElementSize: (type) => {
         const state = get();

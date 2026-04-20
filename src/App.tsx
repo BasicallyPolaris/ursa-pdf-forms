@@ -1,6 +1,7 @@
 import { AppHeader } from "@/components/app-header";
 import { CanvasOverlay } from "@/components/canvas-overlay";
 import { FloatingToolbar } from "@/components/floating-toolbar";
+import { OfficeRibbon } from "@/components/header-toolbar";
 import { PageSidebar } from "@/components/page-sidebar";
 import { PdfCanvas } from "@/components/pdf-canvas";
 import { PropertiesPanel } from "@/components/properties-panel";
@@ -11,14 +12,27 @@ import {
 } from "@/components/ruler";
 import { StatusBar } from "@/components/status-bar";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { ScrollContainerProvider } from "@/contexts/scroll-container-context";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useZoom } from "@/hooks/use-zoom";
 import { fileIO } from "@/lib/file-io";
 import { useEditorStore } from "@/stores/editor-store";
+import { useSettingsStore } from "@/stores/settings-store";
+import { useAnnouncementStore } from "@/stores/announcement-store";
 import { FileDown, FileX } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useTranslation } from "react-i18next";
+
+const OnboardingDialog = lazy(() =>
+  import("@/components/onboarding-dialog").then((m) => ({ default: m.OnboardingDialog })),
+);
+const SettingsDialog = lazy(() =>
+  import("@/components/settings-dialog").then((m) => ({ default: m.SettingsDialog })),
+);
+const TourSpotlight = lazy(() =>
+  import("@/components/tour-spotlight").then((m) => ({ default: m.TourSpotlight })),
+);
 
 function App() {
   useFileDrop();
@@ -31,11 +45,22 @@ function App() {
   const isFileDragOver = useEditorStore((s) => s.isFileDragOver);
   const isDragFileValid = useEditorStore((s) => s.isDragFileValid);
   const pdfBytes = useEditorStore((s) => s.pdfBytes);
+  const propertiesPanelCollapsed = useEditorStore((s) => s.propertiesPanelCollapsed);
+  const layoutPreference = useSettingsStore((s) => s.layoutPreference);
+  const tourPending = useSettingsStore((s) => s.tourPending);
+  const startTour = useSettingsStore((s) => s.startTour);
+  const announcement = useAnnouncementStore((s) => s.message);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const hRulerRef = useRef<HTMLDivElement>(null);
   const vRulerRef = useRef<HTMLDivElement>(null);
   const [overlayWidth, setOverlayWidth] = useState(0);
   const [canvasHeight, setCanvasHeight] = useState(0);
+
+  useEffect(() => {
+    if (tourPending && pdfBytes) {
+      startTour();
+    }
+  }, [tourPending, pdfBytes, startTour]);
 
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -62,12 +87,17 @@ function App() {
   }, [handleScroll]);
 
   return (
+    <ScrollContainerProvider scrollContainerRef={scrollContainerRef}>
     <div
       className="dark flex h-screen flex-col"
       onContextMenu={(e) => e.preventDefault()}
     >
+      <h1 className="sr-only">{t("app.title")}</h1>
+      <div role="status" aria-live="polite" className="sr-only">{announcement}</div>
       <ErrorBoundary>
-        <AppHeader />
+        <AppHeader>
+          {layoutPreference === "office" && <OfficeRibbon />}
+        </AppHeader>
       </ErrorBoundary>
 
       <div className="flex flex-1 overflow-hidden">
@@ -79,6 +109,7 @@ function App() {
           data-testid="canvas-area"
           className="relative flex-1 overflow-hidden bg-background"
         >
+          <h2 className="sr-only">{t("canvas.canvasArea")}</h2>
           <div className="flex h-full">
             <div className="flex flex-col flex-1 min-w-0">
               <div className="flex">
@@ -104,13 +135,13 @@ function App() {
                       <CanvasOverlay />
                     </ErrorBoundary>
                   </PdfCanvas>
-                  <FloatingToolbar />
+                  {layoutPreference === "figma" && <FloatingToolbar />}
                 </div>
               </div>
             </div>
           </div>
           {isFileDragOver && (
-            <div className="absolute inset-0 z-60 pointer-events-none animate-in fade-in-0 duration-150">
+            <div className="absolute inset-0 z-60 pointer-events-none animate-in fade-in-0 duration-150" aria-hidden="true">
               <div className="absolute inset-0 bg-background/80 backdrop-blur-[2px]" />
               <div
                 className={`absolute inset-4 rounded-lg border-2 border-dashed ${isDragFileValid ? "border-foreground/20" : "border-destructive/30"}`}
@@ -143,15 +174,27 @@ function App() {
 
         <aside
           data-testid="properties-panel"
-          className="border-l border-border bg-card"
-          style={{ width: "calc(11rem + 36px)" }}
+          data-tour="properties-panel"
+          className="border-l border-border bg-card overflow-hidden transition-[width] duration-150 ease-out motion-reduce:transition-none"
+          style={{ width: propertiesPanelCollapsed ? "36px" : "calc(11rem + 36px)" }}
         >
+          <h2 className="sr-only">{t("properties.panelTitle")}</h2>
           <PropertiesPanel />
         </aside>
       </div>
 
       <StatusBar />
-    </div>
+      <Suspense fallback={null}>
+        <OnboardingDialog />
+      </Suspense>
+      <Suspense fallback={null}>
+        <SettingsDialog />
+      </Suspense>
+      <Suspense fallback={null}>
+        <TourSpotlight />
+      </Suspense>
+      </div>
+    </ScrollContainerProvider>
   );
 }
 

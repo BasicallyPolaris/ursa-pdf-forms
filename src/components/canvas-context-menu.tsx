@@ -379,13 +379,14 @@ export function CanvasContextMenu({
       ref={menuRef}
       role="menu"
       aria-orientation="vertical"
+      aria-label={t("contextMenu.title", t("contextMenu.selectAll"))}
       className="dark fixed z-9999 min-w-40 max-h-(--available-height,80vh) overflow-x-hidden overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-none"
       style={{ left, top }}
       onMouseDown={(e) => e.stopPropagation()}
     >
       {entries.map((entry, i) => {
         if ("separator" in entry) {
-          return <div key={`sep-${i}`} className="-mx-1 my-1 h-px bg-border" />;
+          return <div key={`sep-${i}`} role="separator" className="-mx-1 my-1 h-px bg-border" />;
         }
 
         const Icon = entry.icon;

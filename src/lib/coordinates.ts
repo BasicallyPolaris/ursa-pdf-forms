@@ -14,15 +14,17 @@ export interface TransformOptions {
 }
 
 export function pdfToScreen(pdf: Point, options: TransformOptions): Point {
+  const z = Number.isFinite(options.zoom) && options.zoom > 0 ? options.zoom : 1;
   return {
-    x: pdf.x * options.zoom + options.pageX,
-    y: pdf.y * options.zoom + options.pageY,
+    x: pdf.x * z + options.pageX,
+    y: pdf.y * z + options.pageY,
   };
 }
 
 export function screenToPdf(screen: Point, options: TransformOptions): Point {
+  const z = Number.isFinite(options.zoom) && options.zoom > 0 ? options.zoom : 1;
   return {
-    x: (screen.x - options.pageX) / options.zoom,
-    y: (screen.y - options.pageY) / options.zoom,
+    x: (screen.x - options.pageX) / z,
+    y: (screen.y - options.pageY) / z,
   };
 }

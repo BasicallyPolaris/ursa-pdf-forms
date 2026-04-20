@@ -1,4 +1,5 @@
 import { Kbd } from "@/components/ui/kbd";
+import { useScrollContainerRef } from "@/contexts/scroll-container-context";
 import { VisiblePagesContext } from "@/contexts/visible-pages";
 import {
   computePageLayouts as computeLayouts,
@@ -109,6 +110,7 @@ interface PdfCanvasProps {
 
 export function PdfCanvas({ children }: PdfCanvasProps) {
   const { t } = useTranslation();
+  const scrollRef = useScrollContainerRef();
   const pdfBytes = useEditorStore((s) => s.renderPdfBytes ?? s.pdfBytes);
   const pages = useEditorStore((s) => s.pages);
   const committedZoom = useEditorStore((s) => s.zoom);
@@ -149,9 +151,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   const scrollRafRef = useRef<number | null>(null);
 
   const computeVisibleSet = useCallback((): Set<number> => {
-    const el = document.querySelector<HTMLElement>(
-      "[data-pdf-scroll-container]",
-    );
+    const el = scrollRef.current;
     if (!el || pagesRef.current.length === 0) return new Set();
     const raw = getVisiblePageNumbers(
       layoutsRef.current,
@@ -178,9 +178,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   useEffect(() => {
     const listener: ZoomListener = {
       onZoomSettle(_zoom: number) {
-        const scrollEl = document.querySelector<HTMLElement>(
-          "[data-pdf-scroll-container]",
-        );
+        const scrollEl = scrollRef.current;
         if (scrollEl && pagesRef.current.length > 0) {
           pendingScrollCorrectionRef.current = {
             scrollTop: scrollEl.scrollTop,
@@ -196,9 +194,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   }, []);
 
   useLayoutEffect(() => {
-    const scrollEl = document.querySelector<HTMLElement>(
-      "[data-pdf-scroll-container]",
-    );
+    const scrollEl = scrollRef.current;
     if (!scrollEl) return;
 
     const pending = pendingScrollCorrectionRef.current;
@@ -237,9 +233,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   });
 
   useEffect(() => {
-    const el = document.querySelector<HTMLElement>(
-      "[data-pdf-scroll-container]",
-    );
+    const el = scrollRef.current;
     if (!el) return;
     const onScroll = () => {
       if (scrollRafRef.current !== null) return;
@@ -290,6 +284,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
             viewBox="0 0 48 48"
             fill="none"
             className="text-border"
+            aria-hidden="true"
           >
             <rect
               x="8"
@@ -345,14 +340,10 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
               {t("canvas.emptyDescription")}
             </p>
           </div>
-          <div className="mt-2 flex flex-col gap-1.5 text-[11px] text-muted-foreground/70">
+          <div className="flex flex-col gap-1.5 text-[11px] text-muted-foreground/70">
             <div className="flex items-center gap-2">
               <Kbd>Ctrl</Kbd>+<Kbd>O</Kbd>
               <span>{t("canvas.openPdf")}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Kbd>Ctrl</Kbd>+<Kbd>Scroll</Kbd>
-              <span>{t("canvas.zoom")}</span>
             </div>
           </div>
         </div>
@@ -364,7 +355,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     return (
       <div className="flex h-full items-center justify-center select-none">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
-          <svg className="h-6 w-6 animate-spin" viewBox="0 0 24 24" fill="none">
+          <svg className="h-6 w-6 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle
               cx="12"
               cy="12"

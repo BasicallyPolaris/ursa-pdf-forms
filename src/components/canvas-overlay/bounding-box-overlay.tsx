@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { Rnd } from "react-rnd";
+import { resolveCssVar } from "@/lib/css-vars";
 
 interface ScreenRect {
   x: number;
@@ -83,9 +84,10 @@ export function BoundingBoxOverlay({
     );
   }
 
+  const baseHandleStyles = getHandleStyles();
   const handleStyles = snapCorrection
-    ? applySnapToHandleStyles(HANDLE_STYLES, snapCorrection)
-    : HANDLE_STYLES;
+    ? applySnapToHandleStyles(baseHandleStyles, snapCorrection)
+    : baseHandleStyles;
 
   return (
     <MultiResizeRnd
@@ -190,22 +192,24 @@ const HORIZONTAL_HANDLES = {
   right: true,
 };
 
-const HS: React.CSSProperties = {
+const HS_BASE: Omit<React.CSSProperties, "background"> = {
   width: "7px",
   height: "7px",
-  background: "oklch(0.98 0 0)",
   border: "1.5px solid var(--bounding-rect)",
   borderRadius: "1px",
   pointerEvents: "auto",
 };
 
-const HANDLE_STYLES: Record<string, React.CSSProperties> = {
-  topLeft: { ...HS, top: "-4px", left: "-4px", cursor: "nwse-resize" },
-  top: { ...HS, top: "-4px", left: "calc(50% - 3.5px)", cursor: "ns-resize" },
-  topRight: { ...HS, top: "-4px", right: "-4px", cursor: "nesw-resize" },
-  right: { ...HS, top: "calc(50% - 3.5px)", right: "-4px", cursor: "ew-resize" },
-  bottomRight: { ...HS, bottom: "-4px", right: "-4px", cursor: "nwse-resize" },
-  bottom: { ...HS, bottom: "-4px", left: "calc(50% - 3.5px)", cursor: "ns-resize" },
-  bottomLeft: { ...HS, bottom: "-4px", left: "-4px", cursor: "nesw-resize" },
-  left: { ...HS, top: "calc(50% - 3.5px)", left: "-4px", cursor: "ew-resize" },
-};
+function getHandleStyles(): Record<string, React.CSSProperties> {
+  const hs: React.CSSProperties = { ...HS_BASE, background: resolveCssVar("--handle-bg") };
+  return {
+    topLeft: { ...hs, top: "-4px", left: "-4px", cursor: "nwse-resize" },
+    top: { ...hs, top: "-4px", left: "calc(50% - 3.5px)", cursor: "ns-resize" },
+    topRight: { ...hs, top: "-4px", right: "-4px", cursor: "nesw-resize" },
+    right: { ...hs, top: "calc(50% - 3.5px)", right: "-4px", cursor: "ew-resize" },
+    bottomRight: { ...hs, bottom: "-4px", right: "-4px", cursor: "nwse-resize" },
+    bottom: { ...hs, bottom: "-4px", left: "calc(50% - 3.5px)", cursor: "ns-resize" },
+    bottomLeft: { ...hs, bottom: "-4px", left: "-4px", cursor: "nesw-resize" },
+    left: { ...hs, top: "calc(50% - 3.5px)", left: "-4px", cursor: "ew-resize" },
+  };
+}

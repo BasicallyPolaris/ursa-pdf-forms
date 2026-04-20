@@ -12,6 +12,7 @@ import {
   useEditorStore,
 } from "@/stores/editor-store";
 import { useEffect } from "react";
+import { useScrollContainerRef } from "@/contexts/scroll-container-context";
 
 const TOOL_KEY_MAP: Record<string, string> = {
   v: "select",
@@ -37,9 +38,7 @@ function isInputElement(e: KeyboardEvent): boolean {
 let lastMouseX = 0;
 let lastMouseY = 0;
 
-function getMousePage(): number | null {
-  const scrollEl = document.querySelector("[data-pdf-scroll-container]");
-  if (!scrollEl) return null;
+function getMousePage(scrollEl: HTMLElement): number | null {
   const store = useEditorStore.getState();
   if (store.pages.length === 0) return null;
   const scrollRect = scrollEl.getBoundingClientRect();
@@ -54,9 +53,7 @@ function getMousePage(): number | null {
   return findPageAtScreenPoint(relX, relY, layouts);
 }
 
-function getVisiblePage(): number | undefined {
-  const scrollEl = document.querySelector("[data-pdf-scroll-container]");
-  if (!scrollEl) return undefined;
+function getVisiblePage(scrollEl: HTMLElement): number | undefined {
   const store = useEditorStore.getState();
   if (store.pages.length === 0) return undefined;
   const scrollCenter = scrollEl.scrollTop + scrollEl.clientHeight / 2;
@@ -78,6 +75,8 @@ function getVisiblePage(): number | undefined {
 }
 
 export function useKeyboardShortcuts() {
+  const scrollRef = useScrollContainerRef();
+
   useEffect(() => {
     const trackMouse = (e: MouseEvent) => {
       lastMouseX = e.clientX;
@@ -120,13 +119,15 @@ export function useKeyboardShortcuts() {
 
       if (mod && e.key.toLowerCase() === "d") {
         e.preventDefault();
-        store.duplicateSelection(getVisiblePage());
+        const scrollEl = scrollRef.current;
+        if (scrollEl) store.duplicateSelection(getVisiblePage(scrollEl));
       }
 
       if (mod && e.key.toLowerCase() === "v") {
         e.preventDefault();
-        const mousePage = getMousePage();
-        store.pasteClipboard(mousePage ?? getVisiblePage());
+        const scrollEl = scrollRef.current;
+        const mousePage = scrollEl ? getMousePage(scrollEl) : null;
+        store.pasteClipboard(mousePage ?? (scrollEl ? getVisiblePage(scrollEl) : undefined));
       }
 
       if (mod && e.key.toLowerCase() === "z" && !e.shiftKey) {

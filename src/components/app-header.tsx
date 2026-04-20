@@ -33,6 +33,7 @@ function ZoomControls() {
           onClick={() =>
             zoomFromUi(getZoomEngine().getTargetZoom() - ZOOM_STEP)
           }
+          aria-label={t("header.zoomOut")}
           className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
         >
           <Minus className="h-3 w-3" />
@@ -64,6 +65,7 @@ function ZoomControls() {
           onClick={() =>
             zoomFromUi(getZoomEngine().getTargetZoom() + ZOOM_STEP)
           }
+          aria-label={t("header.zoomIn")}
           className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
         >
           <Plus className="h-3 w-3" />
@@ -79,7 +81,7 @@ function ZoomControls() {
   );
 }
 
-export function AppHeader() {
+export function AppHeader({ children }: { children?: React.ReactNode }) {
   const { t } = useTranslation();
   const hasPast = useStore(
     useEditorStore.temporal,
@@ -93,91 +95,98 @@ export function AppHeader() {
 
   return (
     <TooltipProvider>
-      <header className="grid h-11 grid-cols-[1fr_auto_1fr] items-center gap-1 border-b border-border bg-card px-2 select-none">
-        <div className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <ToolButton
-                  onClick={() => fileIO.openPdf()}
-                  variant="primary"
-                />
-              }
-            >
-              <FolderOpen className="h-3.5 w-3.5" />
-              <span>{t("header.open")}</span>
-            </TooltipTrigger>
-            <TooltipContent>
-              <span className="flex items-center gap-2">
-                {t("header.open")}
-                <ShortcutKbd shortcutId="open" />
-              </span>
-            </TooltipContent>
-          </Tooltip>
+      <header className="flex flex-col border-b border-border bg-card select-none">
+        <div className="grid h-11 grid-cols-[1fr_auto_1fr] items-center gap-1 px-2 select-none">
+          <div className="flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <ToolButton
+                    onClick={() => fileIO.openPdf()}
+                    variant="primary"
+                  />
+                }
+              >
+                <FolderOpen className="h-3.5 w-3.5" />
+                <span>{t("header.open")}</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <span className="flex items-center gap-2">
+                  {t("header.open")}
+                  <ShortcutKbd shortcutId="open" />
+                </span>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
+          <ZoomControls />
+
+          <div className="flex items-center justify-end gap-1">
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <ToolButton
+                    onClick={() => undo()}
+                    disabled={!(hasPdf && hasPast)}
+                    aria-label={t("header.undo")}
+                  />
+                }
+              >
+                <Undo2 className="h-3.5 w-3.5" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <span className="flex items-center gap-2">
+                  {t("header.undo")}
+                  <ShortcutKbd shortcutId="undo" />
+                </span>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <ToolButton
+                    onClick={() => redo()}
+                    disabled={!(hasPdf && hasFuture)}
+                    aria-label={t("header.redo")}
+                  />
+                }
+              >
+                <Redo2 className="h-3.5 w-3.5" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <span className="flex items-center gap-2">
+                  {t("header.redo")}
+                  <ShortcutKbd shortcutId="redo" />
+                </span>
+              </TooltipContent>
+            </Tooltip>
+
+            <ToolbarSeparator />
+
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <ToolButton
+                    onClick={() => fileIO.exportPdf()}
+                    variant="primary"
+                    data-tour="export-button"
+                  />
+                }
+              >
+                <FileDown className="h-3.5 w-3.5" />
+                <span>{t("header.export")}</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <span className="flex items-center gap-2">
+                  {t("header.export")}
+                  <ShortcutKbd shortcutId="export" />
+                </span>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
 
-        <ZoomControls />
-
-        <div className="flex items-center justify-end gap-1">
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <ToolButton
-                  onClick={() => undo()}
-                  disabled={!(hasPdf && hasPast)}
-                />
-              }
-            >
-              <Undo2 className="h-3.5 w-3.5" />
-            </TooltipTrigger>
-            <TooltipContent>
-              <span className="flex items-center gap-2">
-                {t("header.undo")}
-                <ShortcutKbd shortcutId="undo" />
-              </span>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <ToolButton
-                  onClick={() => redo()}
-                  disabled={!(hasPdf && hasFuture)}
-                />
-              }
-            >
-              <Redo2 className="h-3.5 w-3.5" />
-            </TooltipTrigger>
-            <TooltipContent>
-              <span className="flex items-center gap-2">
-                {t("header.redo")}
-                <ShortcutKbd shortcutId="redo" />
-              </span>
-            </TooltipContent>
-          </Tooltip>
-
-          <ToolbarSeparator />
-
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <ToolButton
-                  onClick={() => fileIO.exportPdf()}
-                  variant="primary"
-                />
-              }
-            >
-              <FileDown className="h-3.5 w-3.5" />
-              <span>{t("header.export")}</span>
-            </TooltipTrigger>
-            <TooltipContent>
-              <span className="flex items-center gap-2">
-                {t("header.export")}
-                <ShortcutKbd shortcutId="export" />
-              </span>
-            </TooltipContent>
-          </Tooltip>
-        </div>
+        {children}
       </header>
     </TooltipProvider>
   );

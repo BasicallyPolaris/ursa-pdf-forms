@@ -33,6 +33,7 @@
   },
   "properties": {
     "panelError": "Panel error",
+    "panelTitle": "Properties",
     "noSelection": "Select an element to edit properties",
     "selected": "{{count}} selected",
     "textFields": "Text Fields",
@@ -102,7 +103,16 @@
     "clearBackgroundColor": "Clear background color",
     "clearBorderColor": "Clear border color",
     "editPageNumber": "Edit page number",
-    "addOption": "Add option"
+    "addOption": "Add option",
+    "bold": "Bold",
+    "italic": "Italic",
+    "dragOption": "Drag option {{index}}",
+    "setDefaultOption": "Set option {{index}} as default",
+    "removeOption": "Remove option {{index}}",
+    "newOption": "Option {{index}}",
+    "kofi": "Buy me a ko-fi",
+    "collapsePanel": "Collapse panel",
+    "expandPanel": "Expand panel"
   },
   "status": {
     "clickToSelect": "Click to select",
@@ -126,7 +136,10 @@
     "removeField": "Remove field",
     "dropToOpen": "Drop PDF to open",
     "dropToReplace": "Drop PDF to replace current document",
-    "dropInvalidFile": "Only PDF files are supported"
+    "dropInvalidFile": "Only PDF files are supported",
+    "loading": "Loading PDF...",
+    "formCanvas": "PDF form canvas",
+    "canvasArea": "Canvas"
   },
   "shortcuts": {
     "title": "Keyboard Shortcuts",
@@ -159,7 +172,8 @@
     "zoom100": "Zoom to 100%",
     "nudge": "Nudge 1pt",
     "nudge5": "Nudge 5pt",
-    "openShortcuts": "Keyboard shortcuts"
+    "openShortcuts": "Keyboard shortcuts",
+    "or": "or"
   },
   "contextMenu": {
     "cut": "Cut",
@@ -190,14 +204,17 @@
     "defaultExportName": "form-output.pdf",
     "openFailed": "Failed to open file. Please check the file is a valid PDF.",
     "exportFailed": "Failed to export PDF. Please try again.",
-    "invalidPdf": "The selected file is not a valid PDF."
+    "invalidPdf": "The selected file is not a valid PDF.",
+    "fileTooLarge": "The file is too large to open (max 100 MB).",
+    "operationInProgress": "Another file operation is in progress. Please wait."
   },
   "dialog": {
     "unsavedTitle": "Unsaved Changes",
     "unsavedChanges": "You have unsaved changes. Save before continuing?",
     "save": "Save",
     "discard": "Don't Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "close": "Close"
   },
   "errors": {
     "boundaryTitle": "Something went wrong",
@@ -206,6 +223,71 @@
     "exportEmptyName": "Some fields have empty names. Please name all fields before exporting.",
     "nameRequired": "Field name is required",
     "groupNameRequired": "Group name is required for radio buttons",
-    "radioValueRequired": "Value is required for radio buttons"
+    "radioValueRequired": "Value is required for radio buttons",
+    "defaultValueExceedsMaxLength": "Default value exceeds max length",
+    "exportEmptyOptions": "Some fields have no options. Please add at least one option.",
+    "exportEmptyOptionValue": "Some options are empty. Please fill in or remove empty options.",
+    "exportDuplicateOptions": "Some fields have duplicate options. Please ensure all options are unique."
+  },
+  "onboarding": {
+    "welcome": {
+      "title": "Welcome to PDF Form Maker",
+      "description": "Place interactive form fields onto PDF documents and export them as fillable forms. Let's get you set up."
+    },
+    "layout": {
+      "title": "Choose your layout",
+      "description": "Pick the workspace style that feels most natural to you.",
+      "figma": "Canvas Layout",
+      "figmaDescription": "Floating toolbar at the bottom. Best if you like Figma or design tools.",
+      "office": "Ribbon Layout",
+      "officeDescription": "Tools in the top bar. Best if you prefer Word or Office-style apps."
+    },
+    "ready": {
+      "title": "You're all set",
+      "description": "Here's a quick overview of what you can do."
+    },
+    "tour": {
+      "sidebar": "Page Navigation",
+      "sidebarDesc": "Browse and jump between pages of your PDF document.",
+      "sidebarTitle": "Page Sidebar",
+      "tools": "Form Field Tools",
+      "toolsDesc": "Select and place text fields, checkboxes, radio buttons, and more.",
+      "toolsTitle": "Drawing Tools",
+      "properties": "Properties Panel",
+      "propertiesDesc": "Edit field properties like name, size, font, and appearance.",
+      "propertiesTitle": "Properties Panel",
+      "export": "Export PDF",
+      "exportDesc": "Export your document as a fillable PDF with all placed form fields.",
+      "exportTitle": "Export Button"
+    },
+    "skip": "Skip",
+    "back": "Back",
+    "next": "Next",
+    "done": "Done",
+    "getStarted": "Get Started",
+    "closeTour": "Close tour",
+    "stepProgress": "Step {{current}} of {{total}}"
+  },
+  "settings": {
+    "title": "Settings",
+    "layout": "Layout",
+    "figmaLayout": "Canvas Layout",
+    "figmaLayoutDesc": "Floating toolbar at the bottom.",
+    "officeLayout": "Ribbon Layout",
+    "officeLayoutDesc": "Tools in the top bar.",
+    "help": "Help",
+    "showTour": "Show feature tour",
+    "resetOnboarding": "Restart onboarding"
+  },
+  "errorBoundary": {
+    "message": "Something went wrong",
+    "retry": "Try again"
+  },
+  "announcements": {
+    "elementAdded": "{{type}} added",
+    "elementsDeleted": "{{count}} deleted",
+    "elementsDuplicated": "{{count}} duplicated",
+    "guideHorizontal": "Horizontal guide at Y {{position}}",
+    "guideVertical": "Vertical guide at X {{position}}"
   }
 }

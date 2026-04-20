@@ -1,3 +1,4 @@
+import { useScrollContainerRef } from "@/contexts/scroll-container-context";
 import { getZoomEngine } from "@/lib/use-zoom-animation";
 import { useEditorStore } from "@/stores/editor-store";
 import { useEffect } from "react";
@@ -12,11 +13,9 @@ export function clampZoom(z: number): number {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
 }
 
-function getScrollEl(): HTMLElement | null {
-  return document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
-}
-
 export function useZoom() {
+  const scrollRef = useScrollContainerRef();
+
   useEffect(() => {
     const store = useEditorStore.getState();
     getZoomEngine().init(store.zoom, (zoom) =>
@@ -33,7 +32,7 @@ export function useZoom() {
       const store = useEditorStore.getState();
       if (!store.pdfBytes) return;
 
-      const scrollEl = getScrollEl();
+      const scrollEl = scrollRef.current ?? document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
       if (!scrollEl) return;
 
       const engine = getZoomEngine();

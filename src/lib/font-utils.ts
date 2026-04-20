@@ -92,8 +92,13 @@ export function resolveFontFamily(
 }
 
 export function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const cleaned = hex.replace("#", "");
+  if (typeof hex !== "string") return { r: 0, g: 0, b: 0 };
+  const cleaned = hex.replace(/^#/, "");
+  if (cleaned.length !== 6 || !/^[0-9a-fA-F]{6}$/.test(cleaned)) {
+    return { r: 0, g: 0, b: 0 };
+  }
   const num = parseInt(cleaned, 16);
+  if (!Number.isFinite(num)) return { r: 0, g: 0, b: 0 };
   return {
     r: ((num >> 16) & 0xff) / 255,
     g: ((num >> 8) & 0xff) / 255,
@@ -103,7 +108,8 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } {
 
 export function rgbToHex(r: number, g: number, b: number): string {
   const toHex = (v: number) => {
-    const clamped = Math.max(0, Math.min(255, Math.round(v * 255)));
+    const safe = Number.isFinite(v) ? v : 0;
+    const clamped = Math.max(0, Math.min(255, Math.round(safe * 255)));
     return clamped.toString(16).padStart(2, "0");
   };
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
