@@ -54,7 +54,6 @@ const PdfPage = memo(function PdfPage({ pageNumber, zoom }: PdfPageProps) {
 
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
-
       const handle = getRenderManager().renderPage(pageNumber, zoom);
       handleRef.current = handle;
 
@@ -74,9 +73,8 @@ const PdfPage = memo(function PdfPage({ pageNumber, zoom }: PdfPageProps) {
             canvas.width = bitmap.width;
             canvas.height = bitmap.height;
           }
-          canvas
-            .getContext("2d", { alpha: false, willReadFrequently: false })
-            ?.drawImage(bitmap, 0, 0);
+          const displayCtx = canvas.getContext("2d", { alpha: false });
+          displayCtx?.drawImage(bitmap, 0, 0);
           bitmap.close();
           rasterZoomRef.current = renderedScale;
         })
@@ -355,7 +353,12 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     return (
       <div className="flex h-full items-center justify-center select-none">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
-          <svg className="h-6 w-6 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <svg
+            className="h-6 w-6 animate-spin"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
             <circle
               cx="12"
               cy="12"

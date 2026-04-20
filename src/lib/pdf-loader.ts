@@ -47,6 +47,8 @@ async function loadDocument(pdfBytes: Uint8Array): Promise<PdfDocument> {
     cMapUrl: "/cmaps/",
     cMapPacked: true,
     standardFontDataUrl: "/standard_fonts/",
+    wasmUrl: "/wasm/",
+    iccUrl: "/iccs/",
     useSystemFonts: true,
   });
   const proxy = await loadingTask.promise;
@@ -115,7 +117,8 @@ async function loadDocument(pdfBytes: Uint8Array): Promise<PdfDocument> {
   ): CancellableRender => {
     let renderTask: ReturnType<pdfjsLib.PDFPageProxy["render"]> | null = null;
     let cancelled = false;
-    const safeScale = Number.isFinite(scale) && scale > 0 ? Math.min(scale, 10) : 1;
+    const safeScale =
+      Number.isFinite(scale) && scale > 0 ? Math.min(scale, 10) : 1;
 
     const promise = getPage(pageNumber).then(async (page) => {
       if (cancelled) throw new Error("Render cancelled");
@@ -123,7 +126,13 @@ async function loadDocument(pdfBytes: Uint8Array): Promise<PdfDocument> {
       const canvas = document.createElement("canvas");
       canvas.width = Math.min(Math.ceil(viewport.width), 16384);
       canvas.height = Math.min(Math.ceil(viewport.height), 16384);
-      const ctx = canvas.getContext("2d", { alpha: false });
+      // willReadFrequently forces a CPU-backed 2d context on WebKit. Without
+      // it, WebKit may GPU-accelerate larger detached canvases and silently
+      // drop pdfjs draw ops, producing an all-white render.
+      const ctx = canvas.getContext("2d", {
+        alpha: false,
+        willReadFrequently: true,
+      });
       if (!ctx) throw new Error("Cannot get 2d context");
       renderTask = page.render({ canvas, canvasContext: ctx, viewport });
       await renderTask.promise;
