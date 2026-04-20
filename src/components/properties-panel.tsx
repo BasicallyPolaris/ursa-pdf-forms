@@ -46,8 +46,8 @@ import {
   AlignStartVertical,
   BetweenHorizontalStart,
   BetweenVerticalStart,
-   ChevronLeft,
-   ChevronRight,
+  ChevronLeft,
+  ChevronRight,
   Expand,
   GripVertical,
   Heart,
@@ -593,7 +593,11 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
     <div className="flex flex-col gap-3">
       <CollapsibleSection label={t("properties.general")}>
         <PropertyField label={t("properties.name")}>
-          <Input {...nameField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
+          <Input
+            {...nameField}
+            maxLength={MAX_FIELD_NAME_LENGTH}
+            className="h-7 text-xs"
+          />
         </PropertyField>
 
         <PropertyField label={t("properties.defaultValue")}>
@@ -668,11 +672,18 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
     <div className="flex flex-col gap-3">
       <CollapsibleSection label={t("properties.general")}>
         <PropertyField label={t("properties.name")}>
-          <Input {...nameField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
+          <Input
+            {...nameField}
+            maxLength={MAX_FIELD_NAME_LENGTH}
+            className="h-7 text-xs"
+          />
         </PropertyField>
 
         <div className="flex items-center justify-between">
-          <Label id={defaultCheckedId} className="text-[11px] text-muted-foreground">
+          <Label
+            id={defaultCheckedId}
+            className="text-[11px] text-muted-foreground"
+          >
             {t("properties.defaultChecked")}
           </Label>
           <Switch
@@ -711,11 +722,19 @@ function RadioButtonProperties({ elementId }: { elementId: string }) {
     <div className="flex flex-col gap-3">
       <CollapsibleSection label={t("properties.general")}>
         <PropertyField label={t("properties.groupName")}>
-          <Input {...groupNameField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
+          <Input
+            {...groupNameField}
+            maxLength={MAX_FIELD_NAME_LENGTH}
+            className="h-7 text-xs"
+          />
         </PropertyField>
 
         <PropertyField label={t("properties.value")}>
-          <Input {...valueField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
+          <Input
+            {...valueField}
+            maxLength={MAX_FIELD_NAME_LENGTH}
+            className="h-7 text-xs"
+          />
         </PropertyField>
 
         <PropertyField label={t("properties.label")}>
@@ -820,7 +839,10 @@ function DraggableOptionList({
   );
 
   return (
-    <div ref={containerRef} className="relative flex flex-col gap-1.5 overflow-hidden">
+    <div
+      ref={containerRef}
+      className="relative flex flex-col gap-1.5 overflow-hidden"
+    >
       {indicatorY !== null && containerRef.current && (
         <div
           className="pointer-events-none absolute left-0 right-0 h-0.5 -translate-y-1/2 rounded-full bg-primary"
@@ -921,7 +943,11 @@ function DropdownProperties({ elementId }: { elementId: string }) {
     <div className="flex flex-col gap-3">
       <CollapsibleSection label={t("properties.general")}>
         <PropertyField label={t("properties.name")}>
-          <Input {...nameField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
+          <Input
+            {...nameField}
+            maxLength={MAX_FIELD_NAME_LENGTH}
+            className="h-7 text-xs"
+          />
         </PropertyField>
 
         <div className="flex items-center justify-between">
@@ -1020,7 +1046,11 @@ function ButtonProperties({ elementId }: { elementId: string }) {
     <div className="flex flex-col gap-3">
       <CollapsibleSection label={t("properties.general")}>
         <PropertyField label={t("properties.name")}>
-          <Input {...nameField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
+          <Input
+            {...nameField}
+            maxLength={MAX_FIELD_NAME_LENGTH}
+            className="h-7 text-xs"
+          />
         </PropertyField>
 
         <PropertyField label={t("properties.label")}>
@@ -1064,7 +1094,10 @@ function OptionListProperties({ elementId }: { elementId: string }) {
   const addOption = () => {
     if (element.options.length >= MAX_OPTIONS_PER_FIELD) return;
     const next = element.options.length + 1;
-    const newOptions = [...element.options, t("properties.newOption", { index: next })];
+    const newOptions = [
+      ...element.options,
+      t("properties.newOption", { index: next }),
+    ];
     updateElement(element.id, {
       options: newOptions,
       height: heightFromOptions(element.fontSize, newOptions.length),
@@ -1096,7 +1129,11 @@ function OptionListProperties({ elementId }: { elementId: string }) {
     <div className="flex flex-col gap-3">
       <CollapsibleSection label={t("properties.general")}>
         <PropertyField label={t("properties.name")}>
-          <Input {...nameField} maxLength={MAX_FIELD_NAME_LENGTH} className="h-7 text-xs" />
+          <Input
+            {...nameField}
+            maxLength={MAX_FIELD_NAME_LENGTH}
+            className="h-7 text-xs"
+          />
         </PropertyField>
 
         <div className="flex items-center justify-between">
@@ -1483,7 +1520,10 @@ function MultiCheckboxProperties({ elements }: { elements: Checkbox[] }) {
   return (
     <>
       <div className="flex items-center justify-between">
-        <Label id={defaultCheckedId} className="text-[11px] text-muted-foreground">
+        <Label
+          id={defaultCheckedId}
+          className="text-[11px] text-muted-foreground"
+        >
           {t("properties.defaultChecked")}
         </Label>
         <Switch
@@ -1602,9 +1642,15 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
 
   if (elements.length === 0) return null;
 
-  const allSameX = elements.every((el) => Math.round(el.x) === Math.round(elements[0].x));
-  const allSameY = elements.every((el) => Math.round(el.y) === Math.round(elements[0].y));
-  const allSameW = elements.every((el) => Math.round(el.width) === Math.round(elements[0].width));
+  const allSameX = elements.every(
+    (el) => Math.round(el.x) === Math.round(elements[0].x),
+  );
+  const allSameY = elements.every(
+    (el) => Math.round(el.y) === Math.round(elements[0].y),
+  );
+  const allSameW = elements.every(
+    (el) => Math.round(el.width) === Math.round(elements[0].width),
+  );
   const resizableElements = elements.filter(
     (el) =>
       !(isTextField(el) && !el.multiline) &&
@@ -2051,16 +2097,6 @@ function PropertiesPanelContent() {
   const pages = useEditorStore((s) => s.pages);
   const updateElement = useEditorStore((s) => s.updateElement);
 
-  if (selectedGuideId) {
-    return (
-      <div className="h-full overflow-y-auto">
-        <div className="p-3">
-          <GuideProperties guideId={selectedGuideId} />
-        </div>
-      </div>
-    );
-  }
-
   const selectedElements = useMemo(
     () => elements.filter((el) => selectedIds.has(el.id)),
     [elements, selectedIds],
@@ -2105,6 +2141,16 @@ function PropertiesPanelContent() {
       typoEls,
     };
   }, [selectedElements, selectedIds]);
+
+  if (selectedGuideId) {
+    return (
+      <div className="h-full overflow-y-auto">
+        <div className="p-3">
+          <GuideProperties guideId={selectedGuideId} />
+        </div>
+      </div>
+    );
+  }
 
   if (selectedIds.size === 0) {
     return (
