@@ -14,7 +14,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![lang::set_language])
         .setup(|app| {
             WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                .title("PDF Form Maker")
+                .title("Ursa PDF Forms")
                 .inner_size(1280.0, 800.0)
                 .min_inner_size(900.0, 600.0)
                 .visible(false)

@@ -18,7 +18,7 @@ fn get_translations() -> HashMap<&'static str, HashMap<&'static str, &'static st
     let mut map: HashMap<&str, HashMap<&str, &str>> = HashMap::new();
 
     let mut en = HashMap::new();
-    en.insert("app.title", "PDF Form Maker");
+    en.insert("app.title", "Ursa PDF Forms");
     map.insert("en", en);
 
     let mut de = HashMap::new();

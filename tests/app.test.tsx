@@ -39,7 +39,7 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, params?: Record<string, unknown>) => {
       const translations: Record<string, string> = {
-        "app.title": "PDF Form Maker",
+        "app.title": "Ursa PDF Forms",
         "header.open": "Open",
         "header.save": "Save",
         "header.saveProject": "Save project",

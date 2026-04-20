@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "PDF Form Maker"
+    "title": "Ursa PDF Forms"
   },
   "header": {
     "open": "Open",
@@ -231,7 +231,7 @@
   },
   "onboarding": {
     "welcome": {
-      "title": "Welcome to PDF Form Maker",
+      "title": "Welcome to Ursa PDF Forms",
       "description": "Place interactive form fields onto PDF documents and export them as fillable forms. Let's get you set up."
     },
     "layout": {

@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    pdf_form_maker_lib::run()
+    ursa_pdf_forms_lib::run()
 }
