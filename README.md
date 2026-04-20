@@ -9,8 +9,7 @@ Built with Tauri, React, and TypeScript.
 [![License](https://img.shields.io/github/license/BasicallyPolaris/ursa-pdf-forms?style=flat-square)](LICENSE)
 [![Version](https://img.shields.io/github/v/release/BasicallyPolaris/ursa-pdf-forms?style=flat-square)](https://github.com/BasicallyPolaris/ursa-pdf-forms/releases)
 
-<!-- Uncomment when screenshot is available -->
-<!-- <img src=".github/assets/screenshot-main.png" alt="Ursa PDF Forms Interface" width="100%" /> -->
+<img src=".github/assets/screenshot-main.png" alt="Ursa PDF Forms Interface" width="100%" />
 
 [**Download Latest Release**](https://github.com/BasicallyPolaris/ursa-pdf-forms/releases)
 
@@ -64,15 +63,15 @@ Go to the [**Releases Page**](https://github.com/BasicallyPolaris/ursa-pdf-forms
 
 ## Keyboard Shortcuts
 
-| Shortcut            | Action                    |
-| ------------------- | ------------------------- |
-| `Ctrl+O`            | Open PDF                  |
-| `Ctrl+S`            | Save project              |
-| `Ctrl+E`            | Export fillable PDF       |
-| `Ctrl+Z`            | Undo                      |
-| `Ctrl+Shift+Z`      | Redo                      |
-| `Delete`            | Delete selected field     |
-| `Escape`            | Deselect / Cancel         |
+| Shortcut       | Action                |
+| -------------- | --------------------- |
+| `Ctrl+O`       | Open PDF              |
+| `Ctrl+S`       | Save project          |
+| `Ctrl+E`       | Export fillable PDF   |
+| `Ctrl+Z`       | Undo                  |
+| `Ctrl+Shift+Z` | Redo                  |
+| `Delete`       | Delete selected field |
+| `Escape`       | Deselect / Cancel     |
 
 ## Development
 
