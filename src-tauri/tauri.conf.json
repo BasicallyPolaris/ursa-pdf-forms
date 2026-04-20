@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "pdf-form-maker",
+  "productName": "ursa-pdf-forms",
   "version": "0.1.0",
-  "identifier": "com.soheel.pdf-form-maker",
+  "identifier": "com.basicallypolaris.ursa-pdf-forms",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -10,7 +10,13 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [],
+    "windows": [
+      {
+        "title": "Ursa PDF Forms",
+        "width": 1280,
+        "height": 800
+      }
+    ],
     "security": {
       "csp": null
     }
