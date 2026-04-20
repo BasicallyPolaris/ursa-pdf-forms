@@ -124,6 +124,7 @@ function cloneElementsWithNewIds(
 
 const PDF_RESET_STATE = {
   pdfFileName: null as string | null,
+  pdfFilePath: null as string | null,
   pdfBytes: null as Uint8Array | null,
   renderPdfBytes: null as Uint8Array | null,
   pages: [] as PageInfo[],
@@ -197,6 +198,7 @@ export interface GuideLine {
 
 export interface EditorState {
   pdfFileName: string | null;
+  pdfFilePath: string | null;
   pdfBytes: Uint8Array | null;
   renderPdfBytes: Uint8Array | null;
   pages: PageInfo[];
@@ -229,6 +231,7 @@ export interface EditorState {
   >;
 
   setPdf: (fileName: string, bytes: Uint8Array, pages: PageInfo[]) => void;
+  setPdfFilePath: (path: string | null) => void;
   setPdfPages: (pages: PageInfo[]) => void;
   setZoom: (zoom: number) => void;
   setActiveTool: (tool: EditorState["activeTool"]) => void;
@@ -339,6 +342,7 @@ export const useEditorStore = create<EditorState>()(
   temporal(
     (set, get) => ({
       pdfFileName: null,
+      pdfFilePath: null,
       pdfBytes: null,
       renderPdfBytes: null,
       pages: [],
@@ -367,6 +371,8 @@ export const useEditorStore = create<EditorState>()(
         useEditorStore.temporal.getState().clear();
         _cleanSnapshot = { elements: [], guides: [] };
       },
+
+      setPdfFilePath: (path) => set({ pdfFilePath: path }),
 
       setPdfPages: (pages) => set({ pages }),
 

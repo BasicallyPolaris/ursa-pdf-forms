@@ -32,7 +32,7 @@ export function useZoom() {
       const store = useEditorStore.getState();
       if (!store.pdfBytes) return;
 
-      const scrollEl = scrollRef.current;
+      const scrollEl = scrollRef.current ?? document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
       if (!scrollEl) return;
 
       const engine = getZoomEngine();

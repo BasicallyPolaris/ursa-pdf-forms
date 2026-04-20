@@ -98,6 +98,7 @@ export function createTestStore(initial?: {
     elements: initial?.elements ?? [],
     pages: [] as PageInfo[],
     fileName: null as string | null,
+    filePath: null as string | null,
     renderPdfBytes: null as Uint8Array | null,
   };
 
@@ -107,6 +108,8 @@ export function createTestStore(initial?: {
     state,
     mutations,
     getPdfBytes: () => state.pdfBytes,
+    getPdfFilePath: () => state.filePath,
+    getPdfFileName: () => state.fileName,
     getElements: () => state.elements,
     setPdf(name, bytes, pages) {
       mutations.push("setPdf");
@@ -120,6 +123,10 @@ export function createTestStore(initial?: {
     setPdfPages(pages) {
       mutations.push("setPdfPages");
       state.pages = pages;
+    },
+    setPdfFilePath(path) {
+      mutations.push("setPdfFilePath");
+      state.filePath = path;
     },
     setInitialElements(elements) {
       mutations.push("setInitialElements");

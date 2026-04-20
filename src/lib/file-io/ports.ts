@@ -27,9 +27,12 @@ export interface DialogPort {
 
 export interface StorePort {
   getPdfBytes(): Uint8Array | null;
+  getPdfFilePath(): string | null;
+  getPdfFileName(): string | null;
   getElements(): FormElement[];
   setPdf(fileName: string, bytes: Uint8Array, pages: PageInfo[]): void;
   setPdfPages(pages: PageInfo[]): void;
+  setPdfFilePath(path: string | null): void;
   setInitialElements(elements: FormElement[]): void;
   setRenderPdfBytes(bytes: Uint8Array): void;
   isDirty(): boolean;

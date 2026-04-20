@@ -129,6 +129,7 @@ export function createFileIO(
         }
         const fileName = extractFileName(filePath, labels.defaultPdfName);
         await loadPdfFromBytes(bytes, fileName);
+        ports.store.setPdfFilePath(filePath);
         return null;
       });
     } catch (error) {
@@ -149,9 +150,20 @@ export function createFileIO(
         const elements = ports.store.getElements();
         const resultBytes = await exportFormElements(pdfBytes, elements);
 
+        const sourcePath = ports.store.getPdfFilePath();
+        const sourceName = ports.store.getPdfFileName();
+        let defaultExportPath = labels.defaultExportName;
+        if (sourcePath) {
+          const dir = sourcePath.split(/[/\\]/).slice(0, -1).join("/");
+          const baseName = sourceName ?? extractFileName(sourcePath, labels.defaultExportName);
+          defaultExportPath = `${dir}/${baseName}`;
+        } else if (sourceName) {
+          defaultExportPath = sourceName;
+        }
+
         const filePath = await ports.dialogs.pickSaveFile(
           [{ name: labels.pdfFilterName, extensions: ["pdf"] }],
-          labels.defaultExportName,
+          defaultExportPath,
         );
         if (!filePath) return null;
 
@@ -191,6 +203,7 @@ export function createFileIO(
         }
         const fileName = extractFileName(filePath, labels.defaultPdfName);
         await loadPdfFromBytes(bytes, fileName);
+        ports.store.setPdfFilePath(filePath);
         return null;
       });
     } catch (error) {

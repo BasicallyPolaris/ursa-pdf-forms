@@ -95,9 +95,12 @@ describe("pdf loading", () => {
         dialogs: createTestDialogs(),
         store: {
           getPdfBytes: () => useEditorStore.getState().pdfBytes,
+          getPdfFilePath: () => useEditorStore.getState().pdfFilePath,
+          getPdfFileName: () => useEditorStore.getState().pdfFileName,
           getElements: () => useEditorStore.getState().elements,
           setPdf: (n, b, p) => useEditorStore.getState().setPdf(n, b, p),
           setPdfPages: (p) => useEditorStore.getState().setPdfPages(p),
+          setPdfFilePath: () => {},
           setInitialElements: (e) =>
             useEditorStore.getState().setInitialElements(e),
           setRenderPdfBytes: (b) =>

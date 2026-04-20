@@ -1602,9 +1602,9 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
 
   if (elements.length === 0) return null;
 
-  const allSameX = elements.every((el) => el.x === elements[0].x);
-  const allSameY = elements.every((el) => el.y === elements[0].y);
-  const allSameW = elements.every((el) => el.width === elements[0].width);
+  const allSameX = elements.every((el) => Math.round(el.x) === Math.round(elements[0].x));
+  const allSameY = elements.every((el) => Math.round(el.y) === Math.round(elements[0].y));
+  const allSameW = elements.every((el) => Math.round(el.width) === Math.round(elements[0].width));
   const resizableElements = elements.filter(
     (el) =>
       !(isTextField(el) && !el.multiline) &&

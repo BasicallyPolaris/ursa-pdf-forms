@@ -51,10 +51,13 @@ export const tauriDialogs: DialogPort = {
 
 export const zustandStore: StorePort = {
   getPdfBytes: () => useEditorStore.getState().pdfBytes,
+  getPdfFilePath: () => useEditorStore.getState().pdfFilePath,
+  getPdfFileName: () => useEditorStore.getState().pdfFileName,
   getElements: () => useEditorStore.getState().elements,
   setPdf: (name, bytes, pages) =>
     useEditorStore.getState().setPdf(name, bytes, pages),
   setPdfPages: (pages) => useEditorStore.getState().setPdfPages(pages),
+  setPdfFilePath: (path) => useEditorStore.getState().setPdfFilePath(path),
   setInitialElements: (elements) =>
     useEditorStore.getState().setInitialElements(elements),
   setRenderPdfBytes: (bytes) =>
