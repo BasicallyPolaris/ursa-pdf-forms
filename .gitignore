@@ -4,3 +4,6 @@ target/
 .DS_Store
 public/cmaps/
 public/standard_fonts/
+.opencode/
+.thumbs/
+*.log
