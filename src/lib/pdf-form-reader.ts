@@ -5,9 +5,14 @@ import {
   PDFName,
   PDFNumber,
   PDFRef,
+  type PDFPage,
 } from "pdf-lib";
 import type { FormElement } from "./form-element-model";
 import { rgbToHex } from "./font-utils";
+import {
+  getPageViewQuadForPdfLibPage,
+  pdfWidgetRectToEditorRaw,
+} from "./pdf-page-view";
 
 export async function extractAcroFormFields(
   pdfBytes: Uint8Array,
@@ -71,11 +76,6 @@ function buildPageRefMap(pdf: PDFDocument): Map<string, number> {
   return map;
 }
 
-interface PDFPage {
-  node: PDFDict;
-  getSize(): { width: number; height: number };
-}
-
 type LookupCtx = { lookup: (ref: PDFRef) => unknown };
 
 function collectFields(
@@ -136,11 +136,12 @@ function collectFields(
   const rect = getRect(fieldDict);
   if (!rect) return;
 
-  const pageHeight = pages[pageNumber - 1].getSize().height;
-  const rawX = rect.x1;
-  const rawY = pageHeight - rect.y2;
-  const rawWidth = rect.x2 - rect.x1;
-  const rawHeight = rect.y2 - rect.y1;
+  const page = pages[pageNumber - 1];
+  const view = getPageViewQuadForPdfLibPage(page);
+  const { rawX, rawY, rawWidth, rawHeight } = pdfWidgetRectToEditorRaw(
+    rect,
+    view,
+  );
 
   const border = getBorderExpansion(fieldDict, ctx);
   const { x, y, width, height } = adjustRectForBorder(rawX, rawY, rawWidth, rawHeight, border);
@@ -264,11 +265,12 @@ function collectRadioKids(
     const rect = getRect(kidDict);
     if (!rect) continue;
 
-    const pageHeight = pages[pageNumber - 1].getSize().height;
-    const rawX = rect.x1;
-    const rawY = pageHeight - rect.y2;
-    const rawWidth = rect.x2 - rect.x1;
-    const rawHeight = rect.y2 - rect.y1;
+    const page = pages[pageNumber - 1];
+    const view = getPageViewQuadForPdfLibPage(page);
+    const { rawX, rawY, rawWidth, rawHeight } = pdfWidgetRectToEditorRaw(
+      rect,
+      view,
+    );
 
     const border = getBorderExpansion(kidDict, ctx);
     const { x, y, width, height } = adjustRectForBorder(rawX, rawY, rawWidth, rawHeight, border);

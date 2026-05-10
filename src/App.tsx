@@ -14,6 +14,7 @@ import { StatusBar } from "@/components/status-bar";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { ScrollContainerProvider } from "@/contexts/scroll-container-context";
 import { useFileDrop } from "@/hooks/use-file-drop";
+import { useLaunchPdfArg } from "@/hooks/use-launch-pdf-arg";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useZoom } from "@/hooks/use-zoom";
 import { fileIO } from "@/lib/file-io";
@@ -36,6 +37,7 @@ const TourSpotlight = lazy(() =>
 
 function App() {
   useFileDrop();
+  useLaunchPdfArg();
   useKeyboardShortcuts();
   useZoom();
 

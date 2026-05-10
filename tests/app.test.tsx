@@ -23,6 +23,10 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
   writeFile: vi.fn(),
 }));
 
+vi.mock("@tauri-apps/plugin-cli", () => ({
+  getMatches: vi.fn().mockResolvedValue({ args: {}, subcommand: null }),
+}));
+
 vi.mock("@tauri-apps/api/webview", () => ({
   getCurrentWebview: () => ({
     onDragDropEvent: () => Promise.resolve(() => {}),

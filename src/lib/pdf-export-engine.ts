@@ -41,6 +41,11 @@ import type {
   OptionListField,
 } from "./form-element-model";
 import { hexToRgb, resolveFontFamily } from "./font-utils";
+import {
+  editorRectToPdfLowerLeft,
+  getPageViewQuadForPdfLibPage,
+  type PdfViewQuad,
+} from "./pdf-page-view";
 
 export class ExportValidationError extends Error {
   errors: string[];
@@ -116,7 +121,7 @@ export async function exportFormElements(
   for (let i = 0; i < nonRadioElements.length; i++) {
     const el = nonRadioElements[i];
     const page = pdf.getPage(el.pageNumber - 1);
-    const { height: pageHeight } = page.getSize();
+    const view = getPageViewQuadForPdfLibPage(page);
 
     const safeName = dedupeFieldName("name" in el ? el.name : "", usedNames, i);
     usedNames.add(safeName);
@@ -124,19 +129,19 @@ export async function exportFormElements(
     try {
       switch (el.type) {
         case "text":
-          addTextField(form, page, { ...el, name: safeName }, pageHeight, pdf);
+          addTextField(form, page, { ...el, name: safeName }, view, pdf);
           break;
         case "checkbox":
-          addCheckboxField(form, page, { ...el, name: safeName }, pageHeight);
+          addCheckboxField(form, page, { ...el, name: safeName }, view);
           break;
         case "dropdown":
-          addDropdownField(form, page, { ...el, name: safeName }, pageHeight, pdf);
+          addDropdownField(form, page, { ...el, name: safeName }, view, pdf);
           break;
         case "button":
-          addButtonField(form, page, { ...el, name: safeName }, pageHeight, pdf);
+          addButtonField(form, page, { ...el, name: safeName }, view, pdf);
           break;
         case "optionlist":
-          addOptionListField(form, page, { ...el, name: safeName }, pageHeight, pdf);
+          addOptionListField(form, page, { ...el, name: safeName }, view, pdf);
           break;
       }
     } catch (err) {
@@ -159,11 +164,11 @@ export async function exportFormElements(
       for (const el of radios) {
         if (el.pageNumber < 1 || el.pageNumber > pageCount) continue;
         const page = pdf.getPage(el.pageNumber - 1);
-        const { height: pageHeight } = page.getSize();
-        const pdfY = pageHeight - el.y - el.height;
+        const view = getPageViewQuadForPdfLibPage(page);
+        const { x, y } = editorRectToPdfLowerLeft(el, view);
         radioGroup.addOptionToPage(el.value || el.id, page, {
-          x: el.x,
-          y: pdfY,
+          x,
+          y,
           width: el.width,
           height: el.height,
         });
@@ -180,12 +185,12 @@ function addTextField(
   form: ReturnType<PDFDocument["getForm"]>,
   page: PDFPage,
   el: TextField,
-  pageHeight: number,
+  view: PdfViewQuad,
   pdfDoc: PDFDocument,
 ): void {
   const field = form.createTextField(el.name);
 
-  const pdfY = pageHeight - el.y - el.height;
+  const { x: pdfX, y: pdfY } = editorRectToPdfLowerLeft(el, view);
 
   const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
   const font = embedStandardFont(pdfDoc, resolvedFont);
@@ -195,7 +200,7 @@ function addTextField(
   const borderColor = el.borderColor ? hexToRgb(el.borderColor) : undefined;
 
   field.addToPage(page, {
-    x: el.x,
+    x: pdfX,
     y: pdfY,
     width: el.width,
     height: el.height,
@@ -235,14 +240,14 @@ function addCheckboxField(
   form: ReturnType<PDFDocument["getForm"]>,
   page: PDFPage,
   el: Checkbox,
-  pageHeight: number,
+  view: PdfViewQuad,
 ): void {
   const field = form.createCheckBox(el.name);
 
-  const pdfY = pageHeight - el.y - el.height;
+  const { x: pdfX, y: pdfY } = editorRectToPdfLowerLeft(el, view);
 
   field.addToPage(page, {
-    x: el.x,
+    x: pdfX,
     y: pdfY,
     width: el.width,
     height: el.height,
@@ -257,11 +262,11 @@ function addDropdownField(
   form: ReturnType<PDFDocument["getForm"]>,
   page: PDFPage,
   el: DropdownField & { name: string },
-  pageHeight: number,
+  view: PdfViewQuad,
   pdfDoc: PDFDocument,
 ): void {
   const field = form.createDropdown(el.name);
-  const pdfY = pageHeight - el.y - el.height;
+  const { x: pdfX, y: pdfY } = editorRectToPdfLowerLeft(el, view);
 
   const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
   const font = embedStandardFont(pdfDoc, resolvedFont);
@@ -271,7 +276,7 @@ function addDropdownField(
   const borderColor = el.borderColor ? hexToRgb(el.borderColor) : undefined;
 
   field.addToPage(page, {
-    x: el.x,
+    x: pdfX,
     y: pdfY,
     width: el.width,
     height: el.height,
@@ -307,11 +312,11 @@ function addButtonField(
   form: ReturnType<PDFDocument["getForm"]>,
   page: PDFPage,
   el: ButtonField & { name: string },
-  pageHeight: number,
+  view: PdfViewQuad,
   pdfDoc: PDFDocument,
 ): void {
   const field = form.createButton(el.name);
-  const pdfY = pageHeight - el.y - el.height;
+  const { x: pdfX, y: pdfY } = editorRectToPdfLowerLeft(el, view);
 
   const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
   const font = embedStandardFont(pdfDoc, resolvedFont);
@@ -321,7 +326,7 @@ function addButtonField(
   const borderColor = el.borderColor ? hexToRgb(el.borderColor) : undefined;
 
   field.addToPage(el.label, page, {
-    x: el.x,
+    x: pdfX,
     y: pdfY,
     width: el.width,
     height: el.height,
@@ -341,11 +346,11 @@ function addOptionListField(
   form: ReturnType<PDFDocument["getForm"]>,
   page: PDFPage,
   el: OptionListField & { name: string },
-  pageHeight: number,
+  view: PdfViewQuad,
   pdfDoc: PDFDocument,
 ): void {
   const field = form.createOptionList(el.name);
-  const pdfY = pageHeight - el.y - el.height;
+  const { x: pdfX, y: pdfY } = editorRectToPdfLowerLeft(el, view);
 
   const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
   const font = embedStandardFont(pdfDoc, resolvedFont);
@@ -355,7 +360,7 @@ function addOptionListField(
   const borderColor = el.borderColor ? hexToRgb(el.borderColor) : undefined;
 
   field.addToPage(page, {
-    x: el.x,
+    x: pdfX,
     y: pdfY,
     width: el.width,
     height: el.height,

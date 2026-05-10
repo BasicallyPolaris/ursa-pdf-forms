@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ursa-pdf-forms",
+  "productName": "Ursa PDF Forms",
   "version": "0.1.0",
   "identifier": "com.basicallypolaris.ursa-pdf-forms",
   "build": {
@@ -15,15 +15,36 @@
       "csp": null
     }
   },
+  "plugins": {
+    "cli": {
+      "description": "Ursa PDF Forms",
+      "args": [
+        {
+          "name": "pdfPath",
+          "index": 1,
+          "takesValue": true
+        }
+      ]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",
+    "shortDescription": "Create fillable PDF forms",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["pdf"],
+        "name": "PDF Document",
+        "description": "PDF Document",
+        "role": "Editor"
+      }
     ],
     "windows": {
       "nsis": {

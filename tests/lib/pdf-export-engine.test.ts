@@ -1,12 +1,20 @@
 import { describe, it, expect } from "vitest";
 import { PDFDocument, PDFName } from "pdf-lib";
 import { exportFormElements } from "@/lib/pdf-export-engine";
+import { extractAcroFormFields } from "@/lib/pdf-form-reader";
 import { createTextField, createCheckbox, createRadioButton, type FormElement } from "@/lib/form-element-model";
 
 async function createFixturePdf(): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const page = pdf.addPage([612, 792]);
   page.drawText("Test PDF", { x: 50, y: 750, size: 12 });
+  return pdf.save();
+}
+
+async function createCroppedTopFixturePdf(): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  const page = pdf.addPage([612, 792]);
+  page.setCropBox(0, 0, 612, 692);
   return pdf.save();
 }
 
@@ -330,6 +338,32 @@ describe("exportFormElements", () => {
     const resultPdf = await PDFDocument.load(resultBytes);
     const form = resultPdf.getForm();
     expect(form.getFields().length).toBe(1);
+  });
+
+  it("round-trips editor coordinates on pages where crop is smaller than media", async () => {
+    const fixturePdf = await createCroppedTopFixturePdf();
+    const elements: FormElement[] = [
+      createTextField({
+        x: 72,
+        y: 100,
+        pageNumber: 1,
+        name: "croppedPageField",
+        width: 200,
+        height: 22,
+      }),
+    ];
+
+    const resultBytes = await exportFormElements(fixturePdf, elements);
+    const extracted = await extractAcroFormFields(resultBytes);
+    expect(extracted.length).toBe(1);
+    const field = extracted[0];
+    expect(field.type).toBe("text");
+    if (field.type === "text") {
+      expect(field.x).toBeCloseTo(72, 5);
+      expect(field.y).toBeCloseTo(100, 5);
+      expect(field.width).toBeCloseTo(200, 5);
+      expect(field.height).toBeCloseTo(22, 5);
+    }
   });
 
   it("handles empty element array", async () => {
