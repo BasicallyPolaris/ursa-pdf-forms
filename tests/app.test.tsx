@@ -116,6 +116,7 @@ describe("App layout", () => {
   it("shows empty state when no PDF is loaded", () => {
     render(<App />);
     expect(screen.getByText("Open a PDF to get started")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open PDF" })).toBeInTheDocument();
   });
 
   it("renders tool buttons in floating toolbar when PDF is loaded", async () => {

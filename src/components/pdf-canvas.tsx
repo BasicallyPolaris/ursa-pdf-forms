@@ -9,6 +9,7 @@ import {
   preserveViewportScrollAfterZoomChange,
   type PageLayout,
 } from "@/lib/page-layout";
+import { fileIO } from "@/lib/file-io";
 import {
   getRenderManager,
   type RenderHandle,
@@ -284,8 +285,15 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
 
   if (!pdfBytes) {
     return (
-      <div className="flex h-full items-center justify-center select-none">
-        <div className="flex flex-col items-center gap-5 text-muted-foreground">
+      <div className="flex h-full items-center justify-center select-none p-4">
+        <button
+          type="button"
+          className="flex max-w-sm cursor-pointer flex-col items-center gap-5 rounded-lg border border-transparent px-6 py-8 outline-none transition-colors hover:border-border hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          aria-label={t("canvas.openPdf")}
+          onClick={() => {
+            void fileIO.openPdf();
+          }}
+        >
           <svg
             width="48"
             height="48"
@@ -354,7 +362,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
               <span>{t("canvas.openPdf")}</span>
             </div>
           </div>
-        </div>
+        </button>
       </div>
     );
   }
