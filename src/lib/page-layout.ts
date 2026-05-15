@@ -70,16 +70,27 @@ export function getVisiblePageNumbers(
   return visible;
 }
 
-export function getTotalContentHeight(pages: PageInfo[], zoom: number): number {
+export function getTotalContentHeight(
+  pages: PageInfo[],
+  zoom: number,
+  minViewportHeight?: number,
+): number {
   const safeZoom =
     Number.isFinite(zoom) && zoom > 0 ? Math.min(zoom, 10) : 1;
   if (pages.length === 0) return 0;
-  return (
+  const natural =
     pages.reduce((acc, p) => acc + p.height * safeZoom, 0) +
     V_PADDING +
     PAGE_GAP * (pages.length - 1) +
-    V_PADDING
-  );
+    V_PADDING;
+  if (
+    pages.length === 1 &&
+    minViewportHeight !== undefined &&
+    minViewportHeight > 0
+  ) {
+    return Math.max(natural, minViewportHeight);
+  }
+  return natural;
 }
 
 export function findPageAtScreenPoint(
@@ -133,7 +144,7 @@ export function preserveViewportScrollAfterZoomChange(
 
   const sorted = [...pages].sort((a, b) => a.pageNumber - b.pageNumber);
 
-  const totalOldH = getTotalContentHeight(pages, oldZoom);
+  const totalOldH = getTotalContentHeight(pages, oldZoom, anchorVpH);
   let anchorY: number;
   if (st <= SCROLL_EDGE_PX) {
     anchorY = st + anchorVpH * TOP_ANCHOR_FRAC;
@@ -178,7 +189,7 @@ export function preserveViewportScrollAfterZoomChange(
 
   const newScreenY = LN.yOffset + pdfY * newZoom;
   let scrollTop = newScreenY - anchorVpH / 2;
-  const totalH = getTotalContentHeight(pages, newZoom);
+  const totalH = getTotalContentHeight(pages, newZoom, vpH);
   const maxTop = Math.max(0, totalH - vpH);
   scrollTop = Math.max(0, Math.min(maxTop, scrollTop));
 

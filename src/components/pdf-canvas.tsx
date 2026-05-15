@@ -130,14 +130,16 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   }, [pdfBytes]);
 
   const [containerWidth, setContainerWidth] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(0);
 
   const layouts = useMemo(
     () => computeLayouts(pages, committedZoom, containerWidth),
     [pages, committedZoom, containerWidth],
   );
   const totalHeight = useMemo(
-    () => getTotalContentHeight(pages, committedZoom),
-    [pages, committedZoom],
+    () =>
+      getTotalContentHeight(pages, committedZoom, containerHeight || undefined),
+    [pages, committedZoom, containerHeight],
   );
   const layoutContentWidth = useMemo(
     () => getLayoutContentWidth(pages, committedZoom, containerWidth),
@@ -229,8 +231,12 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     });
 
     const w = scrollEl.clientWidth;
+    const h = scrollEl.clientHeight;
     if (w !== containerWidth) {
       setContainerWidth(w);
+    }
+    if (h !== containerHeight) {
+      setContainerHeight(h);
     }
   });
 

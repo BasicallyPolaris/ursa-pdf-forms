@@ -172,6 +172,7 @@ export function CanvasOverlay() {
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const [overlayWidth, setOverlayWidth] = useState(0);
+  const [scrollViewportHeight, setScrollViewportHeight] = useState(0);
   const [activeGuides, setActiveGuides] = useState<
     import("@/lib/snap-engine").SnapGuide[]
   >([]);
@@ -181,6 +182,16 @@ export function CanvasOverlay() {
     clientY: number;
   } | null>(null);
   const closeContextMenu = useCallback(() => setContextMenuState(null), []);
+
+  useLayoutEffect(() => {
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+    const update = () => setScrollViewportHeight(scrollEl.clientHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(scrollEl);
+    return () => ro.disconnect();
+  }, [scrollRef]);
 
   useLayoutEffect(() => {
     const el = overlayRef.current;
@@ -671,8 +682,9 @@ export function CanvasOverlay() {
   );
 
   const totalContentHeight = useMemo(
-    () => getTotalContentHeight(pages, zoom),
-    [pages, zoom],
+    () =>
+      getTotalContentHeight(pages, zoom, scrollViewportHeight || undefined),
+    [pages, zoom, scrollViewportHeight],
   );
 
   const snapTargetIds = useMemo(
