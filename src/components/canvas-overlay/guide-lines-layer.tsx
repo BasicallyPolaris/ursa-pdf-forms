@@ -125,6 +125,10 @@ export const GuideLinesLayer = memo(function GuideLinesLayer({
 
           document.addEventListener("mousemove", onMouseMove);
           document.addEventListener("mouseup", onMouseUp);
+          setPreviewGuide({
+            orientation: guide.orientation,
+            position: guide.position,
+          });
           setDraggingGuideId(guide.id);
         };
 
