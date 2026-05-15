@@ -12,7 +12,10 @@
     "dialog:allow-ask",
     "dialog:allow-message",
     "fs:default",
-    "fs:allow-read-file",
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [{ "path": "**" }]
+    },
     "fs:allow-write-file",
     "cli:default",
     "core:window:allow-destroy"

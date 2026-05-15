@@ -16,6 +16,7 @@ import { ScrollContainerProvider } from "@/contexts/scroll-container-context";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useLaunchPdfArg } from "@/hooks/use-launch-pdf-arg";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
+import { useMiddleClickPan } from "@/hooks/use-middle-click-pan";
 import { useZoom } from "@/hooks/use-zoom";
 import { fileIO } from "@/lib/file-io";
 import { useEditorStore } from "@/stores/editor-store";
@@ -53,6 +54,7 @@ function App() {
   const startTour = useSettingsStore((s) => s.startTour);
   const announcement = useAnnouncementStore((s) => s.message);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  useMiddleClickPan(scrollContainerRef);
   const hRulerRef = useRef<HTMLDivElement>(null);
   const vRulerRef = useRef<HTMLDivElement>(null);
   const [overlayWidth, setOverlayWidth] = useState(0);
