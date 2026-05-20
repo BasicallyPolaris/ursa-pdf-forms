@@ -1,5 +1,5 @@
 import { clampZoom, ZOOM_PRESETS, ZOOM_STEP } from "@/hooks/use-zoom";
-import { ZOOM_BAR_WINDOW_CENTER_CLASS } from "@/lib/shell-layout";
+import { ZOOM_BAR_RULER_PADDING_CLASS } from "@/lib/shell-layout";
 import { getZoomEngine } from "@/lib/use-zoom-animation";
 import { useEditorStore } from "@/stores/editor-store";
 import { useTranslation } from "react-i18next";
@@ -84,7 +84,7 @@ export function CanvasToolbar({ children }: { children?: React.ReactNode }) {
     <TooltipProvider>
       <div className="flex shrink-0 flex-col border-b border-border bg-card select-none">
         <div
-          className={`flex h-10 items-center justify-center px-2 ${ZOOM_BAR_WINDOW_CENTER_CLASS}`}
+          className={`flex h-10 items-center justify-center ${ZOOM_BAR_RULER_PADDING_CLASS}`}
         >
           <ZoomControls />
         </div>

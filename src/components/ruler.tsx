@@ -7,6 +7,7 @@ import { useScrollContainerRef } from "@/contexts/scroll-container-context";
 import { H_PADDING, PAGE_GAP, V_PADDING } from "@/lib/coordinates";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
 import { getLayoutContentWidth } from "@/lib/page-layout";
+import { RULER_SIZE_PX } from "@/lib/shell-layout";
 import { snapToGrid } from "@/lib/snap-engine";
 import { useEditorStore } from "@/stores/editor-store";
 import {
@@ -18,7 +19,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-const RULER_SIZE = 36;
+const RULER_SIZE = RULER_SIZE_PX;
 const MAJOR_INTERVAL = 50;
 const MINOR_INTERVAL = 10;
 const SUB_INTERVAL = 5;
@@ -567,4 +568,3 @@ export function RulerCorner() {
   );
 }
 
-export { RULER_SIZE };
