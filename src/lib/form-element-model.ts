@@ -414,6 +414,13 @@ export function isOptionListField(el: FormElement): el is OptionListField {
   return el.type === "optionlist";
 }
 
+export function isHeightLockedField(el: FormElement): boolean {
+  return (
+    (el.type === "text" && !el.multiline) ||
+    el.type === "dropdown" ||
+    el.type === "optionlist"
+  );
+}
 
 export function sanitizeNumericValue(value: unknown): number | undefined {
   if (value === undefined || value === null || value === "") return undefined;

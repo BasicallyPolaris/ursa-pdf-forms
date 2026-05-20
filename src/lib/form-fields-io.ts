@@ -1,5 +1,6 @@
 import {
   type FormElement,
+  isHeightLockedField,
   MAX_FIELD_NAME_LENGTH,
   MAX_OPTIONS_PER_FIELD,
 } from "@/lib/form-element-model";
@@ -288,13 +289,17 @@ export function remapImportedFields(
       return field;
     }
 
+    const scaledHeight = isHeightLockedField(field)
+      ? field.height
+      : scaleCoordinate(field.height, source.height, target.height);
+
     return {
       ...field,
       pageNumber,
       x: scaleCoordinate(field.x, source.width, target.width),
       y: scaleCoordinate(field.y, source.height, target.height),
       width: scaleCoordinate(field.width, source.width, target.width),
-      height: scaleCoordinate(field.height, source.height, target.height),
+      height: scaledHeight,
     };
   });
 }

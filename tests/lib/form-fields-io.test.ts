@@ -6,7 +6,11 @@ import {
   remapImportedFields,
   serializeFormFields,
 } from "@/lib/form-fields-io";
-import { createTextField, isTextField } from "@/lib/form-element-model";
+import {
+  createCheckbox,
+  createTextField,
+  isTextField,
+} from "@/lib/form-element-model";
 import type { PageInfo } from "@/lib/pdf-loader";
 
 const pagesA: PageInfo[] = [
@@ -49,7 +53,29 @@ describe("form-fields-io", () => {
     expect(remapped[0].x).toBeCloseTo(50, 1);
     expect(remapped[0].y).toBeCloseTo(100, 1);
     expect(remapped[0].width).toBeCloseTo(25, 1);
-    expect(remapped[0].height).toBeCloseTo(10, 1);
+    expect(remapped[0].height).toBe(20);
+  });
+
+  it("scales height for multiline text and non-input fields", () => {
+    const multiline = createTextField({
+      x: 100,
+      y: 200,
+      pageNumber: 1,
+      width: 50,
+      height: 80,
+      multiline: true,
+    });
+    const checkbox = createCheckbox({
+      x: 100,
+      y: 200,
+      pageNumber: 1,
+      width: 20,
+      height: 20,
+    });
+    const source = [{ width: 612, height: 792 }];
+    const remapped = remapImportedFields([multiline, checkbox], source, pagesB);
+    expect(remapped[0].height).toBeCloseTo(40, 1);
+    expect(remapped[1].height).toBeCloseTo(10, 1);
   });
 
   it("clamps page numbers to available pages", () => {
