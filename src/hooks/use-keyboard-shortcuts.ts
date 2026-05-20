@@ -1,17 +1,12 @@
-import { PAGE_GAP, V_PADDING } from "@/lib/coordinates";
 import { fileIO } from "@/lib/file-io";
-import {
-  computePageLayouts,
-  findPageAtScreenPoint,
-  getLayoutContentWidth,
-} from "@/lib/page-layout";
+import { getPageAtViewportCenter } from "@/lib/page-layout";
 import {
   type EditorState,
   redo,
   undo,
   useEditorStore,
 } from "@/stores/editor-store";
-import { useEffect } from "react";
+import { useEffect, type RefObject } from "react";
 import { useScrollContainerRef } from "@/contexts/scroll-container-context";
 
 const TOOL_KEY_MAP: Record<string, string> = {
@@ -35,56 +30,17 @@ function isInputElement(e: KeyboardEvent): boolean {
   );
 }
 
-let lastMouseX = 0;
-let lastMouseY = 0;
-
-function getMousePage(scrollEl: HTMLElement): number | null {
-  const store = useEditorStore.getState();
-  if (store.pages.length === 0) return null;
-  const scrollRect = scrollEl.getBoundingClientRect();
-  const relX = lastMouseX - scrollRect.left + scrollEl.scrollLeft;
-  const relY = lastMouseY - scrollRect.top + scrollEl.scrollTop;
-  const layoutWidth = getLayoutContentWidth(
-    store.pages,
-    store.zoom,
-    scrollEl.clientWidth,
+function getScrollContainer(
+  scrollRef: RefObject<HTMLElement | null>,
+): HTMLElement | null {
+  return (
+    scrollRef.current ??
+    document.querySelector<HTMLElement>("[data-pdf-scroll-container]")
   );
-  const layouts = computePageLayouts(store.pages, store.zoom, layoutWidth);
-  return findPageAtScreenPoint(relX, relY, layouts);
-}
-
-function getVisiblePage(scrollEl: HTMLElement): number | undefined {
-  const store = useEditorStore.getState();
-  if (store.pages.length === 0) return undefined;
-  const scrollCenter = scrollEl.scrollTop + scrollEl.clientHeight / 2;
-  const zoom = store.zoom;
-  let closestPage = 1;
-  let closestDist = Infinity;
-  let yOffset = V_PADDING;
-  for (const page of store.pages) {
-    const pageScreenHeight = page.height * zoom;
-    const pageCenter = yOffset + pageScreenHeight / 2;
-    const dist = Math.abs(pageCenter - scrollCenter);
-    if (dist < closestDist) {
-      closestDist = dist;
-      closestPage = page.pageNumber;
-    }
-    yOffset += pageScreenHeight + PAGE_GAP;
-  }
-  return closestPage;
 }
 
 export function useKeyboardShortcuts() {
   const scrollRef = useScrollContainerRef();
-
-  useEffect(() => {
-    const trackMouse = (e: MouseEvent) => {
-      lastMouseX = e.clientX;
-      lastMouseY = e.clientY;
-    };
-    document.addEventListener("mousemove", trackMouse);
-    return () => document.removeEventListener("mousemove", trackMouse);
-  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -119,15 +75,22 @@ export function useKeyboardShortcuts() {
 
       if (mod && e.key.toLowerCase() === "d") {
         e.preventDefault();
-        const scrollEl = scrollRef.current;
-        if (scrollEl) store.duplicateSelection(getVisiblePage(scrollEl));
+        const scrollEl = getScrollContainer(scrollRef);
+        const { pages, zoom } = useEditorStore.getState();
+        if (scrollEl) {
+          const page = getPageAtViewportCenter(scrollEl, pages, zoom);
+          if (page !== undefined) store.duplicateSelection(page);
+        }
       }
 
       if (mod && e.key.toLowerCase() === "v") {
         e.preventDefault();
-        const scrollEl = scrollRef.current;
-        const mousePage = scrollEl ? getMousePage(scrollEl) : null;
-        store.pasteClipboard(mousePage ?? (scrollEl ? getVisiblePage(scrollEl) : undefined));
+        const scrollEl = getScrollContainer(scrollRef);
+        const { pages, zoom } = useEditorStore.getState();
+        if (scrollEl) {
+          const page = getPageAtViewportCenter(scrollEl, pages, zoom);
+          if (page !== undefined) store.pasteClipboard(page);
+        }
       }
 
       if (mod && e.key.toLowerCase() === "z" && !e.shiftKey) {

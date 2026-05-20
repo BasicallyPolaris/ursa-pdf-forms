@@ -33,6 +33,7 @@ import {
 import {
   computePageLayouts,
   findPageAtScreenPoint,
+  getPageAtViewportCenter,
   getVisiblePageNumbers,
   getTotalContentHeight,
   type PageLayout,
@@ -171,6 +172,7 @@ export function CanvasOverlay() {
   const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
 
   const overlayRef = useRef<HTMLDivElement>(null);
+  const pointerDownOnCanvasRef = useRef(false);
   const [overlayWidth, setOverlayWidth] = useState(0);
   const [scrollViewportHeight, setScrollViewportHeight] = useState(0);
   const [activeGuides, setActiveGuides] = useState<
@@ -366,6 +368,14 @@ export function CanvasOverlay() {
   );
   const drag = useElementDrag(dragConfig);
 
+  const handleElementDragStart = useCallback(
+    (el: FormElement, e: React.MouseEvent) => {
+      pointerDownOnCanvasRef.current = false;
+      drag.handleDragStart(el, e);
+    },
+    [drag.handleDragStart],
+  );
+
   const stableDragOffset = useMemo(() => {
     if (drag.dragOffset === null) return null;
     return { dx: drag.dragOffset.dx, dy: drag.dragOffset.dy };
@@ -406,6 +416,8 @@ export function CanvasOverlay() {
       );
       if (elementTarget) return;
 
+      pointerDownOnCanvasRef.current = true;
+
       const rect = e.currentTarget.getBoundingClientRect();
       const screenX = e.clientX - rect.left;
       const screenY = e.clientY - rect.top;
@@ -417,7 +429,6 @@ export function CanvasOverlay() {
       );
 
       if (activeTool === "select") {
-        if (!e.shiftKey) clearSelection();
         marquee.startMarquee(screenX, screenY);
         return;
       }
@@ -530,15 +541,39 @@ export function CanvasOverlay() {
       }
 
       const { hitIds, wasDrag } = marquee.endMarquee();
-      if (wasDrag && hitIds.length > 0) {
+      if (wasDrag && hitIds.length > 0 && activeTool === "select") {
         if (e.shiftKey) {
           addToSelection(hitIds);
         } else {
           selectElements(new Set(hitIds));
         }
+        return;
+      }
+
+      const pointerDownOnCanvas = pointerDownOnCanvasRef.current;
+      pointerDownOnCanvasRef.current = false;
+
+      if (
+        pointerDownOnCanvas &&
+        !wasDrag &&
+        selectedIds.size > 0 &&
+        !e.shiftKey
+      ) {
+        if (activeTool === "select" || !CLICK_TOOLS.has(activeTool)) {
+          clearSelection();
+        }
       }
     },
-    [activeTool, drawing, marquee, addElement, selectElements, addToSelection],
+    [
+      activeTool,
+      drawing,
+      marquee,
+      addElement,
+      selectElements,
+      addToSelection,
+      clearSelection,
+      selectedIds.size,
+    ],
   );
 
   // --- Keyboard nudging ---
@@ -556,24 +591,13 @@ export function CanvasOverlay() {
 
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
         e.preventDefault();
-        const currentLayouts = getPageLayouts();
-        if (currentLayouts.size === 0) return;
         const scrollEl = scrollRef.current;
         if (!scrollEl) return;
-        const scrollCenter = scrollEl.scrollTop + scrollEl.clientHeight / 2;
-        let closestPage = 1;
-        let closestDist = Infinity;
-        for (const [pageNum, layout] of currentLayouts) {
-          const pageCenter = layout.yOffset + layout.screenHeight / 2;
-          const dist = Math.abs(pageCenter - scrollCenter);
-          if (dist < closestDist) {
-            closestDist = dist;
-            closestPage = pageNum;
-          }
-        }
         const state = useEditorStore.getState();
+        const page = getPageAtViewportCenter(scrollEl, state.pages, zoom);
+        if (page === undefined) return;
         const pageIds = state.elements
-          .filter((el) => el.pageNumber === closestPage)
+          .filter((el) => el.pageNumber === page)
           .map((el) => el.id);
         selectElements(new Set(pageIds));
       }
@@ -601,7 +625,7 @@ export function CanvasOverlay() {
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [getPageLayouts, selectElements]);
+  }, [zoom, selectElements, scrollRef]);
 
   // --- Context menu ---
 
@@ -770,7 +794,7 @@ export function CanvasOverlay() {
         resizeResizingIdRef={resize.resizingId}
         resizeSnapCorrection={resize.resizeSnapCorrection}
         multiResizeActiveRef={multiResize.isActive}
-        onDragStart={drag.handleDragStart}
+        onDragStart={handleElementDragStart}
         onDrag={drag.handleDrag}
         onDragStop={drag.handleDragStop}
         onResize={resize.handleResize}

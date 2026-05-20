@@ -93,6 +93,50 @@ export function getTotalContentHeight(
   return natural;
 }
 
+export function getPageAtContentY(
+  anchorY: number,
+  pages: PageInfo[],
+  zoom: number,
+  containerWidth: number,
+): number | undefined {
+  if (pages.length === 0) return undefined;
+  const layouts = computePageLayouts(pages, zoom, containerWidth);
+  const sorted = [...pages].sort((a, b) => a.pageNumber - b.pageNumber);
+
+  for (const p of sorted) {
+    const layout = layouts.get(p.pageNumber);
+    if (!layout) continue;
+    if (
+      anchorY >= layout.yOffset &&
+      anchorY < layout.yOffset + layout.screenHeight
+    ) {
+      return p.pageNumber;
+    }
+  }
+
+  let best: number | null = null;
+  for (const p of sorted) {
+    const layout = layouts.get(p.pageNumber);
+    if (!layout) continue;
+    if (layout.yOffset <= anchorY) best = p.pageNumber;
+  }
+  return best ?? sorted[0]?.pageNumber;
+}
+
+export function getPageAtViewportCenter(
+  scrollEl: HTMLElement,
+  pages: PageInfo[],
+  zoom: number,
+): number | undefined {
+  const anchorY = scrollEl.scrollTop + scrollEl.clientHeight / 2;
+  return getPageAtContentY(
+    anchorY,
+    pages,
+    zoom,
+    scrollEl.clientWidth,
+  );
+}
+
 export function findPageAtScreenPoint(
   screenX: number,
   screenY: number,

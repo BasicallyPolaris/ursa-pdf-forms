@@ -78,6 +78,23 @@ function mergeElement(
   return { ...el, ...sanitizePartial(updates) } as FormElement;
 }
 
+function resolvePasteSources(
+  clipboard: FormElement[],
+  pasteStackByPage: Record<number, FormElement[]>,
+  targetPage: number | undefined,
+): { sources: FormElement[]; applyOffset: boolean; resolvedPage: number } {
+  const sourcePage = clipboard[0].pageNumber;
+  const page = targetPage ?? sourcePage;
+  const stacked = pasteStackByPage[page];
+  if (stacked) {
+    return { sources: stacked, applyOffset: true, resolvedPage: page };
+  }
+  if (page === sourcePage) {
+    return { sources: clipboard, applyOffset: true, resolvedPage: page };
+  }
+  return { sources: clipboard, applyOffset: false, resolvedPage: page };
+}
+
 function cloneElementsWithNewIds(
   sources: FormElement[],
   existing: FormElement[],
@@ -86,21 +103,24 @@ function cloneElementsWithNewIds(
     targetX?: number;
     targetY?: number;
     offsetIfSamePage: number;
+    applyOffset?: boolean;
   },
 ): { cloned: FormElement[]; newIds: Set<string> } {
   const cloned: FormElement[] = [];
   const newIds = new Set<string>();
   const baseEl = sources[0];
+  const sourcePage = baseEl.pageNumber;
   const offX = opts.targetX !== undefined ? opts.targetX - baseEl.x : 0;
   const offY = opts.targetY !== undefined ? opts.targetY - baseEl.y : 0;
+  const shouldOffset =
+    opts.applyOffset ??
+    (opts.targetPage === undefined || opts.targetPage === sourcePage);
 
   for (const el of sources) {
-    const samePage =
-      opts.targetPage === undefined || opts.targetPage === el.pageNumber;
-    const newX = samePage
+    const newX = shouldOffset
       ? el.x + (offX || opts.offsetIfSamePage)
       : el.x + (offX || 0);
-    const newY = samePage
+    const newY = shouldOffset
       ? el.y + (offY || opts.offsetIfSamePage)
       : el.y + (offY || 0);
     const clone = structuredClone(el);
@@ -131,6 +151,7 @@ const PDF_RESET_STATE = {
   elements: [] as FormElement[],
   selectedIds: new Set<string>(),
   clipboard: [] as FormElement[],
+  pasteStackByPage: {} as Record<number, FormElement[]>,
   guides: [] as GuideLine[],
   selectedGuideId: null as string | null,
   previewGuide: null as {
@@ -215,6 +236,7 @@ export interface EditorState {
   elements: FormElement[];
   selectedIds: Set<string>;
   clipboard: FormElement[];
+  pasteStackByPage: Record<number, FormElement[]>;
   gridSize: number;
   guides: GuideLine[];
   previewGuide: {
@@ -338,6 +360,20 @@ function elementsEqual(a: FormElement[], b: FormElement[]): boolean {
   return true;
 }
 
+function pasteStackEqual(
+  a: Record<number, FormElement[]>,
+  b: Record<number, FormElement[]>,
+): boolean {
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  for (const k of keysA) {
+    const page = Number(k);
+    if (!elementsEqual(a[page], b[page] ?? [])) return false;
+  }
+  return true;
+}
+
 export const useEditorStore = create<EditorState>()(
   temporal(
     (set, get) => ({
@@ -352,6 +388,7 @@ export const useEditorStore = create<EditorState>()(
       elements: [],
       selectedIds: new Set<string>(),
       clipboard: [],
+      pasteStackByPage: {},
       gridSize: 5,
       guides: [],
       previewGuide: null,
@@ -497,7 +534,11 @@ export const useEditorStore = create<EditorState>()(
       copySelection: () =>
         set((s) => {
           const selected = s.elements.filter((el) => s.selectedIds.has(el.id));
-          return { clipboard: structuredClone(selected) };
+          if (selected.length === 0) return s;
+          return {
+            clipboard: structuredClone(selected),
+            pasteStackByPage: {},
+          };
         }),
 
       pasteClipboard: (
@@ -507,19 +548,42 @@ export const useEditorStore = create<EditorState>()(
       ) => {
         set((s) => {
           if (s.clipboard.length === 0) return s;
+          const pasteAtPoint =
+            targetX !== undefined && targetY !== undefined;
+          const sourcePage = s.clipboard[0].pageNumber;
+          const { sources, applyOffset, resolvedPage } = pasteAtPoint
+            ? {
+                sources: s.clipboard,
+                applyOffset:
+                  targetPage === undefined || targetPage === sourcePage,
+                resolvedPage: targetPage ?? sourcePage,
+              }
+            : resolvePasteSources(
+                s.clipboard,
+                s.pasteStackByPage,
+                targetPage,
+              );
           const { cloned, newIds } = cloneElementsWithNewIds(
-            s.clipboard,
+            sources,
             s.elements,
             {
               targetPage,
               targetX,
               targetY,
               offsetIfSamePage: PASTE_OFFSET,
+              applyOffset,
             },
           );
+          const nextStack = pasteAtPoint
+            ? s.pasteStackByPage
+            : {
+                ...s.pasteStackByPage,
+                [resolvedPage]: structuredClone(cloned),
+              };
           return {
             elements: [...s.elements, ...cloned],
             selectedIds: newIds,
+            pasteStackByPage: nextStack,
           };
         });
       },
@@ -530,6 +594,7 @@ export const useEditorStore = create<EditorState>()(
           if (selected.length === 0) return s;
           return {
             clipboard: structuredClone(selected),
+            pasteStackByPage: {},
             elements: s.elements.filter((el) => !s.selectedIds.has(el.id)),
             selectedIds: new Set<string>(),
           };
@@ -764,10 +829,15 @@ export const useEditorStore = create<EditorState>()(
       partialize: (state) => ({
         elements: state.elements,
         guides: state.guides,
+        pasteStackByPage: state.pasteStackByPage,
       }),
       equality: (pastState, currentState) =>
         elementsEqual(pastState.elements, currentState.elements) &&
-        guidesEqual(pastState.guides, currentState.guides),
+        guidesEqual(pastState.guides, currentState.guides) &&
+        pasteStackEqual(
+          pastState.pasteStackByPage,
+          currentState.pasteStackByPage,
+        ),
     },
   ),
 );

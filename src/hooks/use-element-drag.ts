@@ -94,11 +94,15 @@ export function useElementDrag(config: ElementDragConfig) {
       d: { x: number; y: number },
       me: MouseEvent,
     ) => {
-      if (pendingToggleId.current) pendingToggleId.current = null;
-
       const { zoom } = config;
       const deltaX = d.x - screen.x;
       const deltaY = d.y - screen.y;
+      if (
+        pendingToggleId.current &&
+        (Math.abs(deltaX) >= 0.5 || Math.abs(deltaY) >= 0.5)
+      ) {
+        pendingToggleId.current = null;
+      }
       const rawDx = deltaX / zoom;
       const rawDy = deltaY / zoom;
 
@@ -256,6 +260,10 @@ export function useElementDrag(config: ElementDragConfig) {
       const dragDx = d.x - screen.x;
       const dragDy = d.y - screen.y;
       if (Math.abs(dragDx) < 0.5 && Math.abs(dragDy) < 0.5) {
+        const shiftOrCtrl = me.shiftKey || me.ctrlKey || me.metaKey;
+        if (store.selectedIds.size > 1 && !shiftOrCtrl) {
+          store.selectElements(new Set([el.id]));
+        }
         cleanup();
         unlockCursor();
         return;
