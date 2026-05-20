@@ -3,7 +3,7 @@ import {
   markClean as storeMarkClean,
   useEditorStore,
 } from "@/stores/editor-store";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getAppWindow, isTauriRuntime } from "@/lib/tauri-window";
 import { message, open, save } from "@tauri-apps/plugin-dialog";
 import { readFile, writeFile } from "@tauri-apps/plugin-fs";
 import type {
@@ -71,12 +71,21 @@ export const zustandStore: StorePort = {
 
 export const tauriWindow: WindowPort = {
   onCloseRequested(handler) {
-    const unlisten = getCurrentWindow().onCloseRequested(async (event) => {
-      const allowClose = await handler();
-      if (!allowClose) event.preventDefault();
-    });
+    if (!isTauriRuntime()) return () => {};
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void getAppWindow()
+      .onCloseRequested(async (event) => {
+        const allowClose = await handler();
+        if (!allowClose) event.preventDefault();
+      })
+      .then((fn) => {
+        if (disposed) fn();
+        else unlisten = fn;
+      });
     return () => {
-      unlisten.then((fn) => fn());
+      disposed = true;
+      unlisten?.();
     };
   },
 };
