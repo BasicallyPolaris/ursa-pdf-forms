@@ -72,7 +72,7 @@ vi.mock("react-i18next", () => ({
         "fieldTypes.multiline": "Multiline",
         "canvas.emptyTitle": "Open a PDF to get started",
         "canvas.emptyDescription":
-          "Drag and drop a file, or use the Open button",
+          "Drag and drop a file, or click here to open a file",
         "canvas.openPdf": "Open PDF",
         "canvas.zoom": "Zoom",
         "canvas.removeField": "Remove field",
@@ -107,7 +107,6 @@ describe("App layout", () => {
     render(<App />);
 
     expect(screen.getByRole("button", { name: "File" })).toBeInTheDocument();
-    expect(screen.getByText("Export")).toBeInTheDocument();
     expect(screen.getByTestId("left-sidebar")).toBeInTheDocument();
     expect(screen.getByTestId("canvas-area")).toBeInTheDocument();
     expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
@@ -140,10 +139,5 @@ describe("App layout", () => {
     });
     expect(screen.getByTestId("tool-input")).toBeInTheDocument();
     expect(screen.getByTestId("tool-textarea")).toBeInTheDocument();
-  });
-
-  it("renders export button", () => {
-    render(<App />);
-    expect(screen.getByText("Export")).toBeInTheDocument();
   });
 });

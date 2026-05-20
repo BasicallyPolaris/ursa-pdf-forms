@@ -21,7 +21,6 @@ import {
   menuResetOnboarding,
   menuSelectAll,
   menuStartTour,
-  menuTogglePropertiesPanel,
   menuUndo,
 } from "@/lib/menu-actions";
 import { formatShortcut } from "@/lib/shortcuts";
@@ -36,10 +35,14 @@ interface MenubarMenuProps {
   children: ReactNode;
 }
 
-function MenubarMenu({ label, children }: MenubarMenuProps) {
+function MenubarMenu({
+  label,
+  children,
+  tourId,
+}: MenubarMenuProps & { tourId?: string }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger>{label}</DropdownMenuTrigger>
+      <DropdownMenuTrigger data-tour={tourId}>{label}</DropdownMenuTrigger>
       <DropdownMenuContent>{children}</DropdownMenuContent>
     </DropdownMenu>
   );
@@ -71,7 +74,6 @@ export function AppMenubar() {
   const hasPdf = useEditorStore((s) => !!s.pdfBytes);
   const hasSelection = useEditorStore((s) => s.selectedIds.size > 0);
   const hasClipboard = useEditorStore((s) => s.clipboard.length > 0);
-  const propertiesCollapsed = useEditorStore((s) => s.propertiesPanelCollapsed);
   const hasPast = useStore(
     useEditorStore.temporal,
     (s) => s.pastStates.length > 0,
@@ -87,7 +89,7 @@ export function AppMenubar() {
       aria-label={t("menu.ariaLabel")}
       data-tauri-drag-region={false}
     >
-      <MenubarMenu label={t("menu.file")}>
+      <MenubarMenu label={t("menu.file")} tourId="file-menu">
         <MenuAction
           label={t("header.open")}
           shortcutId="open"
@@ -185,15 +187,6 @@ export function AppMenubar() {
           onClick={zoomTo100}
           disabled={!hasPdf}
         />
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={menuTogglePropertiesPanel}
-          disabled={!hasPdf}
-        >
-          {propertiesCollapsed
-            ? t("menu.showProperties")
-            : t("menu.hideProperties")}
-        </DropdownMenuItem>
       </MenubarMenu>
 
       <MenubarMenu label={t("menu.help")}>

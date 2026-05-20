@@ -1,4 +1,5 @@
-import { AppHeader } from "@/components/app-header";
+import { CanvasToolbar } from "@/components/app-header";
+import { AppTitleBar } from "@/components/app-titlebar";
 import { CanvasOverlay } from "@/components/canvas-overlay";
 import { FloatingToolbar } from "@/components/floating-toolbar";
 import { OfficeRibbon } from "@/components/header-toolbar";
@@ -20,6 +21,10 @@ import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useMiddleClickPan } from "@/hooks/use-middle-click-pan";
 import { useZoom } from "@/hooks/use-zoom";
 import { fileIO } from "@/lib/file-io";
+import {
+  PAGE_SIDEBAR_WIDTH_CLASS,
+  PROPERTIES_PANEL_WIDTH_CLASS,
+} from "@/lib/shell-layout";
 import { useEditorStore } from "@/stores/editor-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useAnnouncementStore } from "@/stores/announcement-store";
@@ -37,11 +42,15 @@ const TourSpotlight = lazy(() =>
   import("@/components/tour-spotlight").then((m) => ({ default: m.TourSpotlight })),
 );
 
+function ZoomController() {
+  useZoom();
+  return null;
+}
+
 function App() {
   useFileDrop();
   useLaunchPdfArg();
   useKeyboardShortcuts();
-  useZoom();
 
   useEffect(() => fileIO.registerCloseGuard(), []);
 
@@ -49,7 +58,6 @@ function App() {
   const isFileDragOver = useEditorStore((s) => s.isFileDragOver);
   const isDragFileValid = useEditorStore((s) => s.isDragFileValid);
   const pdfBytes = useEditorStore((s) => s.pdfBytes);
-  const propertiesPanelCollapsed = useEditorStore((s) => s.propertiesPanelCollapsed);
   const layoutPreference = useSettingsStore((s) => s.layoutPreference);
   const tourPending = useSettingsStore((s) => s.tourPending);
   const startTour = useSettingsStore((s) => s.startTour);
@@ -93,6 +101,7 @@ function App() {
 
   return (
     <ScrollContainerProvider scrollContainerRef={scrollContainerRef}>
+    <ZoomController />
     <div
       className="dark flex h-screen flex-col"
       onContextMenu={(e) => e.preventDefault()}
@@ -100,20 +109,24 @@ function App() {
       <h1 className="sr-only">{t("app.title")}</h1>
       <div role="status" aria-live="polite" className="sr-only">{announcement}</div>
       <ErrorBoundary>
-        <AppHeader>
-          {layoutPreference === "office" && <OfficeRibbon />}
-        </AppHeader>
+        <AppTitleBar />
       </ErrorBoundary>
-
       <div className="flex flex-1 overflow-hidden">
-        <ErrorBoundary fallback={<div className="w-14" />}>
+        <ErrorBoundary fallback={<div className={PAGE_SIDEBAR_WIDTH_CLASS} />}>
           <PageSidebar />
         </ErrorBoundary>
 
-        <main
-          data-testid="canvas-area"
-          className="relative flex-1 overflow-hidden bg-background"
-        >
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <ErrorBoundary>
+            <CanvasToolbar>
+              {layoutPreference === "office" && <OfficeRibbon />}
+            </CanvasToolbar>
+          </ErrorBoundary>
+
+          <main
+            data-testid="canvas-area"
+            className="relative min-h-0 flex-1 overflow-hidden bg-background"
+          >
           <h2 className="sr-only">{t("canvas.canvasArea")}</h2>
           <div className="flex h-full">
             <div className="flex flex-col flex-1 min-w-0">
@@ -175,13 +188,13 @@ function App() {
               </div>
             </div>
           )}
-        </main>
+          </main>
+        </div>
 
         <aside
           data-testid="properties-panel"
           data-tour="properties-panel"
-          className="border-l border-border bg-card overflow-hidden transition-[width] duration-150 ease-out motion-reduce:transition-none"
-          style={{ width: propertiesPanelCollapsed ? "36px" : "calc(11rem + 36px)" }}
+          className={`${PROPERTIES_PANEL_WIDTH_CLASS} shrink-0 border-l border-border bg-card overflow-hidden`}
         >
           <h2 className="sr-only">{t("properties.panelTitle")}</h2>
           <PropertiesPanel />

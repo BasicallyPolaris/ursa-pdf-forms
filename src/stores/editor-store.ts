@@ -246,7 +246,6 @@ export interface EditorState {
   selectedGuideId: string | null;
   isFileDragOver: boolean;
   isDragFileValid: boolean;
-  propertiesPanelCollapsed: boolean;
   dragLivePositions: Map<
     string,
     { x: number; y: number; width: number; height: number }
@@ -308,7 +307,6 @@ export interface EditorState {
   ) => void;
   setFileDragOver: (value: boolean) => void;
   setDragFileValid: (valid: boolean) => void;
-  togglePropertiesPanel: () => void;
 }
 
 function guidesEqual(a: GuideLine[], b: GuideLine[]): boolean {
@@ -397,8 +395,6 @@ export const useEditorStore = create<EditorState>()(
       dragLivePositions: new Map(),
       isFileDragOver: false,
       isDragFileValid: false,
-      propertiesPanelCollapsed: false,
-
       setPdf: (fileName, bytes, pages) => {
         set({
           ...PDF_RESET_STATE,
@@ -793,9 +789,6 @@ export const useEditorStore = create<EditorState>()(
       setFileDragOver: (value) => set({ isFileDragOver: value }),
 
       setDragFileValid: (valid) => set({ isDragFileValid: valid }),
-
-      togglePropertiesPanel: () =>
-        set((s) => ({ propertiesPanelCollapsed: !s.propertiesPanelCollapsed })),
 
       matchElementSize: (type) => {
         const state = get();

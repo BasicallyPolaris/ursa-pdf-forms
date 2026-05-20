@@ -72,7 +72,3 @@ export function menuResetOnboarding(): void {
   useSettingsStore.getState().resetOnboarding();
   useSettingsStore.getState().openOnboarding();
 }
-
-export function menuTogglePropertiesPanel(): void {
-  useEditorStore.getState().togglePropertiesPanel();
-}

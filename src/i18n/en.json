@@ -7,9 +7,7 @@
     "file": "File",
     "edit": "Edit",
     "view": "View",
-    "help": "Help",
-    "showProperties": "Show properties panel",
-    "hideProperties": "Hide properties panel"
+    "help": "Help"
   },
   "window": {
     "minimize": "Minimize",
@@ -127,9 +125,7 @@
     "setDefaultOption": "Set option {{index}} as default",
     "removeOption": "Remove option {{index}}",
     "newOption": "Option {{index}}",
-    "kofi": "Buy me a ko-fi",
-    "collapsePanel": "Collapse panel",
-    "expandPanel": "Expand panel"
+    "kofi": "Buy me a ko-fi"
   },
   "status": {
     "clickToSelect": "Click to select",
@@ -147,7 +143,7 @@
   },
   "canvas": {
     "emptyTitle": "Open a PDF to get started",
-    "emptyDescription": "Drag and drop a file, or use the Open button",
+    "emptyDescription": "Drag and drop a file, or click here to open a file",
     "openPdf": "Open PDF",
     "zoom": "Zoom",
     "removeField": "Remove field",

@@ -7,9 +7,7 @@
     "file": "Datei",
     "edit": "Bearbeiten",
     "view": "Ansicht",
-    "help": "Hilfe",
-    "showProperties": "Eigenschaften-Panel einblenden",
-    "hideProperties": "Eigenschaften-Panel ausblenden"
+    "help": "Hilfe"
   },
   "window": {
     "minimize": "Minimieren",
@@ -127,9 +125,7 @@
     "setDefaultOption": "Option {{index}} als Standard festlegen",
     "removeOption": "Option {{index}} entfernen",
     "newOption": "Option {{index}}",
-    "kofi": "Unterstütze mich mit einem Ko-fi",
-    "collapsePanel": "Panel einklappen",
-    "expandPanel": "Panel ausklappen"
+    "kofi": "Unterstütze mich mit einem Ko-fi"
   },
   "status": {
     "clickToSelect": "Klicken zum Auswählen",

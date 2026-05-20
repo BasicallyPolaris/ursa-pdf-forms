@@ -46,7 +46,6 @@ import {
   AlignStartVertical,
   BetweenHorizontalStart,
   BetweenVerticalStart,
-  ChevronLeft,
   ChevronRight,
   Expand,
   GripVertical,
@@ -1976,52 +1975,23 @@ function DistributeButtons() {
 
 export function PropertiesPanel() {
   const { t } = useTranslation();
-  const collapsed = useEditorStore((s) => s.propertiesPanelCollapsed);
-  const togglePropertiesPanel = useEditorStore((s) => s.togglePropertiesPanel);
 
   return (
     <ErrorBoundary>
       <div className="flex h-full flex-col">
-        {collapsed ? (
-          <div className="flex flex-1 items-center justify-center">
-            <button
-              type="button"
-              onClick={togglePropertiesPanel}
-              aria-label={t("properties.expandPanel")}
-              aria-expanded={false}
-              className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="flex shrink-0 items-center justify-end px-1.5 pt-1.5">
-              <button
-                type="button"
-                onClick={togglePropertiesPanel}
-                aria-label={t("properties.collapsePanel")}
-                aria-expanded={true}
-                className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-              >
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1">
-              <PropertiesPanelContent />
-            </div>
-            <div className="shrink-0 border-t border-border px-3 py-2.5">
-              <button
-                type="button"
-                onClick={() => openUrl("https://ko-fi.com/basicallypolaris")}
-                className="flex w-full items-center justify-center gap-1.5 rounded-sm px-2 py-1.5 text-[11px] text-muted-foreground/60 transition-colors hover:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-              >
-                <Heart className="h-3 w-3" />
-                {t("properties.kofi")}
-              </button>
-            </div>
-          </>
-        )}
+        <div className="min-h-0 flex-1">
+          <PropertiesPanelContent />
+        </div>
+        <div className="shrink-0 border-t border-border px-3 py-2.5">
+          <button
+            type="button"
+            onClick={() => openUrl("https://ko-fi.com/basicallypolaris")}
+            className="flex w-full items-center justify-center gap-1.5 rounded-sm px-2 py-1.5 text-[11px] text-muted-foreground/60 transition-colors hover:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          >
+            <Heart className="h-3 w-3" />
+            {t("properties.kofi")}
+          </button>
+        </div>
       </div>
     </ErrorBoundary>
   );
