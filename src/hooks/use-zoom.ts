@@ -1,4 +1,3 @@
-import { useScrollContainerRef } from "@/contexts/scroll-container-context";
 import { getZoomEngine } from "@/lib/use-zoom-animation";
 import { useEditorStore } from "@/stores/editor-store";
 import { useEffect } from "react";
@@ -14,8 +13,6 @@ export function clampZoom(z: number): number {
 }
 
 export function useZoom() {
-  const scrollRef = useScrollContainerRef();
-
   useEffect(() => {
     const store = useEditorStore.getState();
     getZoomEngine().init(store.zoom, (zoom) =>
@@ -26,14 +23,12 @@ export function useZoom() {
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
       if (!e.metaKey && !e.ctrlKey) return;
-      e.preventDefault();
-      e.stopPropagation();
 
       const store = useEditorStore.getState();
       if (!store.pdfBytes) return;
 
-      const scrollEl = scrollRef.current ?? document.querySelector<HTMLElement>("[data-pdf-scroll-container]");
-      if (!scrollEl) return;
+      e.preventDefault();
+      e.stopPropagation();
 
       const engine = getZoomEngine();
       const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
@@ -42,8 +37,9 @@ export function useZoom() {
       engine.setTarget(newTarget);
     };
 
-    window.addEventListener("wheel", handleWheel, { passive: false });
-    return () => window.removeEventListener("wheel", handleWheel);
+    document.addEventListener("wheel", handleWheel, { passive: false, capture: true });
+    return () =>
+      document.removeEventListener("wheel", handleWheel, { capture: true });
   }, []);
 
   useEffect(() => {
