@@ -111,6 +111,7 @@ export function createTestStore(initial?: {
     getPdfFilePath: () => state.filePath,
     getPdfFileName: () => state.fileName,
     getElements: () => state.elements,
+    getPages: () => state.pages,
     setPdf(name, bytes, pages) {
       mutations.push("setPdf");
       state.fileName = name;
@@ -132,6 +133,10 @@ export function createTestStore(initial?: {
       mutations.push("setInitialElements");
       state.elements = elements;
       savedSnapshot = JSON.stringify(elements);
+    },
+    replaceFormElements(elements) {
+      mutations.push("replaceFormElements");
+      state.elements = elements;
     },
     setRenderPdfBytes(bytes) {
       mutations.push("setRenderPdfBytes");

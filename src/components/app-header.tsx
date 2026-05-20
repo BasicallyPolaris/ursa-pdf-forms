@@ -13,7 +13,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { FileDown, FolderOpen, Minus, Plus, Redo2, Undo2 } from "lucide-react";
+import {
+  FileDown,
+  FileJson,
+  FileUp,
+  FolderOpen,
+  Minus,
+  Plus,
+  Redo2,
+  Undo2,
+} from "lucide-react";
 
 function ZoomControls() {
   const { t } = useTranslation();
@@ -159,6 +168,39 @@ export function AppHeader({ children }: { children?: React.ReactNode }) {
                   <ShortcutKbd shortcutId="redo" />
                 </span>
               </TooltipContent>
+            </Tooltip>
+
+            <ToolbarSeparator />
+
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <ToolButton
+                    onClick={() => fileIO.exportFormFields()}
+                    disabled={!hasPdf}
+                    aria-label={t("header.exportFields")}
+                  />
+                }
+              >
+                <FileJson className="h-3.5 w-3.5" />
+                <span>{t("header.exportFields")}</span>
+              </TooltipTrigger>
+              <TooltipContent>{t("header.exportFields")}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <ToolButton
+                    onClick={() => fileIO.importFormFields()}
+                    disabled={!hasPdf}
+                    aria-label={t("header.importFields")}
+                  />
+                }
+              >
+                <FileUp className="h-3.5 w-3.5" />
+                <span>{t("header.importFields")}</span>
+              </TooltipTrigger>
+              <TooltipContent>{t("header.importFields")}</TooltipContent>
             </Tooltip>
 
             <ToolbarSeparator />

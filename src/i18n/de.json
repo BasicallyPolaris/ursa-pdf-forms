@@ -5,6 +5,8 @@
   "header": {
     "open": "Öffnen",
     "export": "Exportieren",
+    "exportFields": "Felder exportieren",
+    "importFields": "Felder importieren",
     "zoomOut": "Verkleinern",
     "zoomIn": "Vergrößern",
     "zoomLevel": "Zoomstufe",
@@ -156,7 +158,16 @@
     "exportFailed": "PDF konnte nicht exportiert werden. Bitte versuchen Sie es erneut.",
     "invalidPdf": "Die ausgewählte Datei ist kein gültiges PDF.",
     "fileTooLarge": "Die Datei ist zu groß zum Öffnen (max. 100 MB).",
-    "operationInProgress": "Eine andere Dateioperation wird bereits ausgeführt. Bitte warten."
+    "operationInProgress": "Eine andere Dateioperation wird bereits ausgeführt. Bitte warten.",
+    "formFieldsFilter": "Formularfelder JSON",
+    "defaultFormFieldsExportName": "formularfelder.json",
+    "formFieldsExportFailed": "Formularfelder konnten nicht exportiert werden. Bitte versuchen Sie es erneut.",
+    "formFieldsImportFailed": "Formularfelder konnten nicht importiert werden. Bitte versuchen Sie es erneut.",
+    "formFieldsInvalidJson": "Die ausgewählte Datei ist kein gültiges JSON.",
+    "formFieldsInvalidFormat": "Die ausgewählte Datei ist kein gültiger Formularfelder-Export.",
+    "formFieldsUnsupportedVersion": "Diese Formularfelder-Datei verwendet eine nicht unterstützte Version.",
+    "formFieldsNoValidFields": "Die Datei enthält keine gültigen Formularfelder.",
+    "formFieldsNoPdfOpen": "Öffnen Sie ein PDF, bevor Sie Formularfelder importieren oder exportieren."
   },
   "dialog": {
     "unsavedTitle": "Ungespeicherte Änderungen",
@@ -164,7 +175,10 @@
     "save": "Speichern",
     "discard": "Nicht speichern",
     "cancel": "Abbrechen",
-    "close": "Schließen"
+    "close": "Schließen",
+    "formFieldsImportTitle": "Formularfelder ersetzen?",
+    "formFieldsImportMessage": "Der Import ersetzt alle aktuellen Formularfelder in diesem Dokument.",
+    "formFieldsReplace": "Ersetzen"
   },
   "errors": {
     "boundaryTitle": "Etwas ist schiefgelaufen",
@@ -288,6 +302,7 @@
     "elementsDeleted": "{{count}} gelöscht",
     "elementsDuplicated": "{{count}} dupliziert",
     "guideHorizontal": "Horizontale Hilfslinie bei Y {{position}}",
-    "guideVertical": "Vertikale Hilfslinie bei X {{position}}"
+    "guideVertical": "Vertikale Hilfslinie bei X {{position}}",
+    "fieldsImported": "{{count}} Formularfelder importiert"
   }
 }

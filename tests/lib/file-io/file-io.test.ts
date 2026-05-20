@@ -58,6 +58,18 @@ function stubLabels() {
     save: "Save",
     discard: "Discard",
     cancel: "Cancel",
+    formFieldsFilterName: "Form fields JSON",
+    defaultFormFieldsExportName: "form-fields.json",
+    formFieldsExportFailed: "Form fields export failed",
+    formFieldsImportFailed: "Form fields import failed",
+    formFieldsInvalidJson: "Invalid JSON",
+    formFieldsInvalidFormat: "Invalid format",
+    formFieldsUnsupportedVersion: "Unsupported version",
+    formFieldsNoValidFields: "No valid fields",
+    formFieldsNoPdfOpen: "No PDF open",
+    formFieldsImportConfirmTitle: "Replace fields?",
+    formFieldsImportConfirmMessage: "Replace all fields?",
+    formFieldsReplace: "Replace",
   });
 }
 
@@ -402,6 +414,112 @@ describe("file-io orchestrator", () => {
 
       expect(allowed).toBe(true);
       unregister();
+    });
+
+    it("exports form fields to json", async () => {
+      const { createFileIO } = await import("@/lib/file-io/orchestrator");
+      const {
+        createTestFileSystem,
+        createTestDialogs,
+        createTestStore,
+        createTestWindow,
+      } = await import("@/lib/file-io/adapters/test");
+
+      const fs = createTestFileSystem();
+      const dialogs = createTestDialogs({
+        saveResult: "/tmp/fields.json",
+      });
+      const store = createTestStore({
+        pdfBytes: new Uint8Array([1]),
+        elements: [
+          {
+            type: "text",
+            id: "el_1",
+            x: 10,
+            y: 20,
+            width: 100,
+            height: 20,
+            pageNumber: 1,
+            name: "field1",
+            defaultValue: "",
+            fontSize: 12,
+            multiline: false,
+            required: false,
+            textColor: "#000000",
+            fontFamily: "Helvetica",
+            fontWeight: "regular",
+            backgroundColor: null,
+            borderColor: null,
+            borderWidth: 1,
+          },
+        ],
+      });
+      store.state.pages = [{ pageNumber: 1, width: 612, height: 792 }];
+
+      const fileIO = createFileIO(
+        { fs, dialogs, store, window: createTestWindow() },
+        stubLabels(),
+      );
+
+      const error = await fileIO.exportFormFields();
+      expect(error).toBeNull();
+      const written = fs.writtenFiles.get("/tmp/fields.json");
+      expect(written).toBeDefined();
+      const parsed = JSON.parse(new TextDecoder().decode(written!));
+      expect(parsed.fields).toHaveLength(1);
+      expect(parsed.pages).toEqual([{ width: 612, height: 792 }]);
+    });
+
+    it("imports form fields and replaces store elements", async () => {
+      const { createFileIO } = await import("@/lib/file-io/orchestrator");
+      const {
+        createTestFileSystem,
+        createTestDialogs,
+        createTestStore,
+        createTestWindow,
+      } = await import("@/lib/file-io/adapters/test");
+
+      const json = JSON.stringify({
+        version: 1,
+        pages: [{ width: 612, height: 792 }],
+        fields: [
+          {
+            type: "checkbox",
+            id: "old",
+            x: 5,
+            y: 6,
+            width: 15,
+            height: 15,
+            pageNumber: 1,
+            name: "agree",
+            defaultChecked: true,
+          },
+        ],
+      });
+      const fs = createTestFileSystem(
+        new Map([["/tmp/import.json", new TextEncoder().encode(json)]]),
+      );
+      const dialogs = createTestDialogs({
+        openResult: "/tmp/import.json",
+        confirmResult: "yes",
+      });
+      const store = createTestStore({ pdfBytes: new Uint8Array([1]) });
+      store.state.pages = [{ pageNumber: 1, width: 612, height: 792 }];
+      store.state.elements = [
+        { type: "text", id: "existing" } as any,
+      ];
+
+      const fileIO = createFileIO(
+        { fs, dialogs, store, window: createTestWindow() },
+        stubLabels(),
+      );
+
+      const error = await fileIO.importFormFields();
+      expect(error).toBeNull();
+      expect(store.mutations).toContain("replaceFormElements");
+      expect(store.state.elements).toHaveLength(1);
+      expect(store.state.elements[0].type).toBe("checkbox");
+      expect(store.state.elements[0].id).not.toBe("old");
     });
 
     it("unregister removes the close handler", async () => {

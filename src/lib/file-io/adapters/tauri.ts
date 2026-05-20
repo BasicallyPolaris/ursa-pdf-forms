@@ -54,12 +54,15 @@ export const zustandStore: StorePort = {
   getPdfFilePath: () => useEditorStore.getState().pdfFilePath,
   getPdfFileName: () => useEditorStore.getState().pdfFileName,
   getElements: () => useEditorStore.getState().elements,
+  getPages: () => useEditorStore.getState().pages,
   setPdf: (name, bytes, pages) =>
     useEditorStore.getState().setPdf(name, bytes, pages),
   setPdfPages: (pages) => useEditorStore.getState().setPdfPages(pages),
   setPdfFilePath: (path) => useEditorStore.getState().setPdfFilePath(path),
   setInitialElements: (elements) =>
     useEditorStore.getState().setInitialElements(elements),
+  replaceFormElements: (elements) =>
+    useEditorStore.getState().replaceFormElements(elements),
   setRenderPdfBytes: (bytes) =>
     useEditorStore.getState().setRenderPdfBytes(bytes),
   isDirty: () => storeIsDirty(),

@@ -30,10 +30,12 @@ export interface StorePort {
   getPdfFilePath(): string | null;
   getPdfFileName(): string | null;
   getElements(): FormElement[];
+  getPages(): PageInfo[];
   setPdf(fileName: string, bytes: Uint8Array, pages: PageInfo[]): void;
   setPdfPages(pages: PageInfo[]): void;
   setPdfFilePath(path: string | null): void;
   setInitialElements(elements: FormElement[]): void;
+  replaceFormElements(elements: FormElement[]): void;
   setRenderPdfBytes(bytes: Uint8Array): void;
   isDirty(): boolean;
   markClean(): void;

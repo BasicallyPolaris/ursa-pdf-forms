@@ -5,6 +5,8 @@
   "header": {
     "open": "Open",
     "export": "Export",
+    "exportFields": "Export fields",
+    "importFields": "Import fields",
     "zoomOut": "Zoom out",
     "zoomIn": "Zoom in",
     "zoomLevel": "Zoom level",
@@ -206,7 +208,16 @@
     "exportFailed": "Failed to export PDF. Please try again.",
     "invalidPdf": "The selected file is not a valid PDF.",
     "fileTooLarge": "The file is too large to open (max 100 MB).",
-    "operationInProgress": "Another file operation is in progress. Please wait."
+    "operationInProgress": "Another file operation is in progress. Please wait.",
+    "formFieldsFilter": "Form fields JSON",
+    "defaultFormFieldsExportName": "form-fields.json",
+    "formFieldsExportFailed": "Failed to export form fields. Please try again.",
+    "formFieldsImportFailed": "Failed to import form fields. Please try again.",
+    "formFieldsInvalidJson": "The selected file is not valid JSON.",
+    "formFieldsInvalidFormat": "The selected file is not a valid form fields export.",
+    "formFieldsUnsupportedVersion": "This form fields file uses an unsupported version.",
+    "formFieldsNoValidFields": "The file contains no valid form fields.",
+    "formFieldsNoPdfOpen": "Open a PDF before importing or exporting form fields."
   },
   "dialog": {
     "unsavedTitle": "Unsaved Changes",
@@ -214,7 +225,10 @@
     "save": "Save",
     "discard": "Don't Save",
     "cancel": "Cancel",
-    "close": "Close"
+    "close": "Close",
+    "formFieldsImportTitle": "Replace form fields?",
+    "formFieldsImportMessage": "Importing will replace all current form fields on this document.",
+    "formFieldsReplace": "Replace"
   },
   "errors": {
     "boundaryTitle": "Something went wrong",
@@ -288,6 +302,7 @@
     "elementsDeleted": "{{count}} deleted",
     "elementsDuplicated": "{{count}} duplicated",
     "guideHorizontal": "Horizontal guide at Y {{position}}",
-    "guideVertical": "Vertical guide at X {{position}}"
+    "guideVertical": "Vertical guide at X {{position}}",
+    "fieldsImported": "{{count}} form fields imported"
   }
 }

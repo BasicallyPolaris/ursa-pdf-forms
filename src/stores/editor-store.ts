@@ -261,6 +261,7 @@ export interface EditorState {
   clearPdf: () => void;
   setRenderPdfBytes: (bytes: Uint8Array) => void;
   setInitialElements: (elements: FormElement[]) => void;
+  replaceFormElements: (elements: FormElement[]) => void;
   addElement: (element: FormElement) => void;
   updateElement: (id: string, updates: Partial<FormElement>) => void;
   moveElements: (
@@ -435,6 +436,18 @@ export const useEditorStore = create<EditorState>()(
           elements: elements.map((el) => ({ ...el })),
           guides: [],
         };
+      },
+
+      replaceFormElements: (elements: FormElement[]) => {
+        set({
+          elements,
+          selectedIds: new Set<string>(),
+          clipboard: [],
+          pasteStackByPage: {},
+        });
+        announce(
+          i18n.t("announcements.fieldsImported", { count: elements.length }),
+        );
       },
 
       addElement: (element) => {
