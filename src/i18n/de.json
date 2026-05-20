@@ -2,6 +2,21 @@
   "app": {
     "title": "PDF-Formular-Designer"
   },
+  "menu": {
+    "ariaLabel": "Anwendungsmenü",
+    "file": "Datei",
+    "edit": "Bearbeiten",
+    "view": "Ansicht",
+    "help": "Hilfe",
+    "showProperties": "Eigenschaften-Panel einblenden",
+    "hideProperties": "Eigenschaften-Panel ausblenden"
+  },
+  "window": {
+    "minimize": "Minimieren",
+    "maximize": "Maximieren",
+    "restore": "Wiederherstellen",
+    "close": "Schließen"
+  },
   "header": {
     "open": "Öffnen",
     "export": "Exportieren",

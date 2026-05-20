@@ -2,6 +2,21 @@
   "app": {
     "title": "Ursa PDF Forms"
   },
+  "menu": {
+    "ariaLabel": "Application menu",
+    "file": "File",
+    "edit": "Edit",
+    "view": "View",
+    "help": "Help",
+    "showProperties": "Show properties panel",
+    "hideProperties": "Hide properties panel"
+  },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
+  },
   "header": {
     "open": "Open",
     "export": "Export",

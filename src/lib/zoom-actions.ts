@@ -1,0 +1,33 @@
+import { clampZoom } from "@/hooks/use-zoom";
+import { getZoomEngine } from "@/lib/use-zoom-animation";
+import { useEditorStore } from "@/stores/editor-store";
+
+export function zoomIn(): void {
+  const store = useEditorStore.getState();
+  if (!store.pdfBytes) return;
+  const engine = getZoomEngine();
+  engine.setTarget(clampZoom(engine.getTargetZoom() + 0.1));
+}
+
+export function zoomOut(): void {
+  const store = useEditorStore.getState();
+  if (!store.pdfBytes) return;
+  const engine = getZoomEngine();
+  engine.setTarget(clampZoom(engine.getTargetZoom() - 0.1));
+}
+
+export function zoomTo100(): void {
+  const store = useEditorStore.getState();
+  if (!store.pdfBytes) return;
+  getZoomEngine().setTarget(1);
+}
+
+export function zoomFitWidth(): void {
+  const store = useEditorStore.getState();
+  if (!store.pdfBytes || store.pages.length === 0) return;
+  const container = document.querySelector('[data-testid="canvas-area"]');
+  if (!container) return;
+  const viewportWidth = container.clientWidth - 32;
+  const fitZoom = clampZoom(viewportWidth / store.pages[0].width);
+  getZoomEngine().snapTo(fitZoom);
+}

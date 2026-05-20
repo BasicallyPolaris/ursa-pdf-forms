@@ -10,6 +10,7 @@ import {
   RulerCorner,
   VerticalRuler,
 } from "@/components/ruler";
+import { ShortcutsDialog } from "@/components/shortcuts-dialog";
 import { StatusBar } from "@/components/status-bar";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { ScrollContainerProvider } from "@/contexts/scroll-container-context";
@@ -193,6 +194,7 @@ function App() {
       </Suspense>
       <Suspense fallback={null}>
         <SettingsDialog />
+        <ShortcutsDialog />
       </Suspense>
       <Suspense fallback={null}>
         <TourSpotlight />

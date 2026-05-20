@@ -1,3 +1,5 @@
+import { AppMenubar } from "@/components/app-menubar";
+import { WindowControls } from "@/components/window-controls";
 import { clampZoom, ZOOM_PRESETS, ZOOM_STEP } from "@/hooks/use-zoom";
 import { fileIO } from "@/lib/file-io";
 import { getZoomEngine } from "@/lib/use-zoom-animation";
@@ -13,16 +15,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  FileDown,
-  FileJson,
-  FileUp,
-  FolderOpen,
-  Minus,
-  Plus,
-  Redo2,
-  Undo2,
-} from "lucide-react";
+import { FileDown, Minus, Plus, Redo2, Undo2 } from "lucide-react";
 
 function ZoomControls() {
   const { t } = useTranslation();
@@ -36,7 +29,7 @@ function ZoomControls() {
   };
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1" data-tauri-drag-region={false}>
       <Tooltip>
         <TooltipTrigger
           onClick={() =>
@@ -105,28 +98,38 @@ export function AppHeader({ children }: { children?: React.ReactNode }) {
   return (
     <TooltipProvider>
       <header className="flex flex-col border-b border-border bg-card select-none">
-        <div className="grid h-11 grid-cols-[1fr_auto_1fr] items-center gap-1 px-2 select-none">
-          <div className="flex items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <ToolButton
-                    onClick={() => fileIO.openPdf()}
-                    variant="primary"
-                  />
-                }
-              >
-                <FolderOpen className="h-3.5 w-3.5" />
-                <span>{t("header.open")}</span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <span className="flex items-center gap-2">
-                  {t("header.open")}
-                  <ShortcutKbd shortcutId="open" />
-                </span>
-              </TooltipContent>
-            </Tooltip>
+        <div className="grid h-9 grid-cols-[1fr_auto_1fr] items-stretch border-b border-border/50 bg-card">
+          <div className="flex min-w-0 items-stretch">
+            <AppMenubar />
+            <div
+              data-tauri-drag-region
+              className="pointer-events-none min-w-0 flex-1"
+              aria-hidden
+            />
           </div>
+          <div
+            data-tauri-drag-region
+            className="pointer-events-none flex items-center justify-center px-4"
+          >
+            <span className="pointer-events-none truncate text-[11px] font-medium tracking-wide text-muted-foreground/70">
+              {t("app.title")}
+            </span>
+          </div>
+          <div className="flex min-w-0 items-stretch justify-end">
+            <div
+              data-tauri-drag-region
+              className="pointer-events-none min-w-0 flex-1"
+              aria-hidden
+            />
+            <WindowControls className="pointer-events-auto" />
+          </div>
+        </div>
+
+        <div
+          className="grid h-11 grid-cols-[1fr_auto_1fr] items-center gap-1 px-2"
+          data-tauri-drag-region={false}
+        >
+          <div />
 
           <ZoomControls />
 
@@ -168,39 +171,6 @@ export function AppHeader({ children }: { children?: React.ReactNode }) {
                   <ShortcutKbd shortcutId="redo" />
                 </span>
               </TooltipContent>
-            </Tooltip>
-
-            <ToolbarSeparator />
-
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <ToolButton
-                    onClick={() => fileIO.exportFormFields()}
-                    disabled={!hasPdf}
-                    aria-label={t("header.exportFields")}
-                  />
-                }
-              >
-                <FileJson className="h-3.5 w-3.5" />
-                <span>{t("header.exportFields")}</span>
-              </TooltipTrigger>
-              <TooltipContent>{t("header.exportFields")}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <ToolButton
-                    onClick={() => fileIO.importFormFields()}
-                    disabled={!hasPdf}
-                    aria-label={t("header.importFields")}
-                  />
-                }
-              >
-                <FileUp className="h-3.5 w-3.5" />
-                <span>{t("header.importFields")}</span>
-              </TooltipTrigger>
-              <TooltipContent>{t("header.importFields")}</TooltipContent>
             </Tooltip>
 
             <ToolbarSeparator />
