@@ -45,6 +45,11 @@ vi.mock("react-i18next", () => ({
       const translations: Record<string, string> = {
         "app.title": "Ursa PDF Forms",
         "header.open": "Open",
+        "menu.file": "File",
+        "menu.edit": "Edit",
+        "menu.view": "View",
+        "menu.help": "Help",
+        "menu.ariaLabel": "Application menu",
         "header.save": "Save",
         "header.saveProject": "Save project",
         "header.export": "Export",
@@ -101,7 +106,8 @@ describe("App layout", () => {
   it("renders 3-panel layout with toolbar, sidebar, canvas, and properties panel", () => {
     render(<App />);
 
-    expect(screen.getByText("Open")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "File" })).toBeInTheDocument();
+    expect(screen.getByText("Export")).toBeInTheDocument();
     expect(screen.getByTestId("left-sidebar")).toBeInTheDocument();
     expect(screen.getByTestId("canvas-area")).toBeInTheDocument();
     expect(screen.getByTestId("properties-panel")).toBeInTheDocument();

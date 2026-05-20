@@ -445,6 +445,7 @@ describe("file-io orchestrator", () => {
             fontSize: 12,
             multiline: false,
             required: false,
+            maxLength: undefined,
             textColor: "#000000",
             fontFamily: "Helvetica",
             fontWeight: "regular",

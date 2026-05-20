@@ -6,7 +6,7 @@ import {
   remapImportedFields,
   serializeFormFields,
 } from "@/lib/form-fields-io";
-import { createTextField } from "@/lib/form-element-model";
+import { createTextField, isTextField } from "@/lib/form-element-model";
 import type { PageInfo } from "@/lib/pdf-loader";
 
 const pagesA: PageInfo[] = [
@@ -29,7 +29,7 @@ describe("form-fields-io", () => {
       { width: 612, height: 792 },
     ]);
     expect(doc.fields).toHaveLength(1);
-    expect(doc.fields[0].name).toBe("name1");
+    expect(isTextField(doc.fields[0]) && doc.fields[0].name).toBe("name1");
     expect(doc.fields[0].x).toBe(100);
   });
 
