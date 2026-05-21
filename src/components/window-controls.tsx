@@ -50,10 +50,7 @@ export function WindowControls({ className }: { className?: string }) {
     "relative z-10 flex h-full w-11 shrink-0 items-center justify-center text-muted-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset";
 
   return (
-    <div
-      className={cn("relative z-10 flex h-full shrink-0", className)}
-      data-tauri-drag-region={false}
-    >
+    <div className={cn("relative z-10 flex h-full shrink-0", className)}>
       <button
         type="button"
         onMouseDown={stopTitlebarDrag}

@@ -1,4 +1,8 @@
-import { clampZoom, ZOOM_STEP } from "@/hooks/use-zoom";
+import {
+  CANVAS_AREA_FIT_WIDTH_INSET_PX,
+  clampZoom,
+  ZOOM_STEP,
+} from "@/hooks/use-zoom";
 import { getZoomEngine } from "@/lib/use-zoom-animation";
 import { useEditorStore } from "@/stores/editor-store";
 
@@ -27,7 +31,8 @@ export function zoomFitWidth(): void {
   if (!store.pdfBytes || store.pages.length === 0) return;
   const container = document.querySelector('[data-testid="canvas-area"]');
   if (!container) return;
-  const viewportWidth = container.clientWidth - 32;
+  const viewportWidth =
+    container.clientWidth - CANVAS_AREA_FIT_WIDTH_INSET_PX;
   const fitZoom = clampZoom(viewportWidth / store.pages[0].width);
   getZoomEngine().snapTo(fitZoom);
 }

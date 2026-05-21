@@ -87,7 +87,6 @@ export function AppMenubar() {
     <nav
       className="relative z-10 flex h-full shrink-0 items-center gap-0.5 px-1"
       aria-label={t("menu.ariaLabel")}
-      data-tauri-drag-region={false}
     >
       <MenubarMenu label={t("menu.file")} tourId="file-menu">
         <MenuAction

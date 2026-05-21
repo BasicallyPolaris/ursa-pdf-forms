@@ -7,6 +7,7 @@ export const ZOOM_MIN = 0.5;
 export const ZOOM_MAX = 4;
 export const ZOOM_STEP = 0.1;
 export const ZOOM_PRESETS = [0.5, 0.75, 1, 1.5, 2, 4];
+export const CANVAS_AREA_FIT_WIDTH_INSET_PX = 32;
 
 export function clampZoom(z: number): number {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
@@ -24,11 +25,11 @@ export function useZoom() {
     const handleWheel = (e: WheelEvent) => {
       if (!e.metaKey && !e.ctrlKey) return;
 
-      const store = useEditorStore.getState();
-      if (!store.pdfBytes) return;
-
       e.preventDefault();
       e.stopPropagation();
+
+      const store = useEditorStore.getState();
+      if (!store.pdfBytes) return;
 
       const engine = getZoomEngine();
       const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
@@ -68,7 +69,8 @@ export function useZoom() {
         e.preventDefault();
         const container = document.querySelector('[data-testid="canvas-area"]');
         if (container && store.pages.length > 0) {
-          const viewportWidth = container.clientWidth - 32;
+          const viewportWidth =
+            container.clientWidth - CANVAS_AREA_FIT_WIDTH_INSET_PX;
           const fitZoom = clampZoom(viewportWidth / store.pages[0].width);
           engine.snapTo(fitZoom);
         }
