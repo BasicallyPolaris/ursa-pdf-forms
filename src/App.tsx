@@ -112,7 +112,7 @@ function App() {
         <AppTitleBar />
       </ErrorBoundary>
       <div className="flex flex-1 overflow-hidden">
-        <ErrorBoundary fallback={<div className={PAGE_SIDEBAR_WIDTH_CLASS} />}>
+        <ErrorBoundary fallback={<div className={`${PAGE_SIDEBAR_WIDTH_CLASS} shrink-0`} />}>
           <PageSidebar />
         </ErrorBoundary>
 
