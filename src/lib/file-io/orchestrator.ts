@@ -238,7 +238,7 @@ export function createFileIO(
             kind: "warning",
             labels: {
               yes: labels.formFieldsReplace,
-              no: labels.cancel,
+              no: labels.formFieldsKeepExisting,
               cancel: labels.cancel,
             },
           });

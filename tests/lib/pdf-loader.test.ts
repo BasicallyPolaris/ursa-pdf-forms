@@ -137,6 +137,7 @@ describe("pdf loading", () => {
         formFieldsImportConfirmTitle: "Replace?",
         formFieldsImportConfirmMessage: "Replace fields?",
         formFieldsReplace: "Replace",
+        formFieldsKeepExisting: "Keep existing",
       }),
     );
 

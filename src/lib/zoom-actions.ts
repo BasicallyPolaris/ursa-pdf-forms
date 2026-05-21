@@ -1,4 +1,4 @@
-import { clampZoom } from "@/hooks/use-zoom";
+import { clampZoom, ZOOM_STEP } from "@/hooks/use-zoom";
 import { getZoomEngine } from "@/lib/use-zoom-animation";
 import { useEditorStore } from "@/stores/editor-store";
 
@@ -6,14 +6,14 @@ export function zoomIn(): void {
   const store = useEditorStore.getState();
   if (!store.pdfBytes) return;
   const engine = getZoomEngine();
-  engine.setTarget(clampZoom(engine.getTargetZoom() + 0.1));
+  engine.setTarget(clampZoom(engine.getTargetZoom() + ZOOM_STEP));
 }
 
 export function zoomOut(): void {
   const store = useEditorStore.getState();
   if (!store.pdfBytes) return;
   const engine = getZoomEngine();
-  engine.setTarget(clampZoom(engine.getTargetZoom() - 0.1));
+  engine.setTarget(clampZoom(engine.getTargetZoom() - ZOOM_STEP));
 }
 
 export function zoomTo100(): void {

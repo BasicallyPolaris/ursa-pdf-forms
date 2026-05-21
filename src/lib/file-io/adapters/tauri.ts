@@ -34,8 +34,11 @@ export const tauriDialogs: DialogPort = {
     return await save({ filters, defaultPath });
   },
   async showConfirm(options) {
-    const result = await message(options.message, {
-      title: options.title,
+    const body =
+      options.title.trim() !== ""
+        ? `${options.title}\n\n${options.message}`
+        : options.message;
+    const result = await message(body, {
       kind: options.kind,
       buttons: {
         yes: options.labels.yes,

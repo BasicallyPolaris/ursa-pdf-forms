@@ -37,4 +37,5 @@ export interface FileIOLabels {
   formFieldsImportConfirmTitle: string;
   formFieldsImportConfirmMessage: string;
   formFieldsReplace: string;
+  formFieldsKeepExisting: string;
 }

@@ -239,7 +239,8 @@
     "close": "Close",
     "formFieldsImportTitle": "Replace form fields?",
     "formFieldsImportMessage": "Importing will replace all current form fields on this document.",
-    "formFieldsReplace": "Replace"
+    "formFieldsReplace": "Replace",
+    "formFieldsKeepExisting": "Keep existing"
   },
   "errors": {
     "boundaryTitle": "Something went wrong",

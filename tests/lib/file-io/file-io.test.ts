@@ -70,6 +70,7 @@ function stubLabels() {
     formFieldsImportConfirmTitle: "Replace fields?",
     formFieldsImportConfirmMessage: "Replace all fields?",
     formFieldsReplace: "Replace",
+    formFieldsKeepExisting: "Keep existing",
   });
 }
 

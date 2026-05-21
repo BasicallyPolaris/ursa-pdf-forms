@@ -189,7 +189,8 @@
     "close": "Schließen",
     "formFieldsImportTitle": "Formularfelder ersetzen?",
     "formFieldsImportMessage": "Der Import ersetzt alle aktuellen Formularfelder in diesem Dokument.",
-    "formFieldsReplace": "Ersetzen"
+    "formFieldsReplace": "Ersetzen",
+    "formFieldsKeepExisting": "Bestehende behalten"
   },
   "errors": {
     "boundaryTitle": "Etwas ist schiefgelaufen",

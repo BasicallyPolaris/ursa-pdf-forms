@@ -152,7 +152,7 @@ export function heightFromOptions(fontSize: number, optionCount: number): number
   return Math.round((lineHeight * count + padding * 2) * 2) / 2;
 }
 
-function safePositive(value: number | undefined, fallback: number): number {
+export function safePositive(value: number | undefined, fallback: number): number {
   if (value == null) return fallback;
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }

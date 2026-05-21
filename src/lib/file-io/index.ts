@@ -51,6 +51,7 @@ export const fileIO = createFileIO(
     formFieldsImportConfirmTitle: i18n.t("dialog.formFieldsImportTitle"),
     formFieldsImportConfirmMessage: i18n.t("dialog.formFieldsImportMessage"),
     formFieldsReplace: i18n.t("dialog.formFieldsReplace"),
+    formFieldsKeepExisting: i18n.t("dialog.formFieldsKeepExisting"),
     unsavedTitle: i18n.t("dialog.unsavedTitle"),
     unsavedMessage: i18n.t("dialog.unsavedChanges"),
     save: i18n.t("dialog.save"),

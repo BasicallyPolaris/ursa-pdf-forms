@@ -1,9 +1,13 @@
 import {
   type FormElement,
+  heightFromFontSize,
+  heightFromOptions,
   isHeightLockedField,
   MAX_FIELD_NAME_LENGTH,
   MAX_OPTIONS_PER_FIELD,
+  safePositive,
 } from "@/lib/form-element-model";
+import { clampFieldToPageBounds } from "@/lib/page-coordinates";
 import type { PageInfo } from "@/lib/pdf-loader";
 
 export const FORM_FIELDS_FILE_VERSION = 1;
@@ -93,11 +97,15 @@ function parseField(raw: unknown): FormElement | null {
 
   const x = readFiniteNumber(raw, "x", 0);
   const y = readFiniteNumber(raw, "y", 0);
-  const width = readFiniteNumber(raw, "width", 1);
-  const height = readFiniteNumber(raw, "height", 1);
   const pageNumber = Math.max(1, Math.floor(readFiniteNumber(raw, "pageNumber", 1)));
 
   if (type === "text") {
+    const fontSize = readFiniteNumber(raw, "fontSize", 12);
+    const multiline = readBoolean(raw, "multiline", false);
+    const width = safePositive(readFiniteNumber(raw, "width", 0), 150);
+    const height = multiline
+      ? safePositive(readFiniteNumber(raw, "height", 0), 60)
+      : safePositive(readFiniteNumber(raw, "height", 0), heightFromFontSize(fontSize));
     return {
       type: "text",
       id: readString(raw, "id", ""),
@@ -108,8 +116,8 @@ function parseField(raw: unknown): FormElement | null {
       pageNumber,
       name: readString(raw, "name").slice(0, MAX_FIELD_NAME_LENGTH),
       defaultValue: readString(raw, "defaultValue"),
-      fontSize: readFiniteNumber(raw, "fontSize", 12),
-      multiline: readBoolean(raw, "multiline", false),
+      fontSize,
+      multiline,
       required: readBoolean(raw, "required", false),
       maxLength:
         raw.maxLength === undefined || raw.maxLength === null
@@ -120,6 +128,8 @@ function parseField(raw: unknown): FormElement | null {
   }
 
   if (type === "checkbox") {
+    const width = safePositive(readFiniteNumber(raw, "width", 0), 15);
+    const height = safePositive(readFiniteNumber(raw, "height", 0), 15);
     return {
       type: "checkbox",
       id: readString(raw, "id", ""),
@@ -134,6 +144,8 @@ function parseField(raw: unknown): FormElement | null {
   }
 
   if (type === "radio") {
+    const width = safePositive(readFiniteNumber(raw, "width", 0), 15);
+    const height = safePositive(readFiniteNumber(raw, "height", 0), 15);
     return {
       type: "radio",
       id: readString(raw, "id", ""),
@@ -149,6 +161,12 @@ function parseField(raw: unknown): FormElement | null {
   }
 
   if (type === "dropdown") {
+    const fontSize = readFiniteNumber(raw, "fontSize", 12);
+    const width = safePositive(readFiniteNumber(raw, "width", 0), 150);
+    const height = safePositive(
+      readFiniteNumber(raw, "height", 0),
+      heightFromFontSize(fontSize),
+    );
     return {
       type: "dropdown",
       id: readString(raw, "id", ""),
@@ -160,7 +178,7 @@ function parseField(raw: unknown): FormElement | null {
       name: readString(raw, "name").slice(0, MAX_FIELD_NAME_LENGTH),
       options: readStringArray(raw, "options"),
       defaultValue: readString(raw, "defaultValue"),
-      fontSize: readFiniteNumber(raw, "fontSize", 12),
+      fontSize,
       required: readBoolean(raw, "required", false),
       editable: readBoolean(raw, "editable", false),
       ...sanitizeTypography(raw),
@@ -168,6 +186,12 @@ function parseField(raw: unknown): FormElement | null {
   }
 
   if (type === "button") {
+    const fontSize = readFiniteNumber(raw, "fontSize", 12);
+    const width = safePositive(readFiniteNumber(raw, "width", 0), 80);
+    const height = safePositive(
+      readFiniteNumber(raw, "height", 0),
+      heightFromFontSize(fontSize),
+    );
     return {
       type: "button",
       id: readString(raw, "id", ""),
@@ -178,11 +202,18 @@ function parseField(raw: unknown): FormElement | null {
       pageNumber,
       name: readString(raw, "name").slice(0, MAX_FIELD_NAME_LENGTH),
       label: readString(raw, "label", "Button"),
-      fontSize: readFiniteNumber(raw, "fontSize", 12),
+      fontSize,
       ...sanitizeTypography(raw),
     };
   }
 
+  const options = readStringArray(raw, "options");
+  const fontSize = readFiniteNumber(raw, "fontSize", 12);
+  const width = safePositive(readFiniteNumber(raw, "width", 0), 150);
+  const height = safePositive(
+    readFiniteNumber(raw, "height", 0),
+    heightFromOptions(fontSize, options.length),
+  );
   return {
     type: "optionlist",
     id: readString(raw, "id", ""),
@@ -192,9 +223,9 @@ function parseField(raw: unknown): FormElement | null {
     height,
     pageNumber,
     name: readString(raw, "name").slice(0, MAX_FIELD_NAME_LENGTH),
-    options: readStringArray(raw, "options"),
+    options,
     defaultValue: readString(raw, "defaultValue"),
-    fontSize: readFiniteNumber(raw, "fontSize", 12),
+    fontSize,
     required: readBoolean(raw, "required", false),
     ...sanitizeTypography(raw),
   };
@@ -275,32 +306,43 @@ export function remapImportedFields(
     const source = sourcePages[pageIndex];
     const pageNumber = pageIndex + 1;
 
-    if (!target || !source) {
+    if (!target) {
       return { ...field, pageNumber };
     }
 
-    const scaleX = target.width / source.width;
-    const scaleY = target.height / source.height;
+    let next: FormElement = { ...field, pageNumber };
+
     if (
-      Math.abs(scaleX - 1) < 0.001 &&
-      Math.abs(scaleY - 1) < 0.001 &&
-      field.pageNumber === pageNumber
+      source &&
+      source.width > 0 &&
+      source.height > 0 &&
+      target.width > 0 &&
+      target.height > 0
     ) {
-      return field;
+      const scaleX = target.width / source.width;
+      const scaleY = target.height / source.height;
+      const skipScale =
+        Math.abs(scaleX - 1) < 0.001 &&
+        Math.abs(scaleY - 1) < 0.001 &&
+        field.pageNumber === pageNumber;
+
+      if (!skipScale) {
+        const scaledHeight = isHeightLockedField(field)
+          ? field.height
+          : scaleCoordinate(field.height, source.height, target.height);
+
+        next = {
+          ...field,
+          pageNumber,
+          x: scaleCoordinate(field.x, source.width, target.width),
+          y: scaleCoordinate(field.y, source.height, target.height),
+          width: scaleCoordinate(field.width, source.width, target.width),
+          height: scaledHeight,
+        };
+      }
     }
 
-    const scaledHeight = isHeightLockedField(field)
-      ? field.height
-      : scaleCoordinate(field.height, source.height, target.height);
-
-    return {
-      ...field,
-      pageNumber,
-      x: scaleCoordinate(field.x, source.width, target.width),
-      y: scaleCoordinate(field.y, source.height, target.height),
-      width: scaleCoordinate(field.width, source.width, target.width),
-      height: scaledHeight,
-    };
+    return clampFieldToPageBounds(next, target);
   });
 }
 

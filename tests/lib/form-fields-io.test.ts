@@ -105,4 +105,123 @@ describe("form-fields-io", () => {
   it("rejects invalid json", () => {
     expect(() => parseFormFieldsJson("{")).toThrow("invalidJson");
   });
+
+  it("clamps imported fields to target PDF page bounds", () => {
+    const json = JSON.stringify({
+      version: 1,
+      pages: [{ width: 612, height: 792 }],
+      fields: [
+        {
+          type: "text",
+          id: "a",
+          x: -400,
+          y: 2000,
+          width: 5000,
+          height: 5000,
+          pageNumber: 1,
+          name: "n",
+          defaultValue: "",
+          fontSize: 12,
+          multiline: true,
+          required: false,
+          fontFamily: "Helvetica",
+          fontWeight: "regular",
+          textColor: "#000000",
+          backgroundColor: null,
+          borderColor: null,
+          borderWidth: 1,
+        },
+      ],
+    });
+    const doc = parseFormFieldsJson(json);
+    const prepared = prepareImportedFields(doc, pagesA);
+    const el = prepared[0];
+    expect(el.x).toBeGreaterThanOrEqual(0);
+    expect(el.y).toBeGreaterThanOrEqual(0);
+    expect(el.width).toBeLessThanOrEqual(612);
+    expect(el.height).toBeLessThanOrEqual(792);
+    expect(el.x + el.width).toBeLessThanOrEqual(612);
+    expect(el.y + el.height).toBeLessThanOrEqual(792);
+  });
+
+  it("clamps after scale to smaller target page", () => {
+    const json = JSON.stringify({
+      version: 1,
+      pages: [{ width: 612, height: 792 }],
+      fields: [
+        {
+          type: "text",
+          id: "a",
+          x: 500,
+          y: 700,
+          width: 400,
+          height: 200,
+          pageNumber: 1,
+          name: "n",
+          defaultValue: "",
+          fontSize: 12,
+          multiline: true,
+          required: false,
+          fontFamily: "Helvetica",
+          fontWeight: "regular",
+          textColor: "#000000",
+          backgroundColor: null,
+          borderColor: null,
+          borderWidth: 1,
+        },
+      ],
+    });
+    const doc = parseFormFieldsJson(json);
+    const prepared = prepareImportedFields(doc, pagesB);
+    const el = prepared[0];
+    expect(el.x + el.width).toBeLessThanOrEqual(306);
+    expect(el.y + el.height).toBeLessThanOrEqual(396);
+  });
+
+  it("clamps when source and target page sizes match but geometry is off-page", () => {
+    const field = createTextField({
+      x: 700,
+      y: 0,
+      pageNumber: 1,
+      width: 100,
+      height: 20,
+      name: "n",
+    });
+    const prepared = prepareImportedFields(
+      {
+        version: 1,
+        pages: [
+          { width: 612, height: 792 },
+          { width: 612, height: 792 },
+        ],
+        fields: [field],
+      },
+      pagesA,
+    );
+    expect(prepared[0].x).toBe(612 - 100);
+    expect(prepared[0].width).toBe(100);
+  });
+
+  it("uses positive defaults for invalid width in parsed JSON", () => {
+    const json = JSON.stringify({
+      version: 1,
+      pages: [],
+      fields: [
+        {
+          type: "checkbox",
+          id: "c",
+          x: 0,
+          y: 0,
+          width: -5,
+          height: 0,
+          pageNumber: 1,
+          name: "cb",
+          defaultChecked: false,
+        },
+      ],
+    });
+    const doc = parseFormFieldsJson(json);
+    expect(doc.fields[0].width).toBe(15);
+    expect(doc.fields[0].height).toBe(15);
+  });
 });
