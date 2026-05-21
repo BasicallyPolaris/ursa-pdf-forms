@@ -1,4 +1,9 @@
 import {
+  parseFormFieldsJson,
+  prepareImportedFields,
+  serializeFormFields,
+} from "@/lib/form-fields-io";
+import {
   exportFormElements,
   stripAcroFormFromPdf,
 } from "@/lib/pdf-export-engine";
@@ -140,6 +145,120 @@ export function createFileIO(
     }
   }
 
+  function formFieldsImportError(
+    labels: FileIOLabels,
+    code: string,
+  ): string {
+    switch (code) {
+      case "invalidJson":
+        return labels.formFieldsInvalidJson;
+      case "unsupportedVersion":
+        return labels.formFieldsUnsupportedVersion;
+      case "noValidFields":
+        return labels.formFieldsNoValidFields;
+      case "invalidFormat":
+        return labels.formFieldsInvalidFormat;
+      default:
+        return labels.formFieldsImportFailed;
+    }
+  }
+
+  async function exportFormFields(): Promise<string | null> {
+    const labels = getLabels();
+    const pdfBytes = ports.store.getPdfBytes();
+    if (!pdfBytes) return labels.formFieldsNoPdfOpen;
+
+    try {
+      return await withLock(async () => {
+        const elements = ports.store.getElements();
+        const pages = ports.store.getPages();
+        const json = serializeFormFields(elements, pages);
+
+        const sourcePath = ports.store.getPdfFilePath();
+        const sourceName = ports.store.getPdfFileName();
+        let defaultExportPath = labels.defaultFormFieldsExportName;
+        if (sourcePath) {
+          const dir = sourcePath.split(/[/\\]/).slice(0, -1).join("/");
+          const baseName = (sourceName ?? labels.defaultPdfName).replace(
+            /\.pdf$/i,
+            "",
+          );
+          defaultExportPath = `${dir}/${baseName}-fields.json`;
+        } else if (sourceName) {
+          defaultExportPath = sourceName.replace(/\.pdf$/i, "") + "-fields.json";
+        }
+
+        const filePath = await ports.dialogs.pickSaveFile(
+          [{ name: labels.formFieldsFilterName, extensions: ["json"] }],
+          defaultExportPath,
+        );
+        if (!filePath) return null;
+
+        const bytes = new TextEncoder().encode(json);
+        await ports.fs.writeFile(filePath, bytes);
+        return null;
+      });
+    } catch (error) {
+      console.error("Form fields export failed:", error);
+      return error instanceof Error &&
+        error.message === "Another file operation is in progress"
+        ? labels.operationInProgress ?? "Another file operation is in progress"
+        : labels.formFieldsExportFailed;
+    }
+  }
+
+  async function importFormFields(): Promise<string | null> {
+    const labels = getLabels();
+    const pdfBytes = ports.store.getPdfBytes();
+    if (!pdfBytes) return labels.formFieldsNoPdfOpen;
+
+    try {
+      return await withLock(async () => {
+        const filePath = await ports.dialogs.pickOpenFile([
+          { name: labels.formFieldsFilterName, extensions: ["json"] },
+        ]);
+        if (!filePath) return null;
+
+        const bytes = await ports.fs.readFile(filePath);
+        const text = new TextDecoder().decode(bytes);
+
+        let document;
+        try {
+          document = parseFormFieldsJson(text);
+        } catch (error) {
+          const code =
+            error instanceof Error ? error.message : "invalidFormat";
+          return formFieldsImportError(labels, code);
+        }
+
+        if (ports.store.getElements().length > 0) {
+          const replace = await ports.dialogs.showConfirm({
+            title: labels.formFieldsImportConfirmTitle,
+            message: labels.formFieldsImportConfirmMessage,
+            kind: "warning",
+            labels: {
+              yes: labels.formFieldsReplace,
+              no: labels.formFieldsKeepExisting,
+              cancel: labels.cancel,
+            },
+          });
+          if (replace !== "yes") return null;
+        }
+
+        const pages = ports.store.getPages();
+        const imported = prepareImportedFields(document, pages);
+        ports.store.replaceFormElements(imported);
+        return null;
+      });
+    } catch (error) {
+      console.error("Form fields import failed:", error);
+      return error instanceof Error &&
+        error.message === "Another file operation is in progress"
+        ? labels.operationInProgress ?? "Another file operation is in progress"
+        : labels.formFieldsImportFailed;
+    }
+  }
+
   async function exportPdf(): Promise<string | null> {
     const labels = getLabels();
     const pdfBytes = ports.store.getPdfBytes();
@@ -219,6 +338,8 @@ export function createFileIO(
     loadPdfFromBytes,
     loadPdfFromPath,
     exportPdf,
+    exportFormFields,
+    importFormFields,
     confirmUnsavedChanges,
     registerCloseGuard,
   };

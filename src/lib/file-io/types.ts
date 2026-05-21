@@ -5,6 +5,8 @@ export interface FileIO {
   loadPdfFromBytes(bytes: Uint8Array, fileName: string): Promise<void>;
   loadPdfFromPath(path: string): Promise<string | null>;
   exportPdf(): Promise<string | null>;
+  exportFormFields(): Promise<string | null>;
+  importFormFields(): Promise<string | null>;
   confirmUnsavedChanges(): Promise<UnsavedAction>;
   registerCloseGuard(): () => void;
 }
@@ -23,4 +25,17 @@ export interface FileIOLabels {
   cancel: string;
   fileTooLarge?: string;
   operationInProgress?: string;
+  formFieldsFilterName: string;
+  defaultFormFieldsExportName: string;
+  formFieldsExportFailed: string;
+  formFieldsImportFailed: string;
+  formFieldsInvalidJson: string;
+  formFieldsInvalidFormat: string;
+  formFieldsUnsupportedVersion: string;
+  formFieldsNoValidFields: string;
+  formFieldsNoPdfOpen: string;
+  formFieldsImportConfirmTitle: string;
+  formFieldsImportConfirmMessage: string;
+  formFieldsReplace: string;
+  formFieldsKeepExisting: string;
 }

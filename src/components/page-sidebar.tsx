@@ -1,5 +1,6 @@
 import { useScrollContainerRef } from "@/contexts/scroll-container-context";
 import { computePageLayouts } from "@/lib/page-layout";
+import { PAGE_SIDEBAR_WIDTH_CLASS } from "@/lib/shell-layout";
 import { createPdfDocument, type PdfDocument } from "@/lib/pdf-loader";
 import { useEditorStore } from "@/stores/editor-store";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -345,7 +346,7 @@ export function PageSidebar() {
     <aside
       data-testid="left-sidebar"
       data-tour="page-sidebar"
-      className="flex w-44 flex-col border-r border-border bg-card select-none"
+      className={`flex ${PAGE_SIDEBAR_WIDTH_CLASS} shrink-0 flex-col border-r border-border bg-card select-none`}
     >
       <h2 className="sr-only">{t("sidebar.pages")}</h2>
       <div className="px-2.5 py-1.5 flex items-center justify-between">

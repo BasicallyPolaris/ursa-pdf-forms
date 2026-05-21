@@ -98,11 +98,14 @@ describe("pdf loading", () => {
           getPdfFilePath: () => useEditorStore.getState().pdfFilePath,
           getPdfFileName: () => useEditorStore.getState().pdfFileName,
           getElements: () => useEditorStore.getState().elements,
+          getPages: () => useEditorStore.getState().pages,
           setPdf: (n, b, p) => useEditorStore.getState().setPdf(n, b, p),
           setPdfPages: (p) => useEditorStore.getState().setPdfPages(p),
           setPdfFilePath: () => {},
           setInitialElements: (e) =>
             useEditorStore.getState().setInitialElements(e),
+          replaceFormElements: (e) =>
+            useEditorStore.setState({ elements: e }),
           setRenderPdfBytes: (b) =>
             useEditorStore.getState().setRenderPdfBytes(b),
           isDirty: () => false,
@@ -122,6 +125,19 @@ describe("pdf loading", () => {
         save: "Save",
         discard: "Discard",
         cancel: "Cancel",
+        formFieldsFilterName: "JSON",
+        defaultFormFieldsExportName: "fields.json",
+        formFieldsExportFailed: "Export failed",
+        formFieldsImportFailed: "Import failed",
+        formFieldsInvalidJson: "Invalid JSON",
+        formFieldsInvalidFormat: "Invalid format",
+        formFieldsUnsupportedVersion: "Unsupported",
+        formFieldsNoValidFields: "No fields",
+        formFieldsNoPdfOpen: "No PDF",
+        formFieldsImportConfirmTitle: "Replace?",
+        formFieldsImportConfirmMessage: "Replace fields?",
+        formFieldsReplace: "Replace",
+        formFieldsKeepExisting: "Keep existing",
       }),
     );
 

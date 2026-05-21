@@ -5,7 +5,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { ShortcutKbd } from "@/components/ui/kbd";
 import {
@@ -13,7 +12,8 @@ import {
   type ShortcutDef,
   type ShortcutGroup,
 } from "@/lib/shortcuts";
-import { Keyboard, X } from "lucide-react";
+import { useSettingsStore } from "@/stores/settings-store";
+import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 const GROUPS: { id: ShortcutGroup; labelKey: string }[] = [
@@ -25,15 +25,18 @@ const GROUPS: { id: ShortcutGroup; labelKey: string }[] = [
 
 export function ShortcutsDialog() {
   const { t } = useTranslation();
+  const open = useSettingsStore((s) => s.shortcutsOpen);
+  const closeShortcuts = useSettingsStore((s) => s.closeShortcuts);
+  const openShortcuts = useSettingsStore((s) => s.openShortcuts);
 
   return (
-    <Dialog>
-      <DialogTrigger
-        className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground/50 hover:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-        aria-label={t("shortcuts.openShortcuts")}
-      >
-        <Keyboard className="h-3 w-3" />
-      </DialogTrigger>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (nextOpen) openShortcuts();
+        else closeShortcuts();
+      }}
+    >
       <DialogContent className="max-w-xl">
         <div className="px-5 pt-5 pb-2 select-none">
           <DialogHeader>

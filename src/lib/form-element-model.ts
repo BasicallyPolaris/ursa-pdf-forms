@@ -152,7 +152,7 @@ export function heightFromOptions(fontSize: number, optionCount: number): number
   return Math.round((lineHeight * count + padding * 2) * 2) / 2;
 }
 
-function safePositive(value: number | undefined, fallback: number): number {
+export function safePositive(value: number | undefined, fallback: number): number {
   if (value == null) return fallback;
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
@@ -414,6 +414,13 @@ export function isOptionListField(el: FormElement): el is OptionListField {
   return el.type === "optionlist";
 }
 
+export function isHeightLockedField(el: FormElement): boolean {
+  return (
+    (el.type === "text" && !el.multiline) ||
+    el.type === "dropdown" ||
+    el.type === "optionlist"
+  );
+}
 
 export function sanitizeNumericValue(value: unknown): number | undefined {
   if (value === undefined || value === null || value === "") return undefined;

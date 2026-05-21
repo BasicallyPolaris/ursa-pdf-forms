@@ -11,6 +11,7 @@ interface SettingsState {
   tourPending: boolean;
   tourStep: number;
   settingsOpen: boolean;
+  shortcutsOpen: boolean;
   onboardingOpen: boolean;
 
   setLayoutPreference: (pref: LayoutPreference) => void;
@@ -25,6 +26,8 @@ interface SettingsState {
   setTourStep: (step: number) => void;
   openSettings: () => void;
   closeSettings: () => void;
+  openShortcuts: () => void;
+  closeShortcuts: () => void;
   openOnboarding: () => void;
   closeOnboarding: () => void;
   resetOnboarding: () => void;
@@ -34,7 +37,7 @@ export const TOUR_STEPS = [
   { target: "page-sidebar", key: "sidebar" },
   { target: "properties-panel", key: "properties" },
   { target: "drawing-tools", key: "tools" },
-  { target: "export-button", key: "export" },
+  { target: "file-menu", key: "export" },
 ] as const;
 
 export const TOTAL_TOUR_STEPS = TOUR_STEPS.length;
@@ -49,6 +52,7 @@ export const useSettingsStore = create<SettingsState>()(
       tourPending: false,
       tourStep: 0,
       settingsOpen: false,
+      shortcutsOpen: false,
       onboardingOpen: false,
 
       setLayoutPreference: (pref) => set({ layoutPreference: pref }),
@@ -87,6 +91,10 @@ export const useSettingsStore = create<SettingsState>()(
       openSettings: () => set({ settingsOpen: true }),
 
       closeSettings: () => set({ settingsOpen: false }),
+
+      openShortcuts: () => set({ shortcutsOpen: true }),
+
+      closeShortcuts: () => set({ shortcutsOpen: false }),
 
       openOnboarding: () => set({ onboardingOpen: true }),
 

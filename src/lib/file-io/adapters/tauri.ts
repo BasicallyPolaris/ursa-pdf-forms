@@ -3,7 +3,7 @@ import {
   markClean as storeMarkClean,
   useEditorStore,
 } from "@/stores/editor-store";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getAppWindow, isTauriRuntime } from "@/lib/tauri-window";
 import { message, open, save } from "@tauri-apps/plugin-dialog";
 import { readFile, writeFile } from "@tauri-apps/plugin-fs";
 import type {
@@ -34,8 +34,11 @@ export const tauriDialogs: DialogPort = {
     return await save({ filters, defaultPath });
   },
   async showConfirm(options) {
-    const result = await message(options.message, {
-      title: options.title,
+    const body =
+      options.title.trim() !== ""
+        ? `${options.title}\n\n${options.message}`
+        : options.message;
+    const result = await message(body, {
       kind: options.kind,
       buttons: {
         yes: options.labels.yes,
@@ -54,12 +57,15 @@ export const zustandStore: StorePort = {
   getPdfFilePath: () => useEditorStore.getState().pdfFilePath,
   getPdfFileName: () => useEditorStore.getState().pdfFileName,
   getElements: () => useEditorStore.getState().elements,
+  getPages: () => useEditorStore.getState().pages,
   setPdf: (name, bytes, pages) =>
     useEditorStore.getState().setPdf(name, bytes, pages),
   setPdfPages: (pages) => useEditorStore.getState().setPdfPages(pages),
   setPdfFilePath: (path) => useEditorStore.getState().setPdfFilePath(path),
   setInitialElements: (elements) =>
     useEditorStore.getState().setInitialElements(elements),
+  replaceFormElements: (elements) =>
+    useEditorStore.getState().replaceFormElements(elements),
   setRenderPdfBytes: (bytes) =>
     useEditorStore.getState().setRenderPdfBytes(bytes),
   isDirty: () => storeIsDirty(),
@@ -68,12 +74,21 @@ export const zustandStore: StorePort = {
 
 export const tauriWindow: WindowPort = {
   onCloseRequested(handler) {
-    const unlisten = getCurrentWindow().onCloseRequested(async (event) => {
-      const allowClose = await handler();
-      if (!allowClose) event.preventDefault();
-    });
+    if (!isTauriRuntime()) return () => {};
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void getAppWindow()
+      .onCloseRequested(async (event) => {
+        const allowClose = await handler();
+        if (!allowClose) event.preventDefault();
+      })
+      .then((fn) => {
+        if (disposed) fn();
+        else unlisten = fn;
+      });
     return () => {
-      unlisten.then((fn) => fn());
+      disposed = true;
+      unlisten?.();
     };
   },
 };

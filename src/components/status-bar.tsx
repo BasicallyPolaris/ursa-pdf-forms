@@ -1,8 +1,7 @@
-import { ShortcutsDialog } from "@/components/shortcuts-dialog";
 import { Kbd } from "@/components/ui/kbd";
 import { useEditorStore } from "@/stores/editor-store";
 import { useSettingsStore } from "@/stores/settings-store";
-import { Settings } from "lucide-react";
+import { Keyboard, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export function StatusBar() {
@@ -50,7 +49,14 @@ export function StatusBar() {
             <Kbd>Esc</Kbd> {t("status.deselect")}
           </span>
         )}
-        <ShortcutsDialog />
+        <button
+          type="button"
+          onClick={() => useSettingsStore.getState().openShortcuts()}
+          className="flex items-center justify-center rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground/50 hover:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          aria-label={t("shortcuts.openShortcuts")}
+        >
+          <Keyboard className="h-3 w-3" />
+        </button>
         <button
           type="button"
           onClick={() => useSettingsStore.getState().openSettings()}

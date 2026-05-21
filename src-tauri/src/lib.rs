@@ -18,6 +18,7 @@ pub fn run() {
                 .title("Ursa PDF Forms")
                 .inner_size(1280.0, 800.0)
                 .min_inner_size(900.0, 600.0)
+                .decorations(false)
                 .visible(false)
                 .background_color(Color(30, 30, 30, 255))
                 .on_page_load(|window, payload| {
