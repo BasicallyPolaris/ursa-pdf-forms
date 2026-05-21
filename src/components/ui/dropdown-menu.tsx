@@ -1,3 +1,4 @@
+import { stopTitlebarDrag } from "@/hooks/use-titlebar-drag";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { cn } from "@/lib/utils";
 import { CheckIcon, ChevronRightIcon } from "lucide-react";
@@ -8,11 +9,16 @@ function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
 
 function DropdownMenuTrigger({
   className,
+  onMouseDown,
   ...props
 }: MenuPrimitive.Trigger.Props) {
   return (
     <MenuPrimitive.Trigger
       data-slot="dropdown-menu-trigger"
+      onMouseDown={(e) => {
+        stopTitlebarDrag(e);
+        onMouseDown?.(e);
+      }}
       className={cn(
         "inline-flex h-7 items-center rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:bg-accent/50 data-popup-open:text-foreground",
         className,
@@ -27,6 +33,7 @@ function DropdownMenuContent({
   align = "start",
   side = "bottom",
   sideOffset = 4,
+  onMouseDown,
   ...props
 }: MenuPrimitive.Popup.Props &
   Pick<MenuPrimitive.Positioner.Props, "align" | "side" | "sideOffset">) {
@@ -40,6 +47,10 @@ function DropdownMenuContent({
       >
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"
+          onMouseDown={(e) => {
+            stopTitlebarDrag(e);
+            onMouseDown?.(e);
+          }}
           className={cn(
             "dark z-50 min-w-44 origin-(--transform-origin) overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
             className,

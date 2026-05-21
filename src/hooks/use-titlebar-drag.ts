@@ -3,16 +3,16 @@ import {
   isTauriRuntime,
   runWindowAction,
 } from "@/lib/tauri-window";
-import { useCallback } from "react";
+import { useCallback, type MouseEvent as ReactMouseEvent } from "react";
 
-const TITLEBAR_DRAG_BLOCKER =
-  'button, a, input, textarea, select, [data-slot="dropdown-menu-trigger"]';
+export function stopTitlebarDrag(e: ReactMouseEvent) {
+  e.stopPropagation();
+}
 
 export function useTitlebarDrag() {
-  return useCallback((e: React.MouseEvent) => {
+  return useCallback((e: ReactMouseEvent) => {
     if (e.button !== 0) return;
     if (!isTauriRuntime()) return;
-    if ((e.target as HTMLElement).closest(TITLEBAR_DRAG_BLOCKER)) return;
     void runWindowAction(() => getAppWindow().startDragging(), "startDragging");
   }, []);
 }

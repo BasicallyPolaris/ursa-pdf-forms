@@ -111,21 +111,21 @@ function App() {
       <ErrorBoundary>
         <AppTitleBar />
       </ErrorBoundary>
-      <div className="flex flex-1 overflow-hidden">
-        <ErrorBoundary fallback={<div className={`${PAGE_SIDEBAR_WIDTH_CLASS} shrink-0`} />}>
-          <PageSidebar />
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <ErrorBoundary>
+          <CanvasToolbar>
+            {layoutPreference === "office" && <OfficeRibbon />}
+          </CanvasToolbar>
         </ErrorBoundary>
 
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <ErrorBoundary>
-            <CanvasToolbar>
-              {layoutPreference === "office" && <OfficeRibbon />}
-            </CanvasToolbar>
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          <ErrorBoundary fallback={<div className={`${PAGE_SIDEBAR_WIDTH_CLASS} shrink-0`} />}>
+            <PageSidebar />
           </ErrorBoundary>
 
           <main
             data-testid="canvas-area"
-            className="relative min-h-0 flex-1 overflow-hidden bg-background"
+            className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-background"
           >
           <h2 className="sr-only">{t("canvas.canvasArea")}</h2>
           <div className="flex h-full">
@@ -189,16 +189,16 @@ function App() {
             </div>
           )}
           </main>
-        </div>
 
-        <aside
-          data-testid="properties-panel"
-          data-tour="properties-panel"
-          className={`${PROPERTIES_PANEL_WIDTH_CLASS} shrink-0 border-l border-border bg-card overflow-hidden`}
-        >
-          <h2 className="sr-only">{t("properties.panelTitle")}</h2>
-          <PropertiesPanel />
-        </aside>
+          <aside
+            data-testid="properties-panel"
+            data-tour="properties-panel"
+            className={`${PROPERTIES_PANEL_WIDTH_CLASS} shrink-0 border-l border-border bg-card overflow-hidden`}
+          >
+            <h2 className="sr-only">{t("properties.panelTitle")}</h2>
+            <PropertiesPanel />
+          </aside>
+        </div>
       </div>
 
       <StatusBar />

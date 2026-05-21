@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { stopTitlebarDrag } from "@/hooks/use-titlebar-drag";
 import {
   getAppWindow,
   isTauriRuntime,
@@ -7,10 +8,6 @@ import {
 import { Minus, Square, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-
-function stopTitlebarDrag(e: React.MouseEvent) {
-  e.stopPropagation();
-}
 
 export function WindowControls({ className }: { className?: string }) {
   const { t } = useTranslation();

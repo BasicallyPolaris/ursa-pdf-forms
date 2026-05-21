@@ -60,7 +60,14 @@ function MenuAction({
   disabled?: boolean;
 }) {
   return (
-    <DropdownMenuItem onClick={onClick} disabled={disabled}>
+    <DropdownMenuItem
+      disabled={disabled}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        if (disabled || e.button !== 0) return;
+        onClick();
+      }}
+    >
       {label}
       {shortcutId ? (
         <DropdownMenuShortcut>{formatShortcut(shortcutId)}</DropdownMenuShortcut>

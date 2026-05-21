@@ -1,5 +1,6 @@
 import { clampZoom, ZOOM_PRESETS, ZOOM_STEP } from "@/hooks/use-zoom";
-import { ZOOM_BAR_RULER_PADDING_CLASS } from "@/lib/shell-layout";
+import { menuExportPdf, menuOpenPdf } from "@/lib/menu-actions";
+import type { ShortcutId } from "@/lib/shortcuts";
 import { getZoomEngine } from "@/lib/use-zoom-animation";
 import { useEditorStore } from "@/stores/editor-store";
 import { useTranslation } from "react-i18next";
@@ -11,7 +12,42 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Minus, Plus } from "lucide-react";
+import { FileOutput, FolderOpen, Minus, Plus } from "lucide-react";
+
+function FileToolbarButton({
+  label,
+  shortcutId,
+  icon: Icon,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  shortcutId: ShortcutId;
+  icon: typeof FolderOpen;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={label}
+        className="flex h-8 max-w-full shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card disabled:pointer-events-none disabled:opacity-30"
+      >
+        <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        <span className="hidden truncate @[22rem]:inline">{label}</span>
+      </TooltipTrigger>
+      <TooltipContent>
+        <span className="flex items-center gap-2">
+          {label}
+          <ShortcutKbd shortcutId={shortcutId} />
+        </span>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 function ZoomControls() {
   const { t } = useTranslation();
@@ -80,13 +116,33 @@ function ZoomControls() {
 }
 
 export function CanvasToolbar({ children }: { children?: React.ReactNode }) {
+  const { t } = useTranslation();
+  const hasPdf = useEditorStore((s) => !!s.pdfBytes);
+
   return (
     <TooltipProvider>
       <div className="flex shrink-0 flex-col border-b border-border bg-card select-none">
-        <div
-          className={`flex h-10 items-center justify-center ${ZOOM_BAR_RULER_PADDING_CLASS}`}
-        >
-          <ZoomControls />
+        <div className="@container flex h-10 items-center gap-2 px-3">
+          <div className="grid min-w-0 flex-1 grid-cols-[1fr_auto_1fr] items-center gap-2">
+            <div className="flex min-w-0 justify-start">
+              <FileToolbarButton
+                label={t("header.open")}
+                shortcutId="open"
+                icon={FolderOpen}
+                onClick={menuOpenPdf}
+              />
+            </div>
+            <ZoomControls />
+            <div className="flex min-w-0 justify-end">
+              <FileToolbarButton
+                label={t("header.export")}
+                shortcutId="export"
+                icon={FileOutput}
+                onClick={menuExportPdf}
+                disabled={!hasPdf}
+              />
+            </div>
+          </div>
         </div>
         {children}
       </div>
