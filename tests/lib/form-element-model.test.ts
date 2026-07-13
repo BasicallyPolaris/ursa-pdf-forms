@@ -377,10 +377,20 @@ describe("validateElementForExport", () => {
     expect(result.errors).toContain("empty-name");
   });
 
-  it("detects duplicate names", () => {
+  it("allows duplicate names for linked fields", () => {
     const elements = [
       createTextField({ x: 0, y: 0, pageNumber: 1, name: "dup" }),
       createTextField({ x: 10, y: 10, pageNumber: 1, name: "dup" }),
+    ];
+    const result = validateElementForExport(elements);
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("detects duplicate names across field types", () => {
+    const elements = [
+      createTextField({ x: 0, y: 0, pageNumber: 1, name: "shared" }),
+      createCheckbox({ x: 10, y: 10, pageNumber: 1, name: "shared" }),
     ];
     const result = validateElementForExport(elements);
     expect(result.valid).toBe(false);

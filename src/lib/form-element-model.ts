@@ -441,7 +441,7 @@ export function validateElementForExport(elements: FormElement[]): {
   errors: string[];
 } {
   const errors: string[] = [];
-  const names = new Map<string, number>();
+  const namedTypes = new Map<string, FormElement["type"]>();
   const radioGroupNames = new Set<string>();
 
   for (const el of elements) {
@@ -462,8 +462,12 @@ export function validateElementForExport(elements: FormElement[]): {
     if (!name || name.trim() === "") {
       errors.push("empty-name");
     } else {
-      const count = names.get(name) ?? 0;
-      names.set(name, count + 1);
+      const existingType = namedTypes.get(name);
+      if (existingType && existingType !== el.type) {
+        errors.push("duplicate-name");
+      } else {
+        namedTypes.set(name, el.type);
+      }
     }
 
     if ("options" in el && Array.isArray((el as { options?: unknown }).options)) {
@@ -479,13 +483,6 @@ export function validateElementForExport(elements: FormElement[]): {
       if (unique.size < options.length) {
         errors.push("duplicate-options");
       }
-    }
-  }
-
-  for (const [, count] of names) {
-    if (count > 1) {
-      errors.push("duplicate-name");
-      break;
     }
   }
 

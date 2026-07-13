@@ -246,7 +246,7 @@ describe("exportFormElements", () => {
     expect(form.getRadioGroup("color")).toBeDefined();
   });
 
-  it("deduplicates field names with same name", async () => {
+  it("links fields with the same name", async () => {
     const fixturePdf = await createFixturePdf();
     const elements: FormElement[] = [
       createTextField({ x: 72, y: 700, pageNumber: 1, name: "field", width: 150, height: 20 }),
@@ -256,9 +256,21 @@ describe("exportFormElements", () => {
     const resultBytes = await exportFormElements(fixturePdf, elements);
     const resultPdf = await PDFDocument.load(resultBytes);
     const form = resultPdf.getForm();
-    expect(form.getFields().length).toBe(2);
-    expect(form.getField("field")).toBeDefined();
-    expect(form.getField("field_2")).toBeDefined();
+    expect(form.getFields().length).toBe(1);
+
+    const field = form.getTextField("field");
+    expect(field.acroField.getWidgets()).toHaveLength(2);
+
+    field.setText("linked value");
+    expect(field.getText()).toBe("linked value");
+
+    const imported = await extractAcroFormFields(resultBytes);
+    expect(imported).toHaveLength(2);
+    expect(
+      imported.map((element) =>
+        "name" in element ? element.name : element.groupName,
+      ),
+    ).toEqual(["field", "field"]);
   });
 
   it("auto-generates name for empty-named elements", async () => {

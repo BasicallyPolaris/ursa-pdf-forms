@@ -47,6 +47,21 @@ import {
   type PdfViewQuad,
 } from "./pdf-page-view";
 
+type PdfForm = ReturnType<PDFDocument["getForm"]>;
+type PdfTextField = ReturnType<PdfForm["createTextField"]>;
+type PdfCheckboxField = ReturnType<PdfForm["createCheckBox"]>;
+type PdfDropdownField = ReturnType<PdfForm["createDropdown"]>;
+type PdfButtonField = ReturnType<PdfForm["createButton"]>;
+type PdfOptionListField = ReturnType<PdfForm["createOptionList"]>;
+
+type PdfFieldCache = {
+  text: Map<string, PdfTextField>;
+  checkbox: Map<string, PdfCheckboxField>;
+  dropdown: Map<string, PdfDropdownField>;
+  button: Map<string, PdfButtonField>;
+  optionlist: Map<string, PdfOptionListField>;
+};
+
 export class ExportValidationError extends Error {
   errors: string[];
   constructor(errors: string[]) {
@@ -62,7 +77,13 @@ function dedupeFieldName(
   index: number,
 ): string {
   if (!name || name.trim() === "") {
-    return `field_${index + 1}`;
+    const base = `field_${index + 1}`;
+    if (!usedNames.has(base)) return base;
+    for (let i = 2; i < 10000; i++) {
+      const candidate = `${base}_${i}`;
+      if (!usedNames.has(candidate)) return candidate;
+    }
+    return `field_${index + 1}_${Date.now().toString(36)}`;
   }
   const safe = name.slice(0, 100);
   if (!usedNames.has(safe)) return safe;
@@ -74,8 +95,6 @@ function dedupeFieldName(
   }
   return `field_${index + 1}_${Date.now().toString(36)}`;
 }
-
-
 
 export async function exportFormElements(
   originalPdfBytes: Uint8Array,
@@ -113,6 +132,17 @@ export async function exportFormElements(
   );
 
   const usedNames = new Set<string>();
+  const exportNamesByType = new Map<
+    FormElement["type"],
+    Map<string, string>
+  >();
+  const fieldCache: PdfFieldCache = {
+    text: new Map(),
+    checkbox: new Map(),
+    dropdown: new Map(),
+    button: new Map(),
+    optionlist: new Map(),
+  };
   const radioElements = validElements.filter(
     (el): el is RadioButton => el.type === "radio",
   );
@@ -123,26 +153,65 @@ export async function exportFormElements(
     const page = pdf.getPage(el.pageNumber - 1);
     const view = getPageViewQuadForPdfLibPage(page);
 
-    const safeName = dedupeFieldName("name" in el ? el.name : "", usedNames, i);
-    usedNames.add(safeName);
+    const requestedName = "name" in el ? el.name : "";
+    const namesForType =
+      exportNamesByType.get(el.type) ?? new Map<string, string>();
+    exportNamesByType.set(el.type, namesForType);
+
+    let safeName = namesForType.get(requestedName);
+    if (safeName === undefined || requestedName.trim() === "") {
+      safeName = dedupeFieldName(requestedName.slice(0, 100), usedNames, i);
+      namesForType.set(requestedName, safeName);
+      usedNames.add(safeName);
+    }
 
     try {
       switch (el.type) {
-        case "text":
-          addTextField(form, page, { ...el, name: safeName }, view, pdf);
+        case "text": {
+          const { field, isFirst } = getOrCreateField(
+            fieldCache.text,
+            safeName,
+            () => form.createTextField(safeName),
+          );
+          addTextField(field, page, { ...el, name: safeName }, view, pdf, isFirst);
           break;
-        case "checkbox":
-          addCheckboxField(form, page, { ...el, name: safeName }, view);
+        }
+        case "checkbox": {
+          const { field, isFirst } = getOrCreateField(
+            fieldCache.checkbox,
+            safeName,
+            () => form.createCheckBox(safeName),
+          );
+          addCheckboxField(field, page, { ...el, name: safeName }, view, isFirst);
           break;
-        case "dropdown":
-          addDropdownField(form, page, { ...el, name: safeName }, view, pdf);
+        }
+        case "dropdown": {
+          const { field, isFirst } = getOrCreateField(
+            fieldCache.dropdown,
+            safeName,
+            () => form.createDropdown(safeName),
+          );
+          addDropdownField(field, page, { ...el, name: safeName }, view, pdf, isFirst);
           break;
-        case "button":
-          addButtonField(form, page, { ...el, name: safeName }, view, pdf);
+        }
+        case "button": {
+          const { field, isFirst } = getOrCreateField(
+            fieldCache.button,
+            safeName,
+            () => form.createButton(safeName),
+          );
+          addButtonField(field, page, { ...el, name: safeName }, view, pdf, isFirst);
           break;
-        case "optionlist":
-          addOptionListField(form, page, { ...el, name: safeName }, view, pdf);
+        }
+        case "optionlist": {
+          const { field, isFirst } = getOrCreateField(
+            fieldCache.optionlist,
+            safeName,
+            () => form.createOptionList(safeName),
+          );
+          addOptionListField(field, page, { ...el, name: safeName }, view, pdf, isFirst);
           break;
+        }
       }
     } catch (err) {
       console.warn(`Skipping field "${safeName}" due to export error:`, err);
@@ -181,15 +250,27 @@ export async function exportFormElements(
   return pdf.save();
 }
 
+function getOrCreateField<T>(
+  fields: Map<string, T>,
+  name: string,
+  create: () => T,
+): { field: T; isFirst: boolean } {
+  const existing = fields.get(name);
+  if (existing) return { field: existing, isFirst: false };
+
+  const field = create();
+  fields.set(name, field);
+  return { field, isFirst: true };
+}
+
 function addTextField(
-  form: ReturnType<PDFDocument["getForm"]>,
+  field: PdfTextField,
   page: PDFPage,
   el: TextField,
   view: PdfViewQuad,
   pdfDoc: PDFDocument,
+  isFirst: boolean,
 ): void {
-  const field = form.createTextField(el.name);
-
   const { x: pdfX, y: pdfY } = editorRectToPdfLowerLeft(el, view);
 
   const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
@@ -211,39 +292,40 @@ function addTextField(
     borderWidth: el.borderWidth > 0 ? el.borderWidth : undefined,
   });
 
-  if (el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {
-    field.setFontSize(el.fontSize);
-  }
+  if (isFirst) {
+    if (el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {
+      field.setFontSize(el.fontSize);
+    }
 
-  field.setText(el.defaultValue ?? "");
+    field.setText(el.defaultValue ?? "");
 
-  if (el.multiline) {
-    field.enableMultiline();
-  }
+    if (el.multiline) {
+      field.enableMultiline();
+    }
 
-  if (el.required) {
-    field.isRequired();
-  }
+    if (el.required) {
+      field.isRequired();
+    }
 
-  if (
-    el.maxLength !== undefined &&
-    Number.isFinite(el.maxLength) &&
-    el.maxLength > 0
-  ) {
-    field.setMaxLength(el.maxLength);
+    if (
+      el.maxLength !== undefined &&
+      Number.isFinite(el.maxLength) &&
+      el.maxLength > 0
+    ) {
+      field.setMaxLength(el.maxLength);
+    }
   }
 
   field.updateAppearances(font);
 }
 
 function addCheckboxField(
-  form: ReturnType<PDFDocument["getForm"]>,
+  field: PdfCheckboxField,
   page: PDFPage,
   el: Checkbox,
   view: PdfViewQuad,
+  isFirst: boolean,
 ): void {
-  const field = form.createCheckBox(el.name);
-
   const { x: pdfX, y: pdfY } = editorRectToPdfLowerLeft(el, view);
 
   field.addToPage(page, {
@@ -253,19 +335,19 @@ function addCheckboxField(
     height: el.height,
   });
 
-  if (el.defaultChecked) {
+  if (isFirst && el.defaultChecked) {
     field.check();
   }
 }
 
 function addDropdownField(
-  form: ReturnType<PDFDocument["getForm"]>,
+  field: PdfDropdownField,
   page: PDFPage,
   el: DropdownField & { name: string },
   view: PdfViewQuad,
   pdfDoc: PDFDocument,
+  isFirst: boolean,
 ): void {
-  const field = form.createDropdown(el.name);
   const { x: pdfX, y: pdfY } = editorRectToPdfLowerLeft(el, view);
 
   const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
@@ -287,35 +369,37 @@ function addDropdownField(
     borderWidth: el.borderWidth > 0 ? el.borderWidth : undefined,
   });
 
-  if (el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {
-    field.setFontSize(el.fontSize);
-  }
+  if (isFirst) {
+    if (el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {
+      field.setFontSize(el.fontSize);
+    }
 
-  if (el.options.length > 0) {
-    field.setOptions(el.options);
-  }
+    if (el.options.length > 0) {
+      field.setOptions(el.options);
+    }
 
-  if (el.defaultValue) {
-    field.select(el.defaultValue);
-  }
+    if (el.defaultValue) {
+      field.select(el.defaultValue);
+    }
 
-  if (el.required) {
-    field.isRequired();
-  }
+    if (el.required) {
+      field.isRequired();
+    }
 
-  if (el.editable) {
-    field.enableEditing();
+    if (el.editable) {
+      field.enableEditing();
+    }
   }
 }
 
 function addButtonField(
-  form: ReturnType<PDFDocument["getForm"]>,
+  field: PdfButtonField,
   page: PDFPage,
   el: ButtonField & { name: string },
   view: PdfViewQuad,
   pdfDoc: PDFDocument,
+  isFirst: boolean,
 ): void {
-  const field = form.createButton(el.name);
   const { x: pdfX, y: pdfY } = editorRectToPdfLowerLeft(el, view);
 
   const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
@@ -337,19 +421,19 @@ function addButtonField(
     borderWidth: el.borderWidth > 0 ? el.borderWidth : 1,
   });
 
-  if (el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {
+  if (isFirst && el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {
     field.setFontSize(el.fontSize);
   }
 }
 
 function addOptionListField(
-  form: ReturnType<PDFDocument["getForm"]>,
+  field: PdfOptionListField,
   page: PDFPage,
   el: OptionListField & { name: string },
   view: PdfViewQuad,
   pdfDoc: PDFDocument,
+  isFirst: boolean,
 ): void {
-  const field = form.createOptionList(el.name);
   const { x: pdfX, y: pdfY } = editorRectToPdfLowerLeft(el, view);
 
   const resolvedFont = resolveFontFamily(el.fontFamily, el.fontWeight);
@@ -371,20 +455,22 @@ function addOptionListField(
     borderWidth: el.borderWidth > 0 ? el.borderWidth : undefined,
   });
 
-  if (el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {
-    field.setFontSize(el.fontSize);
-  }
+  if (isFirst) {
+    if (el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {
+      field.setFontSize(el.fontSize);
+    }
 
-  if (el.options.length > 0) {
-    field.setOptions(el.options);
-  }
+    if (el.options.length > 0) {
+      field.setOptions(el.options);
+    }
 
-  if (el.defaultValue) {
-    field.select(el.defaultValue);
-  }
+    if (el.defaultValue) {
+      field.select(el.defaultValue);
+    }
 
-  if (el.required) {
-    field.isRequired();
+    if (el.required) {
+      field.isRequired();
+    }
   }
 }
 
