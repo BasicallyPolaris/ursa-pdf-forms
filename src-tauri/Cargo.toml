@@ -1,6 +1,6 @@
 [package]
 name = "ursa-pdf-forms"
-version = "0.2.1"
+version = "0.2.2"
 description = "A cross-platform tool for creating fillable PDF forms"
 authors = ["BasicallyPolaris"]
 edition = "2021"
