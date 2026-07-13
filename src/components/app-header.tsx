@@ -20,12 +20,14 @@ function FileToolbarButton({
   icon: Icon,
   onClick,
   disabled,
+  tourId,
 }: {
   label: string;
   shortcutId: ShortcutId;
   icon: typeof FolderOpen;
   onClick: () => void;
   disabled?: boolean;
+  tourId?: string;
 }) {
   return (
     <Tooltip>
@@ -34,6 +36,7 @@ function FileToolbarButton({
         onClick={onClick}
         disabled={disabled}
         aria-label={label}
+        data-tour={tourId}
         className="flex h-8 max-w-full shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card disabled:pointer-events-none disabled:opacity-30"
       >
         <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -140,6 +143,7 @@ export function CanvasToolbar({ children }: { children?: React.ReactNode }) {
                 icon={FileOutput}
                 onClick={menuExportPdf}
                 disabled={!hasPdf}
+                tourId="export-button"
               />
             </div>
           </div>

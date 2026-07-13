@@ -37,7 +37,7 @@ export const TOUR_STEPS = [
   { target: "page-sidebar", key: "sidebar" },
   { target: "properties-panel", key: "properties" },
   { target: "drawing-tools", key: "tools" },
-  { target: "file-menu", key: "export" },
+  { target: "export-button", key: "export" },
 ] as const;
 
 export const TOTAL_TOUR_STEPS = TOUR_STEPS.length;

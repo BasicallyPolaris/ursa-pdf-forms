@@ -95,7 +95,7 @@ export function AppMenubar() {
       className="relative z-10 flex h-full shrink-0 items-center gap-0.5 px-1"
       aria-label={t("menu.ariaLabel")}
     >
-      <MenubarMenu label={t("menu.file")} tourId="file-menu">
+      <MenubarMenu label={t("menu.file")}>
         <MenuAction
           label={t("header.open")}
           shortcutId="open"
