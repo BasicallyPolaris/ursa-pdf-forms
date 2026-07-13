@@ -51,7 +51,7 @@ function dirToCursor(dir: string): CursorType {
 export function useElementResize(config: ElementResizeConfig) {
   const resizingId = useRef<string | null>(null);
   const resizeHappenedRef = useRef(false);
-  const lastResizeSnap = useRef<{
+  const lastResizeBounds = useRef<{
     x: number;
     y: number;
     width: number;
@@ -85,12 +85,24 @@ export function useElementResize(config: ElementResizeConfig) {
       if (!pl) return;
 
       const { zoom } = config;
-      const rawWidth = parseFloat(ref.style.width) / zoom;
-      const rawHeight = parseFloat(ref.style.height) / zoom;
+      const rawWidth = Math.max(
+        MIN_SIZE / zoom,
+        parseFloat(ref.style.width) / zoom,
+      );
+      const rawHeight = Math.max(
+        MIN_SIZE / zoom,
+        parseFloat(ref.style.height) / zoom,
+      );
       const rawPdf = screenToPdf(
         { x: position.x, y: position.y },
         { zoom, pageX: pl.xOffset, pageY: pl.yOffset },
       );
+      let resizeBounds = {
+        x: rawPdf.x,
+        y: rawPdf.y,
+        width: rawWidth,
+        height: rawHeight,
+      };
 
       const snapCtx = config.buildSnapContext(new Set([el.id]), el.pageNumber, {
         shiftKey: resizeEvent.shiftKey,
@@ -116,7 +128,7 @@ export function useElementResize(config: ElementResizeConfig) {
         const snappedW = Math.max(MIN_SIZE / zoom, result.width);
         const snappedH = Math.max(MIN_SIZE / zoom, result.height);
 
-        lastResizeSnap.current = {
+        resizeBounds = {
           x: result.x,
           y: result.y,
           width: snappedW,
@@ -134,23 +146,18 @@ export function useElementResize(config: ElementResizeConfig) {
             ? result.guides.filter((g) => g.type !== "grid")
             : result.guides,
         );
-
-        const livePositions = new Map<
-          string,
-          { x: number; y: number; width: number; height: number }
-        >();
-        livePositions.set(el.id, {
-          x: result.x,
-          y: result.y,
-          width: snappedW,
-          height: snappedH,
-        });
-        config.setDragLivePositions(livePositions);
       } else {
-        lastResizeSnap.current = null;
         setResizeSnapCorrection(null);
         config.setActiveGuides([]);
       }
+
+      lastResizeBounds.current = resizeBounds;
+      const livePositions = new Map<
+        string,
+        { x: number; y: number; width: number; height: number }
+      >();
+      livePositions.set(el.id, resizeBounds);
+      config.setDragLivePositions(livePositions);
     },
     [config],
   );
@@ -168,7 +175,7 @@ export function useElementResize(config: ElementResizeConfig) {
         return;
       }
       resizeHappenedRef.current = false;
-      const snap = lastResizeSnap.current;
+      const snap = lastResizeBounds.current;
       if (snap) {
         useEditorStore.getState().updateElement(el.id, {
           x: snap.x,
@@ -177,7 +184,7 @@ export function useElementResize(config: ElementResizeConfig) {
           height: snap.height,
         });
       }
-      lastResizeSnap.current = null;
+      lastResizeBounds.current = null;
       setResizeSnapCorrection(null);
       config.setActiveGuides([]);
       config.setDragLivePositions(null);
@@ -190,7 +197,7 @@ export function useElementResize(config: ElementResizeConfig) {
 
   const resetState = useCallback(() => {
     resizeHappenedRef.current = false;
-    lastResizeSnap.current = null;
+    lastResizeBounds.current = null;
     setResizeSnapCorrection(null);
     resizingId.current = null;
     prevSnapRef.current = null;
