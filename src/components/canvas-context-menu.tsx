@@ -8,7 +8,7 @@ import {
   getUniqueName,
 } from "@/lib/form-element-model";
 import { formatShortcut } from "@/lib/shortcuts";
-import { useEditorStore } from "@/stores/editor-store";
+import { getDisplayElements, useEditorStore } from "@/stores/editor-store";
 import {
   AlignLeft,
   ChevronDown,
@@ -119,7 +119,7 @@ export function CanvasContextMenu({
           label: t("contextMenu.selectAll"),
           shortcut: formatShortcut("selectAll"),
           action: () => {
-            const pageElements = store.elements.filter(
+            const pageElements = getDisplayElements(store).filter(
               (el) => el.pageNumber === context.pageNumber,
             );
             store.selectElements(new Set(pageElements.map((el) => el.id)));
@@ -129,7 +129,7 @@ export function CanvasContextMenu({
     }
 
     if (context.type === "canvas") {
-      const elements = store.elements;
+      const elements = getDisplayElements(store);
       const result: MenuEntry[] = [];
 
       if (clipboard.length > 0) {
@@ -228,7 +228,10 @@ export function CanvasContextMenu({
               x: context.pdfX,
               y: context.pdfY,
               pageNumber: context.pageNumber,
-              name: getUniqueName(`optionlist_${elements.length + 1}`, elements),
+              name: getUniqueName(
+                `optionlist_${elements.length + 1}`,
+                elements,
+              ),
             });
             store.addElement(newEl);
             store.selectElements(new Set([newEl.id]));
@@ -255,7 +258,7 @@ export function CanvasContextMenu({
         label: t("contextMenu.selectAll"),
         shortcut: formatShortcut("selectAll"),
         action: () => {
-          const pageElements = store.elements.filter(
+          const pageElements = getDisplayElements(store).filter(
             (el) => el.pageNumber === context.pageNumber,
           );
           store.selectElements(new Set(pageElements.map((el) => el.id)));
@@ -386,7 +389,13 @@ export function CanvasContextMenu({
     >
       {entries.map((entry, i) => {
         if ("separator" in entry) {
-          return <div key={`sep-${i}`} role="separator" className="-mx-1 my-1 h-px bg-border" />;
+          return (
+            <div
+              key={`sep-${i}`}
+              role="separator"
+              className="-mx-1 my-1 h-px bg-border"
+            />
+          );
         }
 
         const Icon = entry.icon;

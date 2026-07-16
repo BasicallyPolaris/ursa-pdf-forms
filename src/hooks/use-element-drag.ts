@@ -8,7 +8,7 @@ import {
   type SnapContext,
   type SnapGuide,
 } from "@/lib/snap-engine";
-import { useEditorStore } from "@/stores/editor-store";
+import { getDisplayElements, useEditorStore } from "@/stores/editor-store";
 import { useCallback, useRef, useState } from "react";
 
 interface ElementDragConfig {
@@ -75,7 +75,7 @@ export function useElementDrag(config: ElementDragConfig) {
       lockCursor("grab");
 
       const positions = new Map<string, { x: number; y: number }>();
-      for (const e of store.elements) {
+      for (const e of getDisplayElements(store)) {
         positions.set(e.id, { x: e.x, y: e.y });
       }
       dragStartPositions.current = positions;
@@ -107,6 +107,7 @@ export function useElementDrag(config: ElementDragConfig) {
       const rawDy = deltaY / zoom;
 
       const store = useEditorStore.getState();
+      const elements = getDisplayElements(store);
       const currentSelectedIds = store.selectedIds;
       const isMultiDrag =
         currentSelectedIds.size > 1 && currentSelectedIds.has(el.id);
@@ -134,7 +135,6 @@ export function useElementDrag(config: ElementDragConfig) {
           : undefined;
 
         if (isMultiDrag) {
-          const elements = store.elements;
           const selectedOnPage = elements.filter(
             (e) =>
               currentSelectedIds.has(e.id) && e.pageNumber === el.pageNumber,
@@ -213,7 +213,6 @@ export function useElementDrag(config: ElementDragConfig) {
         snapCtx.snapToGrid ? guides.filter((g) => g.type !== "grid") : guides,
       );
 
-      const elements = store.elements;
       if (isMultiDrag) {
         for (const selEl of elements) {
           if (!currentSelectedIds.has(selEl.id)) continue;
@@ -274,7 +273,7 @@ export function useElementDrag(config: ElementDragConfig) {
       if (currentSelectedIds.size > 1 && currentSelectedIds.has(el.id)) {
         const rawDx = (d.x - screen.x) / zoom;
         const rawDy = (d.y - screen.y) / zoom;
-        const elements = store.elements;
+        const elements = getDisplayElements(store);
         const selectedOnPage = elements.filter(
           (e) => currentSelectedIds.has(e.id) && e.pageNumber === el.pageNumber,
         );

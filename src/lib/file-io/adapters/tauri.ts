@@ -1,4 +1,5 @@
 import {
+  getDisplayElements,
   isDirty as storeIsDirty,
   markClean as storeMarkClean,
   useEditorStore,
@@ -56,7 +57,7 @@ export const zustandStore: StorePort = {
   getPdfBytes: () => useEditorStore.getState().pdfBytes,
   getPdfFilePath: () => useEditorStore.getState().pdfFilePath,
   getPdfFileName: () => useEditorStore.getState().pdfFileName,
-  getElements: () => useEditorStore.getState().elements,
+  getElements: () => getDisplayElements(useEditorStore.getState()),
   getPages: () => useEditorStore.getState().pages,
   setPdf: (name, bytes, pages) =>
     useEditorStore.getState().setPdf(name, bytes, pages),

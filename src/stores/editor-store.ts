@@ -24,7 +24,7 @@ import type { PageInfo } from "@/lib/pdf-loader";
 import { announce } from "@/stores/announcement-store";
 import i18n from "@/i18n";
 import { temporal } from "zundo";
-import { create } from "zustand";
+import { create, type StoreApi } from "zustand";
 
 const NUMERIC_KEYS: ReadonlySet<string> = new Set([
   "x",
@@ -36,9 +36,7 @@ const NUMERIC_KEYS: ReadonlySet<string> = new Set([
   "maxLength",
 ]);
 
-function sanitizePartial(
-  updates: Partial<FormElement>,
-): Partial<FormElement> {
+function sanitizePartial(updates: Partial<FormElement>): Partial<FormElement> {
   const result: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(updates)) {
     if (NUMERIC_KEYS.has(key) && typeof val === "number") {
@@ -76,6 +74,70 @@ function mergeElement(
   updates: Partial<FormElement>,
 ): FormElement {
   return { ...el, ...sanitizePartial(updates) } as FormElement;
+}
+
+export type PropertyEditKey = string & {
+  readonly propertyEditKey: unique symbol;
+};
+
+export interface ElementPropertyUpdate {
+  id: string;
+  changes: Partial<FormElement>;
+}
+
+export interface GuidePositionUpdate {
+  id: string;
+  position: number;
+}
+
+export interface PropertyEditChanges {
+  elementUpdates?: ElementPropertyUpdate[];
+  guideUpdates?: GuidePositionUpdate[];
+}
+
+interface PropertyEditSession {
+  identity: PropertyEditKey;
+  inputValue: string;
+  elements: FormElement[];
+  guides: GuideLine[];
+}
+
+function applyElementChanges(
+  elements: FormElement[],
+  updates: ElementPropertyUpdate[],
+): FormElement[] {
+  const updateMap = new Map(
+    updates.map((update) => [update.id, update.changes]),
+  );
+  let changed = false;
+  const next = elements.map((element) => {
+    const elementUpdates = updateMap.get(element.id);
+    if (!elementUpdates) return element;
+    const hasChanges = (
+      Object.keys(elementUpdates) as (keyof FormElement)[]
+    ).some((key) => valuesDiffer(element[key], elementUpdates[key]));
+    if (!hasChanges) return element;
+    changed = true;
+    return mergeElement(element, elementUpdates);
+  });
+  return changed ? next : elements;
+}
+
+function applyGuideChanges(
+  guides: GuideLine[],
+  updates: GuidePositionUpdate[],
+): GuideLine[] {
+  const updateMap = new Map(
+    updates.map((update) => [update.id, update.position]),
+  );
+  let changed = false;
+  const next = guides.map((guide) => {
+    const position = updateMap.get(guide.id);
+    if (position === undefined || numEq(guide.position, position)) return guide;
+    changed = true;
+    return { ...guide, position };
+  });
+  return changed ? next : guides;
 }
 
 function resolvePasteSources(
@@ -153,6 +215,7 @@ const PDF_RESET_STATE = {
   clipboard: [] as FormElement[],
   pasteStackByPage: {} as Record<number, FormElement[]>,
   guides: [] as GuideLine[],
+  propertyEditSession: null as PropertyEditSession | null,
   selectedGuideId: null as string | null,
   previewGuide: null as {
     orientation: "horizontal" | "vertical";
@@ -166,6 +229,13 @@ const PDF_RESET_STATE = {
 };
 
 export type { PageInfo };
+
+export function createPropertyEditKey(
+  property: string,
+  subjectIds: readonly string[],
+): PropertyEditKey {
+  return `${property}:${[...subjectIds].sort().join("|")}` as PropertyEditKey;
+}
 
 let nextPasteId = 1;
 function generatePastedId(): string {
@@ -199,7 +269,8 @@ function valuesDiffer(a: unknown, b: unknown): boolean {
 const PASTE_OFFSET = 10;
 
 function getTypeLabelKey(el: FormElement): string {
-  if (el.type === "text" && "multiline" in el && el.multiline) return "fieldTypes.multiline";
+  if (el.type === "text" && "multiline" in el && el.multiline)
+    return "fieldTypes.multiline";
   const map: Record<string, string> = {
     text: "fieldTypes.textField",
     checkbox: "fieldTypes.checkbox",
@@ -239,6 +310,7 @@ export interface EditorState {
   pasteStackByPage: Record<number, FormElement[]>;
   gridSize: number;
   guides: GuideLine[];
+  propertyEditSession: PropertyEditSession | null;
   previewGuide: {
     orientation: "horizontal" | "vertical";
     position: number;
@@ -261,6 +333,13 @@ export interface EditorState {
   setRenderPdfBytes: (bytes: Uint8Array) => void;
   setInitialElements: (elements: FormElement[]) => void;
   replaceFormElements: (elements: FormElement[]) => void;
+  beginPropertyEdit: (identity: PropertyEditKey, inputValue: string) => void;
+  previewPropertyEdit: (
+    inputValue: string,
+    changes: PropertyEditChanges,
+  ) => void;
+  commitPropertyEdit: (identity?: PropertyEditKey) => void;
+  discardPropertyEdit: (identity?: PropertyEditKey) => void;
   addElement: (element: FormElement) => void;
   updateElement: (id: string, updates: Partial<FormElement>) => void;
   moveElements: (
@@ -282,9 +361,7 @@ export interface EditorState {
   addGuide: (orientation: "horizontal" | "vertical", position: number) => void;
   removeGuide: (id: string) => void;
   updateGuidePosition: (id: string, position: number) => void;
-  batchUpdateElements: (
-    updates: Array<{ id: string; changes: Partial<FormElement> }>,
-  ) => void;
+  batchUpdateElements: (updates: ElementPropertyUpdate[]) => void;
   setPreviewGuide: (
     guide: { orientation: "horizontal" | "vertical"; position: number } | null,
   ) => void;
@@ -307,6 +384,25 @@ export interface EditorState {
   ) => void;
   setFileDragOver: (value: boolean) => void;
   setDragFileValid: (valid: boolean) => void;
+}
+
+export function getDisplayElements(state: EditorState): FormElement[] {
+  return state.propertyEditSession?.elements ?? state.elements;
+}
+
+export function getDisplayGuides(state: EditorState): GuideLine[] {
+  return state.propertyEditSession?.guides ?? state.guides;
+}
+
+export function getPropertyEditInputValue(
+  state: EditorState,
+  identity: PropertyEditKey,
+  fallback: string | number,
+): string {
+  const session = state.propertyEditSession;
+  return session?.identity === identity
+    ? session.inputValue
+    : String(fallback ?? "");
 }
 
 function guidesEqual(a: GuideLine[], b: GuideLine[]): boolean {
@@ -373,6 +469,30 @@ function pasteStackEqual(
   return true;
 }
 
+type PersistentStateUpdate =
+  | Partial<EditorState>
+  | ((state: EditorState) => Partial<EditorState>);
+
+function setPersistent(
+  set: StoreApi<EditorState>["setState"],
+  get: StoreApi<EditorState>["getState"],
+  update: PersistentStateUpdate,
+) {
+  get().commitPropertyEdit();
+  if (typeof update === "function") {
+    set((state) => update(state));
+  } else {
+    set(update);
+  }
+}
+
+function commitPropertyEditAndGetState(
+  get: StoreApi<EditorState>["getState"],
+): EditorState {
+  get().commitPropertyEdit();
+  return get();
+}
+
 export const useEditorStore = create<EditorState>()(
   temporal(
     (set, get) => ({
@@ -390,6 +510,7 @@ export const useEditorStore = create<EditorState>()(
       pasteStackByPage: {},
       gridSize: 5,
       guides: [],
+      propertyEditSession: null,
       previewGuide: null,
       selectedGuideId: null,
       dragLivePositions: new Map(),
@@ -426,7 +547,7 @@ export const useEditorStore = create<EditorState>()(
       setRenderPdfBytes: (bytes) => set({ renderPdfBytes: bytes }),
 
       setInitialElements: (elements: FormElement[]) => {
-        set({ elements });
+        set({ elements, propertyEditSession: null });
         useEditorStore.temporal.getState().clear();
         _cleanSnapshot = {
           elements: elements.map((el) => ({ ...el })),
@@ -440,24 +561,90 @@ export const useEditorStore = create<EditorState>()(
           selectedIds: new Set<string>(),
           clipboard: [],
           pasteStackByPage: {},
+          propertyEditSession: null,
         });
         announce(
           i18n.t("announcements.fieldsImported", { count: elements.length }),
         );
       },
 
+      beginPropertyEdit: (identity, inputValue) => {
+        const activeSession = get().propertyEditSession;
+        if (activeSession?.identity === identity) return;
+        if (activeSession) get().commitPropertyEdit();
+        const state = get();
+        set({
+          propertyEditSession: {
+            identity,
+            inputValue,
+            elements: state.elements,
+            guides: state.guides,
+          },
+        });
+      },
+
+      previewPropertyEdit: (inputValue, changes) => {
+        set((state) => {
+          const session = state.propertyEditSession;
+          if (!session) return state;
+          const elements = changes.elementUpdates
+            ? applyElementChanges(session.elements, changes.elementUpdates)
+            : session.elements;
+          const guides = changes.guideUpdates
+            ? applyGuideChanges(session.guides, changes.guideUpdates)
+            : session.guides;
+          if (
+            inputValue === session.inputValue &&
+            elements === session.elements &&
+            guides === session.guides
+          ) {
+            return state;
+          }
+          return {
+            propertyEditSession: {
+              ...session,
+              inputValue,
+              elements,
+              guides,
+            },
+          };
+        });
+      },
+
+      commitPropertyEdit: (identity) => {
+        const session = get().propertyEditSession;
+        if (!session || (identity && session.identity !== identity)) return;
+        set({
+          elements: session.elements,
+          guides: session.guides,
+          propertyEditSession: null,
+        });
+      },
+
+      discardPropertyEdit: (identity) => {
+        const session = get().propertyEditSession;
+        if (!session || (identity && session.identity !== identity)) return;
+        set({ propertyEditSession: null });
+      },
+
       addElement: (element) => {
-        set((s) => ({ elements: [...s.elements, element] }));
-        announce(i18n.t("announcements.elementAdded", { type: i18n.t(getTypeLabelKey(element)) }));
+        setPersistent(set, get, (s) => ({
+          elements: [...s.elements, element],
+        }));
+        announce(
+          i18n.t("announcements.elementAdded", {
+            type: i18n.t(getTypeLabelKey(element)),
+          }),
+        );
       },
 
       updateElement: (id, updates) => {
-        set((s) => {
+        setPersistent(set, get, (s) => {
           const el = s.elements.find((e) => e.id === id);
           if (!el) return s;
-          const changed = (
-            Object.keys(updates) as (keyof FormElement)[]
-          ).some((k) => valuesDiffer(el[k], updates[k]));
+          const changed = (Object.keys(updates) as (keyof FormElement)[]).some(
+            (k) => valuesDiffer(el[k], updates[k]),
+          );
           if (!changed) return s;
           return {
             elements: s.elements.map((e) =>
@@ -468,7 +655,7 @@ export const useEditorStore = create<EditorState>()(
       },
 
       moveElements: (updates) => {
-        set((s) => {
+        setPersistent(set, get, (s) => {
           const changed = updates.some((u) => {
             const el = s.elements.find((e) => e.id === u.id);
             if (!el) return false;
@@ -486,7 +673,11 @@ export const useEditorStore = create<EditorState>()(
               if (!u) return el;
               return u.pageNumber !== undefined &&
                 u.pageNumber !== el.pageNumber
-                ? mergeElement(el, { x: u.x, y: u.y, pageNumber: u.pageNumber })
+                ? mergeElement(el, {
+                    x: u.x,
+                    y: u.y,
+                    pageNumber: u.pageNumber,
+                  })
                 : { ...el, x: u.x, y: u.y };
             }),
           };
@@ -495,7 +686,7 @@ export const useEditorStore = create<EditorState>()(
 
       removeElements: (ids) => {
         let didRemove = false;
-        set((s) => {
+        setPersistent(set, get, (s) => {
           const remaining = s.elements.filter((el) => !ids.includes(el.id));
           if (remaining.length === s.elements.length) return s;
           didRemove = true;
@@ -507,21 +698,29 @@ export const useEditorStore = create<EditorState>()(
           };
         });
         if (didRemove) {
-          announce(i18n.t("announcements.elementsDeleted", { count: ids.length }));
+          announce(
+            i18n.t("announcements.elementsDeleted", { count: ids.length }),
+          );
         }
       },
 
-      selectElements: (ids) => set({ selectedIds: ids, selectedGuideId: null }),
+      selectElements: (ids) => {
+        setPersistent(set, get, {
+          selectedIds: ids,
+          selectedGuideId: null,
+        });
+      },
 
-      clearSelection: () =>
-        set({
+      clearSelection: () => {
+        setPersistent(set, get, {
           selectedIds: new Set<string>(),
           selectedGuideId: null,
           dragLivePositions: new Map(),
-        }),
+        });
+      },
 
-      toggleInSelection: (id) =>
-        set((s) => {
+      toggleInSelection: (id) => {
+        setPersistent(set, get, (s) => {
           const next = new Set(s.selectedIds);
           if (next.has(id)) {
             next.delete(id);
@@ -529,36 +728,38 @@ export const useEditorStore = create<EditorState>()(
             next.add(id);
           }
           return { selectedIds: next };
-        }),
+        });
+      },
 
-      addToSelection: (ids) =>
-        set((s) => {
+      addToSelection: (ids) => {
+        setPersistent(set, get, (s) => {
           const next = new Set(s.selectedIds);
           for (const id of ids) {
             next.add(id);
           }
           return { selectedIds: next };
-        }),
+        });
+      },
 
-      copySelection: () =>
-        set((s) => {
+      copySelection: () => {
+        setPersistent(set, get, (s) => {
           const selected = s.elements.filter((el) => s.selectedIds.has(el.id));
           if (selected.length === 0) return s;
           return {
             clipboard: structuredClone(selected),
             pasteStackByPage: {},
           };
-        }),
+        });
+      },
 
       pasteClipboard: (
         targetPage?: number,
         targetX?: number,
         targetY?: number,
       ) => {
-        set((s) => {
+        setPersistent(set, get, (s) => {
           if (s.clipboard.length === 0) return s;
-          const pasteAtPoint =
-            targetX !== undefined && targetY !== undefined;
+          const pasteAtPoint = targetX !== undefined && targetY !== undefined;
           const sourcePage = s.clipboard[0].pageNumber;
           const { sources, applyOffset, resolvedPage } = pasteAtPoint
             ? {
@@ -567,11 +768,7 @@ export const useEditorStore = create<EditorState>()(
                   targetPage === undefined || targetPage === sourcePage,
                 resolvedPage: targetPage ?? sourcePage,
               }
-            : resolvePasteSources(
-                s.clipboard,
-                s.pasteStackByPage,
-                targetPage,
-              );
+            : resolvePasteSources(s.clipboard, s.pasteStackByPage, targetPage);
           const { cloned, newIds } = cloneElementsWithNewIds(
             sources,
             s.elements,
@@ -598,7 +795,7 @@ export const useEditorStore = create<EditorState>()(
       },
 
       cutSelection: () => {
-        set((s) => {
+        setPersistent(set, get, (s) => {
           const selected = s.elements.filter((el) => s.selectedIds.has(el.id));
           if (selected.length === 0) return s;
           return {
@@ -612,7 +809,7 @@ export const useEditorStore = create<EditorState>()(
 
       duplicateSelection: (targetPage?: number) => {
         let count = 0;
-        set((s) => {
+        setPersistent(set, get, (s) => {
           const selected = s.elements.filter((el) => s.selectedIds.has(el.id));
           if (selected.length === 0) return s;
           const { cloned, newIds } = cloneElementsWithNewIds(
@@ -635,7 +832,7 @@ export const useEditorStore = create<EditorState>()(
       },
 
       addGuide: (orientation, position) => {
-        set((s) => ({
+        setPersistent(set, get, (s) => ({
           guides: [
             ...s.guides,
             { id: generateGuideId(), orientation, position },
@@ -644,7 +841,7 @@ export const useEditorStore = create<EditorState>()(
       },
 
       removeGuide: (id) => {
-        set((s) => {
+        setPersistent(set, get, (s) => {
           const remaining = s.guides.filter((g) => g.id !== id);
           if (remaining.length === s.guides.length) return s;
           return {
@@ -656,48 +853,35 @@ export const useEditorStore = create<EditorState>()(
       },
 
       updateGuidePosition: (id, position) => {
-        set((s) => {
+        setPersistent(set, get, (s) => {
           const guide = s.guides.find((g) => g.id === id);
           if (!guide || numEq(guide.position, position)) return s;
           return {
-            guides: s.guides.map((g) =>
-              g.id === id ? { ...g, position } : g,
-            ),
+            guides: s.guides.map((g) => (g.id === id ? { ...g, position } : g)),
           };
         });
       },
 
-      batchUpdateElements: (
-        updates: Array<{ id: string; changes: Partial<FormElement> }>,
-      ) => {
-        set((s) => {
-          const map = new Map(updates.map((u) => [u.id, u.changes]));
-          let anyChanged = false;
-          const newElements = s.elements.map((el) => {
-            const changes = map.get(el.id);
-            if (!changes) return el;
-            const changed = (
-              Object.keys(changes) as (keyof FormElement)[]
-            ).some((k) => valuesDiffer(el[k], changes[k]));
-            if (!changed) return el;
-            anyChanged = true;
-            return mergeElement(el, changes);
-          });
-          if (!anyChanged) return s;
-          return { elements: newElements };
-        });
+      batchUpdateElements: (updates) => {
+        setPersistent(set, get, (s) => ({
+          elements: applyElementChanges(s.elements, updates),
+        }));
       },
 
       setPreviewGuide: (guide) => set({ previewGuide: guide }),
 
-      selectGuide: (id) =>
-        set({ selectedGuideId: id, selectedIds: new Set<string>() }),
+      selectGuide: (id) => {
+        setPersistent(set, get, {
+          selectedGuideId: id,
+          selectedIds: new Set<string>(),
+        });
+      },
 
       setDragLivePositions: (positions) =>
         set({ dragLivePositions: positions ?? new Map() }),
 
       alignElements: (type) => {
-        const state = get();
+        const state = commitPropertyEditAndGetState(get);
         if (state.selectedIds.size < 2) return;
         let updates: Array<{ id: string; x: number; y: number }> = [];
         switch (type) {
@@ -721,27 +905,35 @@ export const useEditorStore = create<EditorState>()(
             break;
         }
         if (updates.length > 0) {
-          set((s) => ({ elements: applyPositionUpdates(s.elements, updates) }));
+          set((s) => ({
+            elements: applyPositionUpdates(s.elements, updates),
+          }));
         }
       },
 
       distributeElements: (direction) => {
-        const state = get();
+        const state = commitPropertyEditAndGetState(get);
         if (state.selectedIds.size < 3) return;
         const updates =
           direction === "horizontal"
             ? distributeH(state.elements, state.selectedIds)
             : distributeV(state.elements, state.selectedIds);
         if (updates.length > 0) {
-          set((s) => ({ elements: applyPositionUpdates(s.elements, updates) }));
+          set((s) => ({
+            elements: applyPositionUpdates(s.elements, updates),
+          }));
         }
       },
 
       centerSelectionOnPage: () => {
-        const state = get();
+        const state = commitPropertyEditAndGetState(get);
         if (state.selectedIds.size === 0 || state.pages.length === 0) return;
-        const firstSelected = state.elements.find((el) => state.selectedIds.has(el.id));
-        const pageIdx = firstSelected ? Math.min(firstSelected.pageNumber - 1, state.pages.length - 1) : 0;
+        const firstSelected = state.elements.find((el) =>
+          state.selectedIds.has(el.id),
+        );
+        const pageIdx = firstSelected
+          ? Math.min(firstSelected.pageNumber - 1, state.pages.length - 1)
+          : 0;
         const page = state.pages[pageIdx];
         const updates = centerOnPage(
           state.elements,
@@ -750,15 +942,21 @@ export const useEditorStore = create<EditorState>()(
           page.height,
         );
         if (updates.length > 0) {
-          set((s) => ({ elements: applyPositionUpdates(s.elements, updates) }));
+          set((s) => ({
+            elements: applyPositionUpdates(s.elements, updates),
+          }));
         }
       },
 
       centerSelectionOnPageH: () => {
-        const state = get();
+        const state = commitPropertyEditAndGetState(get);
         if (state.selectedIds.size === 0 || state.pages.length === 0) return;
-        const firstSelected = state.elements.find((el) => state.selectedIds.has(el.id));
-        const pageIdx = firstSelected ? Math.min(firstSelected.pageNumber - 1, state.pages.length - 1) : 0;
+        const firstSelected = state.elements.find((el) =>
+          state.selectedIds.has(el.id),
+        );
+        const pageIdx = firstSelected
+          ? Math.min(firstSelected.pageNumber - 1, state.pages.length - 1)
+          : 0;
         const page = state.pages[pageIdx];
         const updates = centerOnPageH(
           state.elements,
@@ -766,15 +964,21 @@ export const useEditorStore = create<EditorState>()(
           page.width,
         );
         if (updates.length > 0) {
-          set((s) => ({ elements: applyPositionUpdates(s.elements, updates) }));
+          set((s) => ({
+            elements: applyPositionUpdates(s.elements, updates),
+          }));
         }
       },
 
       centerSelectionOnPageV: () => {
-        const state = get();
+        const state = commitPropertyEditAndGetState(get);
         if (state.selectedIds.size === 0 || state.pages.length === 0) return;
-        const firstSelected = state.elements.find((el) => state.selectedIds.has(el.id));
-        const pageIdx = firstSelected ? Math.min(firstSelected.pageNumber - 1, state.pages.length - 1) : 0;
+        const firstSelected = state.elements.find((el) =>
+          state.selectedIds.has(el.id),
+        );
+        const pageIdx = firstSelected
+          ? Math.min(firstSelected.pageNumber - 1, state.pages.length - 1)
+          : 0;
         const page = state.pages[pageIdx];
         const updates = centerOnPageV(
           state.elements,
@@ -782,7 +986,9 @@ export const useEditorStore = create<EditorState>()(
           page.height,
         );
         if (updates.length > 0) {
-          set((s) => ({ elements: applyPositionUpdates(s.elements, updates) }));
+          set((s) => ({
+            elements: applyPositionUpdates(s.elements, updates),
+          }));
         }
       },
 
@@ -791,7 +997,7 @@ export const useEditorStore = create<EditorState>()(
       setDragFileValid: (valid) => set({ isDragFileValid: valid }),
 
       matchElementSize: (type) => {
-        const state = get();
+        const state = commitPropertyEditAndGetState(get);
         if (state.selectedIds.size < 2) return;
         let updates: Array<{ id: string; width?: number; height?: number }> =
           [];
@@ -860,12 +1066,14 @@ function pruneSelectionAfterUndoRedo() {
 
 export function undo() {
   if (!useEditorStore.getState().pdfBytes) return;
+  useEditorStore.getState().commitPropertyEdit();
   useEditorStore.temporal.getState().undo();
   pruneSelectionAfterUndoRedo();
 }
 
 export function redo() {
   if (!useEditorStore.getState().pdfBytes) return;
+  useEditorStore.getState().commitPropertyEdit();
   useEditorStore.temporal.getState().redo();
   pruneSelectionAfterUndoRedo();
 }
@@ -880,19 +1088,23 @@ export function canRedo(): boolean {
   return useEditorStore.temporal.getState().futureStates.length > 0;
 }
 
-let _cleanSnapshot: { elements: FormElement[]; guides: GuideLine[] } | null = null;
+let _cleanSnapshot: { elements: FormElement[]; guides: GuideLine[] } | null =
+  null;
 
 export function isDirty(): boolean {
   const state = useEditorStore.getState();
   if (!state.pdfBytes) return false;
-  if (!_cleanSnapshot) return state.elements.length > 0 || state.guides.length > 0;
+  const elements = getDisplayElements(state);
+  const guides = getDisplayGuides(state);
+  if (!_cleanSnapshot) return elements.length > 0 || guides.length > 0;
   return (
-    !elementsEqual(state.elements, _cleanSnapshot.elements) ||
-    !guidesEqual(state.guides, _cleanSnapshot.guides)
+    !elementsEqual(elements, _cleanSnapshot.elements) ||
+    !guidesEqual(guides, _cleanSnapshot.guides)
   );
 }
 
 export function markClean(): void {
+  useEditorStore.getState().commitPropertyEdit();
   const state = useEditorStore.getState();
   _cleanSnapshot = {
     elements: state.elements.map((el) => ({ ...el })),

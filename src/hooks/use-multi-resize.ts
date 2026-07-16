@@ -7,7 +7,7 @@ import {
   type SnapContext,
   type SnapGuide,
 } from "@/lib/snap-engine";
-import { useEditorStore } from "@/stores/editor-store";
+import { getDisplayElements, useEditorStore } from "@/stores/editor-store";
 import { useCallback, useRef, useState } from "react";
 
 const MIN_SCREEN = 10;
@@ -82,7 +82,7 @@ export function useMultiResize(config: MultiResizeConfig) {
 
   const handleResizeStart = useCallback(() => {
     const store = useEditorStore.getState();
-    const selected = store.elements.filter((el) =>
+    const selected = getDisplayElements(store).filter((el) =>
       store.selectedIds.has(el.id),
     );
     if (selected.length < 2) return;
@@ -160,7 +160,9 @@ export function useMultiResize(config: MultiResizeConfig) {
       const primaryLayout = config.layouts.get(primaryPageRef.current);
 
       const isHorizontal = _dir === "left" || _dir === "right";
-      lockCursor(anyHeightLockedRef.current || isHorizontal ? "ew" : dirToCursor(_dir));
+      lockCursor(
+        anyHeightLockedRef.current || isHorizontal ? "ew" : dirToCursor(_dir),
+      );
 
       let sx = position.x;
       let sy = position.y;
@@ -216,7 +218,12 @@ export function useMultiResize(config: MultiResizeConfig) {
               pageY: primaryLayout.yOffset,
             },
           );
-          snappedBbox = { x: snScreen.x, y: snScreen.y, width: snW * zoom, height: snH * zoom };
+          snappedBbox = {
+            x: snScreen.x,
+            y: snScreen.y,
+            width: snW * zoom,
+            height: snH * zoom,
+          };
           sx = snScreen.x;
           sy = snScreen.y;
           sw = snW * zoom;
