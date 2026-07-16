@@ -201,7 +201,7 @@ export const ElementOverlay = memo(function ElementOverlay({
       data-element-overlay
       data-element-id={el.id}
       scale={1}
-      style={{ zIndex: isSelected ? 55 : undefined }}
+      style={{ zIndex: isSelected ? 50 : undefined }}
       size={{ width: screenWidth, height: screenHeight }}
       position={{ x: screenX, y: screenY }}
       minWidth={10}
