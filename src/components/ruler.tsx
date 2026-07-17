@@ -9,7 +9,7 @@ import { lockCursor, unlockCursor } from "@/lib/cursor";
 import { getLayoutContentWidth } from "@/lib/page-layout";
 import { RULER_SIZE_PX } from "@/lib/shell-layout";
 import { snapToGrid } from "@/lib/snap-engine";
-import { useEditorStore } from "@/stores/editor-store";
+import { getDisplayGuides, useEditorStore } from "@/stores/editor-store";
 import {
   useCallback,
   useEffect,
@@ -47,8 +47,7 @@ function resolveRulerColors(canvas: HTMLCanvasElement): RulerColors {
   if (cachedColors) return cachedColors;
   const style = getComputedStyle(canvas);
   cachedColors = {
-    bg:
-      style.getPropertyValue("--ruler-bg").trim() || FALLBACKS["--ruler-bg"],
+    bg: style.getPropertyValue("--ruler-bg").trim() || FALLBACKS["--ruler-bg"],
     majorColor:
       style.getPropertyValue("--ruler-tick-major").trim() ||
       FALLBACKS["--ruler-tick-major"],
@@ -119,7 +118,11 @@ function drawHorizontalRuler(
     const isMinor = px % MINOR_INTERVAL === 0;
 
     const startY = isMajor ? 0 : isMinor ? H * 0.5 : H * 0.65;
-    ctx.strokeStyle = isMajor ? colors.majorColor : isMinor ? colors.minorColor : colors.subColor;
+    ctx.strokeStyle = isMajor
+      ? colors.majorColor
+      : isMinor
+        ? colors.minorColor
+        : colors.subColor;
     ctx.lineWidth = isMajor ? 1 : 0.5;
     ctx.beginPath();
     ctx.moveTo(screenX, startY);
@@ -173,7 +176,11 @@ function drawVerticalRuler(
       const isMinor = py % MINOR_INTERVAL === 0;
 
       const startX = isMajor ? 0 : isMinor ? W * 0.5 : W * 0.65;
-      ctx.strokeStyle = isMajor ? colors.majorColor : isMinor ? colors.minorColor : colors.subColor;
+      ctx.strokeStyle = isMajor
+        ? colors.majorColor
+        : isMinor
+          ? colors.minorColor
+          : colors.subColor;
       ctx.lineWidth = isMajor ? 1 : 0.5;
       ctx.beginPath();
       ctx.moveTo(startX, screenY);
@@ -209,7 +216,7 @@ export function HorizontalRuler({
   const pages = useEditorStore((s) => s.pages);
   const committedZoom = useEditorStore((s) => s.zoom);
   const pdfBytes = useEditorStore((s) => s.pdfBytes);
-  const guides = useEditorStore((s) => s.guides);
+  const guides = useEditorStore(getDisplayGuides);
   const addGuide = useEditorStore((s) => s.addGuide);
   const removeGuide = useEditorStore((s) => s.removeGuide);
   const setPreviewGuide = useEditorStore((s) => s.setPreviewGuide);
@@ -358,7 +365,7 @@ export function HorizontalRuler({
           e.preventDefault();
           if (!pdfBytes || pages.length === 0) return;
           const page = pages[0];
-          addGuide("vertical", Math.round(page.width / 2 * 10) / 10);
+          addGuide("vertical", Math.round((page.width / 2) * 10) / 10);
         }
       }}
     >
@@ -387,7 +394,7 @@ export function VerticalRuler({
   const pages = useEditorStore((s) => s.pages);
   const committedZoom = useEditorStore((s) => s.zoom);
   const pdfBytes = useEditorStore((s) => s.pdfBytes);
-  const guides = useEditorStore((s) => s.guides);
+  const guides = useEditorStore(getDisplayGuides);
   const addGuide = useEditorStore((s) => s.addGuide);
   const removeGuide = useEditorStore((s) => s.removeGuide);
   const setPreviewGuide = useEditorStore((s) => s.setPreviewGuide);
@@ -546,7 +553,7 @@ export function VerticalRuler({
           e.preventDefault();
           if (!pdfBytes || pages.length === 0) return;
           const page = pages[0];
-          addGuide("horizontal", Math.round(page.height / 2 * 10) / 10);
+          addGuide("horizontal", Math.round((page.height / 2) * 10) / 10);
         }
       }}
     >
@@ -567,4 +574,3 @@ export function RulerCorner() {
     />
   );
 }
-

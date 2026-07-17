@@ -35,7 +35,17 @@ import {
   type TextField,
 } from "@/lib/form-element-model";
 import { resolveElementPosition } from "@/lib/page-coordinates";
-import { useEditorStore, type GuideLine } from "@/stores/editor-store";
+import {
+  createPropertyEditKey,
+  getDisplayElements,
+  getDisplayGuides,
+  getPropertyEditInputValue,
+  useEditorStore,
+  type ElementPropertyUpdate,
+  type EditorState,
+  type PropertyEditChanges,
+  type PropertyEditKey,
+} from "@/stores/editor-store";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   AlignCenterHorizontal,
@@ -77,99 +87,88 @@ const BASE_FONT_FAMILIES = [
   { value: "ZapfDingbats", label: "Zapf Dingbats" },
 ];
 
-function useDeferredValue(
+function usePropertyInput(
+  identity: PropertyEditKey,
   storeValue: string | number,
-  onCommit: (raw: string) => void,
+  getChanges: (raw: string) => PropertyEditChanges,
 ) {
-  const [local, setLocal] = useState(String(storeValue ?? ""));
-  const activeRef = useRef(false);
-  const preEditRef = useRef<{
-    elements: FormElement[];
-    guides: GuideLine[];
-  } | null>(null);
-  const originalValueRef = useRef(String(storeValue ?? ""));
-  const onCommitRef = useRef(onCommit);
-  onCommitRef.current = onCommit;
+  const value = useEditorStore((state) =>
+    getPropertyEditInputValue(state, identity, storeValue),
+  );
+  const beginPropertyEdit = useEditorStore((s) => s.beginPropertyEdit);
+  const previewPropertyEdit = useEditorStore((s) => s.previewPropertyEdit);
+  const commitPropertyEdit = useEditorStore((s) => s.commitPropertyEdit);
+  const discardPropertyEdit = useEditorStore((s) => s.discardPropertyEdit);
 
-  useEffect(() => {
-    if (!activeRef.current) {
-      setLocal(String(storeValue ?? ""));
-    }
-  }, [storeValue]);
+  const startEdit = useCallback(() => {
+    beginPropertyEdit(identity, String(storeValue ?? ""));
+  }, [beginPropertyEdit, identity, storeValue]);
 
   const onFocus = useCallback(() => {
-    if (activeRef.current) return;
-    activeRef.current = true;
-    originalValueRef.current = String(storeValue ?? "");
-    preEditRef.current = {
-      elements: useEditorStore.getState().elements,
-      guides: useEditorStore.getState().guides,
-    };
-    useEditorStore.temporal.getState().pause();
-  }, [storeValue]);
+    startEdit();
+  }, [startEdit]);
 
-  const onChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setLocal(e.target.value);
-    onCommitRef.current(e.target.value);
-  }, []);
+  const onChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      startEdit();
+      const inputValue = e.target.value;
+      previewPropertyEdit(inputValue, getChanges(inputValue));
+    },
+    [getChanges, previewPropertyEdit, startEdit],
+  );
 
-  const finishEdit = useCallback((revert: boolean) => {
-    if (!activeRef.current) return;
-    activeRef.current = false;
-    const preEdit = preEditRef.current;
-    preEditRef.current = null;
-
-    if (revert && preEdit) {
-      useEditorStore.setState({
-        elements: preEdit.elements,
-        guides: preEdit.guides,
-      });
-      setLocal(originalValueRef.current);
-    }
-
-    useEditorStore.temporal.getState().resume();
-
-    if (!revert && preEdit) {
-      const current = {
-        elements: useEditorStore.getState().elements,
-        guides: useEditorStore.getState().guides,
-      };
-      if (
-        preEdit.elements !== current.elements ||
-        preEdit.guides !== current.guides
-      ) {
-        const ts = useEditorStore.temporal.getState();
-        const past = [...ts.pastStates, preEdit];
-        if (past.length > 50) past.splice(0, past.length - 50);
-        useEditorStore.temporal.setState({
-          pastStates: past,
-          futureStates: [],
-        });
-      }
-    }
-  }, []);
+  useEffect(() => {
+    return () => commitPropertyEdit(identity);
+  }, [commitPropertyEdit, identity]);
 
   const onBlur = useCallback(() => {
-    finishEdit(false);
-  }, [finishEdit]);
+    commitPropertyEdit(identity);
+  }, [commitPropertyEdit, identity]);
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        finishEdit(false);
+        commitPropertyEdit(identity);
         (e.target as HTMLInputElement).select();
       }
       if (e.key === "Escape") {
         e.preventDefault();
-        finishEdit(true);
+        discardPropertyEdit(identity);
         (e.target as HTMLInputElement).blur();
       }
     },
-    [finishEdit],
+    [commitPropertyEdit, discardPropertyEdit, identity],
   );
 
-  return { value: local, onFocus, onChange, onBlur, onKeyDown };
+  return { value, onFocus, onChange, onBlur, onKeyDown };
+}
+
+function useElementPropertyChanges(elementId: string) {
+  return useCallback(
+    (changes: Partial<FormElement>) =>
+      ({
+        elementUpdates: [{ id: elementId, changes }],
+      }) satisfies PropertyEditChanges,
+    [elementId],
+  );
+}
+
+function useBatchPropertyChanges() {
+  return useCallback(
+    (elementUpdates: ElementPropertyUpdate[]) =>
+      ({ elementUpdates }) satisfies PropertyEditChanges,
+    [],
+  );
+}
+
+function useDisplayElement(elementId: string) {
+  const selectElement = useCallback(
+    (state: EditorState) =>
+      getDisplayElements(state).find((element) => element.id === elementId),
+    [elementId],
+  );
+  return useEditorStore(selectElement);
 }
 
 function PropertyField({
@@ -530,19 +529,25 @@ function AppearanceSection({
 function TypographySection({
   element,
   onUpdate,
+  onPreview,
 }: {
   element: ElementWithTypography;
   onUpdate: (updates: Partial<ElementWithTypography>) => void;
+  onPreview: (updates: Partial<ElementWithTypography>) => PropertyEditChanges;
 }) {
   const { t } = useTranslation();
-  const fontSizeField = useDeferredValue(element.fontSize, (v) => {
-    const fs = Number(v);
-    const updates: Partial<ElementWithTypography> = { fontSize: fs };
-    if (isTextField(element) && !element.multiline) {
-      (updates as Partial<TextField>).height = heightFromFontSize(fs);
-    }
-    onUpdate(updates);
-  });
+  const fontSizeField = usePropertyInput(
+    createPropertyEditKey("fontSize", [element.id]),
+    element.fontSize,
+    (v) => {
+      const fs = Number(v);
+      const updates: Partial<ElementWithTypography> = { fontSize: fs };
+      if (isTextField(element) && !element.multiline) {
+        (updates as Partial<TextField>).height = heightFromFontSize(fs);
+      }
+      return onPreview(updates);
+    },
+  );
   return (
     <>
       <FontFamilySelect
@@ -569,23 +574,26 @@ function TypographySection({
 function TextFieldProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
   const requiredId = useId();
-  const element = useEditorStore((s) =>
-    s.elements.find((el) => el.id === elementId),
-  );
+  const element = useDisplayElement(elementId);
   const updateElement = useEditorStore((s) => s.updateElement);
+  const getElementChanges = useElementPropertyChanges(elementId);
 
   if (!element || !isTextField(element)) return null;
 
-  const nameField = useDeferredValue(element.name, (v) =>
-    updateElement(element.id, { name: v }),
+  const nameField = usePropertyInput(
+    createPropertyEditKey("name", [element.id]),
+    element.name,
+    (v) => getElementChanges({ name: v }),
   );
-  const defaultValueField = useDeferredValue(element.defaultValue, (v) =>
-    updateElement(element.id, { defaultValue: v }),
+  const defaultValueField = usePropertyInput(
+    createPropertyEditKey("defaultValue", [element.id]),
+    element.defaultValue,
+    (v) => getElementChanges({ defaultValue: v }),
   );
-  const maxLengthField = useDeferredValue(element.maxLength ?? "", (v) =>
-    updateElement(element.id, {
-      maxLength: v ? Number(v) : undefined,
-    }),
+  const maxLengthField = usePropertyInput(
+    createPropertyEditKey("maxLength", [element.id]),
+    element.maxLength ?? "",
+    (v) => getElementChanges({ maxLength: v ? Number(v) : undefined }),
   );
 
   return (
@@ -629,6 +637,7 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
         <TypographySection
           element={element}
           onUpdate={(updates) => updateElement(element.id, updates)}
+          onPreview={getElementChanges}
         />
         {!element.multiline && (
           <div className="flex items-center justify-between">
@@ -656,15 +665,16 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
 function CheckboxProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
   const defaultCheckedId = useId();
-  const element = useEditorStore((s) =>
-    s.elements.find((el) => el.id === elementId),
-  );
+  const element = useDisplayElement(elementId);
   const updateElement = useEditorStore((s) => s.updateElement);
+  const getElementChanges = useElementPropertyChanges(elementId);
 
   if (!element || !isCheckbox(element)) return null;
 
-  const nameField = useDeferredValue(element.name, (v) =>
-    updateElement(element.id, { name: v }),
+  const nameField = usePropertyInput(
+    createPropertyEditKey("name", [element.id]),
+    element.name,
+    (v) => getElementChanges({ name: v }),
   );
 
   return (
@@ -700,21 +710,25 @@ function CheckboxProperties({ elementId }: { elementId: string }) {
 
 function RadioButtonProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
-  const element = useEditorStore((s) =>
-    s.elements.find((el) => el.id === elementId),
-  );
-  const updateElement = useEditorStore((s) => s.updateElement);
+  const element = useDisplayElement(elementId);
+  const getElementChanges = useElementPropertyChanges(elementId);
 
   if (!element || !isRadioButton(element)) return null;
 
-  const groupNameField = useDeferredValue(element.groupName, (v) =>
-    updateElement(element.id, { groupName: v }),
+  const groupNameField = usePropertyInput(
+    createPropertyEditKey("groupName", [element.id]),
+    element.groupName,
+    (v) => getElementChanges({ groupName: v }),
   );
-  const valueField = useDeferredValue(element.value, (v) =>
-    updateElement(element.id, { value: v }),
+  const valueField = usePropertyInput(
+    createPropertyEditKey("value", [element.id]),
+    element.value,
+    (v) => getElementChanges({ value: v }),
   );
-  const labelField = useDeferredValue(element.label, (v) =>
-    updateElement(element.id, { label: v }),
+  const labelField = usePropertyInput(
+    createPropertyEditKey("label", [element.id]),
+    element.label,
+    (v) => getElementChanges({ label: v }),
   );
 
   return (
@@ -900,15 +914,16 @@ function DropdownProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
   const requiredId = useId();
   const editableId = useId();
-  const element = useEditorStore((s) =>
-    s.elements.find((el) => el.id === elementId),
-  );
+  const element = useDisplayElement(elementId);
   const updateElement = useEditorStore((s) => s.updateElement);
+  const getElementChanges = useElementPropertyChanges(elementId);
 
   if (!element || !isDropdownField(element)) return null;
 
-  const nameField = useDeferredValue(element.name, (v) =>
-    updateElement(element.id, { name: v }),
+  const nameField = usePropertyInput(
+    createPropertyEditKey("name", [element.id]),
+    element.name,
+    (v) => getElementChanges({ name: v }),
   );
 
   const addOption = () => {
@@ -968,6 +983,7 @@ function DropdownProperties({ elementId }: { elementId: string }) {
         <TypographySection
           element={element}
           onUpdate={(updates) => updateElement(element.id, updates)}
+          onPreview={getElementChanges}
         />
         <div className="flex items-center justify-between">
           <Label className="text-[11px] text-muted-foreground">
@@ -1027,18 +1043,21 @@ function DropdownProperties({ elementId }: { elementId: string }) {
 
 function ButtonProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
-  const element = useEditorStore((s) =>
-    s.elements.find((el) => el.id === elementId),
-  );
+  const element = useDisplayElement(elementId);
   const updateElement = useEditorStore((s) => s.updateElement);
+  const getElementChanges = useElementPropertyChanges(elementId);
 
   if (!element || !isButtonField(element)) return null;
 
-  const nameField = useDeferredValue(element.name, (v) =>
-    updateElement(element.id, { name: v }),
+  const nameField = usePropertyInput(
+    createPropertyEditKey("name", [element.id]),
+    element.name,
+    (v) => getElementChanges({ name: v }),
   );
-  const labelField = useDeferredValue(element.label, (v) =>
-    updateElement(element.id, { label: v }),
+  const labelField = usePropertyInput(
+    createPropertyEditKey("label", [element.id]),
+    element.label,
+    (v) => getElementChanges({ label: v }),
   );
 
   return (
@@ -1062,6 +1081,7 @@ function ButtonProperties({ elementId }: { elementId: string }) {
         <TypographySection
           element={element}
           onUpdate={(updates) => updateElement(element.id, updates)}
+          onPreview={getElementChanges}
         />
       </CollapsibleSection>
 
@@ -1079,15 +1099,16 @@ function ButtonProperties({ elementId }: { elementId: string }) {
 function OptionListProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
   const requiredId = useId();
-  const element = useEditorStore((s) =>
-    s.elements.find((el) => el.id === elementId),
-  );
+  const element = useDisplayElement(elementId);
   const updateElement = useEditorStore((s) => s.updateElement);
+  const getElementChanges = useElementPropertyChanges(elementId);
 
   if (!element || !isOptionListField(element)) return null;
 
-  const nameField = useDeferredValue(element.name, (v) =>
-    updateElement(element.id, { name: v }),
+  const nameField = usePropertyInput(
+    createPropertyEditKey("name", [element.id]),
+    element.name,
+    (v) => getElementChanges({ name: v }),
   );
 
   const addOption = () => {
@@ -1154,6 +1175,7 @@ function OptionListProperties({ elementId }: { elementId: string }) {
         <TypographySection
           element={element}
           onUpdate={(updates) => updateElement(element.id, updates)}
+          onPreview={getElementChanges}
         />
         <div className="flex items-center justify-between">
           <Label className="text-[11px] text-muted-foreground">
@@ -1200,11 +1222,9 @@ function OptionListProperties({ elementId }: { elementId: string }) {
 
 function SinglePositionProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
-  const element = useEditorStore((s) =>
-    s.elements.find((el) => el.id === elementId),
-  );
+  const element = useDisplayElement(elementId);
   const livePos = useEditorStore((s) => s.dragLivePositions.get(elementId));
-  const updateElement = useEditorStore((s) => s.updateElement);
+  const getElementChanges = useElementPropertyChanges(elementId);
   const pages = useEditorStore((s) => s.pages);
 
   if (!element) return null;
@@ -1222,35 +1242,47 @@ function SinglePositionProperties({ elementId }: { elementId: string }) {
     isDropdownField(element) ||
     isOptionListField(element);
 
-  const xField = useDeferredValue(displayX, (v) => {
-    const resolved = resolveElementPosition(
-      pages,
-      element.pageNumber,
-      Number(v),
-      element.y,
-    );
-    updateElement(element.id, {
-      x: resolved.x,
-      pageNumber: resolved.pageNumber,
-    });
-  });
-  const yField = useDeferredValue(displayY, (v) => {
-    const resolved = resolveElementPosition(
-      pages,
-      element.pageNumber,
-      element.x,
-      Number(v),
-    );
-    updateElement(element.id, {
-      y: resolved.y,
-      pageNumber: resolved.pageNumber,
-    });
-  });
-  const wField = useDeferredValue(displayW, (v) =>
-    updateElement(element.id, { width: Number(v) }),
+  const xField = usePropertyInput(
+    createPropertyEditKey("x", [element.id]),
+    displayX,
+    (v) => {
+      const resolved = resolveElementPosition(
+        pages,
+        element.pageNumber,
+        Number(v),
+        element.y,
+      );
+      return getElementChanges({
+        x: resolved.x,
+        pageNumber: resolved.pageNumber,
+      });
+    },
   );
-  const hField = useDeferredValue(displayH, (v) =>
-    updateElement(element.id, { height: Number(v) }),
+  const yField = usePropertyInput(
+    createPropertyEditKey("y", [element.id]),
+    displayY,
+    (v) => {
+      const resolved = resolveElementPosition(
+        pages,
+        element.pageNumber,
+        element.x,
+        Number(v),
+      );
+      return getElementChanges({
+        y: resolved.y,
+        pageNumber: resolved.pageNumber,
+      });
+    },
+  );
+  const wField = usePropertyInput(
+    createPropertyEditKey("width", [element.id]),
+    displayW,
+    (v) => getElementChanges({ width: Number(v) }),
+  );
+  const hField = usePropertyInput(
+    createPropertyEditKey("height", [element.id]),
+    displayH,
+    (v) => getElementChanges({ height: Number(v) }),
   );
 
   return (
@@ -1282,6 +1314,7 @@ function MultiTypographySection({
 }) {
   const { t } = useTranslation();
   const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
+  const getBatchChanges = useBatchPropertyChanges();
 
   const allSameFontFamily = elements.every(
     (el) => el.fontFamily === elements[0].fontFamily,
@@ -1297,11 +1330,15 @@ function MultiTypographySection({
     (el) => el.fontWeight === elements[0].fontWeight,
   );
 
-  const fontSizeField = useDeferredValue(
+  const fontSizeField = usePropertyInput(
+    createPropertyEditKey(
+      "fontSize",
+      elements.map((el) => el.id),
+    ),
     allSameFontSize ? elements[0].fontSize : "",
     (v) => {
       const val = Number(v);
-      batchUpdateElements(
+      return getBatchChanges(
         elements.map((el) => {
           const changes: Partial<FormElement> & { fontSize: number } = {
             fontSize: val,
@@ -1403,12 +1440,18 @@ function MultiNameField({
   elements: { name: string; id: string }[];
 }) {
   const { t } = useTranslation();
-  const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
+  const getBatchChanges = useBatchPropertyChanges();
   const allSame = elements.every((el) => el.name === elements[0].name);
-  const nameField = useDeferredValue(allSame ? elements[0].name : "", (v) =>
-    batchUpdateElements(
-      elements.map((el) => ({ id: el.id, changes: { name: v } })),
+  const nameField = usePropertyInput(
+    createPropertyEditKey(
+      "name",
+      elements.map((el) => el.id),
     ),
+    allSame ? elements[0].name : "",
+    (v) =>
+      getBatchChanges(
+        elements.map((el) => ({ id: el.id, changes: { name: v } })),
+      ),
   );
   return (
     <PropertyField label={t("properties.name")}>
@@ -1455,7 +1498,7 @@ function MultiRequiredSwitch({
 
 function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
   const { t } = useTranslation();
-  const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
+  const getBatchChanges = useBatchPropertyChanges();
 
   if (elements.length === 0) return null;
 
@@ -1466,18 +1509,26 @@ function MultiTextFieldProperties({ elements }: { elements: TextField[] }) {
     (el) => el.maxLength === elements[0].maxLength,
   );
 
-  const defaultValueField = useDeferredValue(
+  const defaultValueField = usePropertyInput(
+    createPropertyEditKey(
+      "defaultValue",
+      elements.map((el) => el.id),
+    ),
     allSameDefaultValue ? elements[0].defaultValue : "",
     (v) =>
-      batchUpdateElements(
+      getBatchChanges(
         elements.map((el) => ({ id: el.id, changes: { defaultValue: v } })),
       ),
   );
 
-  const maxLengthField = useDeferredValue(
+  const maxLengthField = usePropertyInput(
+    createPropertyEditKey(
+      "maxLength",
+      elements.map((el) => el.id),
+    ),
     allSameMaxLength ? (elements[0].maxLength ?? "") : "",
     (v) =>
-      batchUpdateElements(
+      getBatchChanges(
         elements.map((el) => ({
           id: el.id,
           changes: { maxLength: v ? Number(v) : undefined },
@@ -1544,17 +1595,21 @@ function MultiCheckboxProperties({ elements }: { elements: Checkbox[] }) {
 
 function MultiRadioProperties({ elements }: { elements: RadioButton[] }) {
   const { t } = useTranslation();
-  const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
+  const getBatchChanges = useBatchPropertyChanges();
 
   if (elements.length === 0) return null;
 
   const allSameGroup = elements.every(
     (el) => el.groupName === elements[0].groupName,
   );
-  const groupNameField = useDeferredValue(
+  const groupNameField = usePropertyInput(
+    createPropertyEditKey(
+      "groupName",
+      elements.map((el) => el.id),
+    ),
     allSameGroup ? elements[0].groupName : "",
     (v) => {
-      batchUpdateElements(
+      return getBatchChanges(
         elements.map((el) => ({ id: el.id, changes: { groupName: v } })),
       );
     },
@@ -1609,16 +1664,20 @@ function MultiDropdownProperties({ elements }: { elements: DropdownField[] }) {
 
 function MultiButtonProperties({ elements }: { elements: ButtonField[] }) {
   const { t } = useTranslation();
-  const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
+  const getBatchChanges = useBatchPropertyChanges();
 
   if (elements.length === 0) return null;
 
   const allSameLabel = elements.every((el) => el.label === elements[0].label);
 
-  const labelField = useDeferredValue(
+  const labelField = usePropertyInput(
+    createPropertyEditKey(
+      "label",
+      elements.map((el) => el.id),
+    ),
     allSameLabel ? elements[0].label : "",
     (v) =>
-      batchUpdateElements(
+      getBatchChanges(
         elements.map((el) => ({ id: el.id, changes: { label: v } })),
       ),
   );
@@ -1636,7 +1695,7 @@ function MultiButtonProperties({ elements }: { elements: ButtonField[] }) {
 
 function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
   const { t } = useTranslation();
-  const batchUpdateElements = useEditorStore((s) => s.batchUpdateElements);
+  const getBatchChanges = useBatchPropertyChanges();
   const pages = useEditorStore((s) => s.pages);
 
   if (elements.length === 0) return null;
@@ -1670,11 +1729,15 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
       isOptionListField(el),
   );
 
-  const xField = useDeferredValue(
+  const xField = usePropertyInput(
+    createPropertyEditKey(
+      "x",
+      elements.map((el) => el.id),
+    ),
     allSameX ? Math.round(elements[0].x) : "",
     (v) => {
       const newX = Number(v);
-      batchUpdateElements(
+      return getBatchChanges(
         elements.map((el) => {
           const resolved = resolveElementPosition(
             pages,
@@ -1690,11 +1753,15 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
       );
     },
   );
-  const yField = useDeferredValue(
+  const yField = usePropertyInput(
+    createPropertyEditKey(
+      "y",
+      elements.map((el) => el.id),
+    ),
     allSameY ? Math.round(elements[0].y) : "",
     (v) => {
       const newY = Number(v);
-      batchUpdateElements(
+      return getBatchChanges(
         elements.map((el) => {
           const resolved = resolveElementPosition(
             pages,
@@ -1710,24 +1777,30 @@ function MultiPositionProperties({ elements }: { elements: FormElement[] }) {
       );
     },
   );
-  const wField = useDeferredValue(
+  const wField = usePropertyInput(
+    createPropertyEditKey(
+      "width",
+      elements.map((el) => el.id),
+    ),
     allSameW ? Math.round(elements[0].width) : "",
     (v) =>
-      batchUpdateElements(
+      getBatchChanges(
         elements.map((el) => ({ id: el.id, changes: { width: Number(v) } })),
       ),
   );
-  const hField = useDeferredValue(heightDisplayValue, (v) =>
-    batchUpdateElements(
-      elements
-        .filter(
-          (el) =>
-            !(isTextField(el) && !el.multiline) &&
-            !isDropdownField(el) &&
-            !isOptionListField(el),
-        )
-        .map((el) => ({ id: el.id, changes: { height: Number(v) } })),
+  const hField = usePropertyInput(
+    createPropertyEditKey(
+      "height",
+      resizableElements.map((el) => el.id),
     ),
+    heightDisplayValue,
+    (v) =>
+      getBatchChanges(
+        resizableElements.map((el) => ({
+          id: el.id,
+          changes: { height: Number(v) },
+        })),
+      ),
   );
 
   return (
@@ -1999,10 +2072,11 @@ export function PropertiesPanel() {
 
 function GuideProperties({ guideId }: { guideId: string }) {
   const { t } = useTranslation();
-  const guide = useEditorStore((s) => s.guides.find((g) => g.id === guideId));
+  const guide = useEditorStore((s) =>
+    getDisplayGuides(s).find((g) => g.id === guideId),
+  );
   const previewGuide = useEditorStore((s) => s.previewGuide);
   const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
-  const updateGuidePosition = useEditorStore((s) => s.updateGuidePosition);
   const removeGuide = useEditorStore((s) => s.removeGuide);
   const pages = useEditorStore((s) => s.pages);
 
@@ -2019,10 +2093,21 @@ function GuideProperties({ guideId }: { guideId: string }) {
     ? (pages[0]?.height ?? Infinity)
     : (pages[0]?.width ?? Infinity);
 
-  const posField = useDeferredValue(Math.round(livePosition), (v) => {
-    if (guide)
-      updateGuidePosition(guide.id, Math.max(0, Math.min(Number(v), maxPos)));
-  });
+  const posField = usePropertyInput(
+    createPropertyEditKey("position", [guideId]),
+    Math.round(livePosition),
+    (v) =>
+      guide
+        ? {
+            guideUpdates: [
+              {
+                id: guide.id,
+                position: Math.max(0, Math.min(Number(v), maxPos)),
+              },
+            ],
+          }
+        : {},
+  );
 
   if (!guide) return null;
 
@@ -2063,7 +2148,7 @@ function PropertiesPanelContent() {
   const { t } = useTranslation();
   const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
   const selectedIds = useEditorStore((s) => s.selectedIds);
-  const elements = useEditorStore((s) => s.elements);
+  const elements = useEditorStore(getDisplayElements);
   const pages = useEditorStore((s) => s.pages);
   const updateElement = useEditorStore((s) => s.updateElement);
 
