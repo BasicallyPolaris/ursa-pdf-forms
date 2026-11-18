@@ -10,6 +10,7 @@ import {
   StandardFonts,
 } from "pdf-lib";
 import { getFieldsInTabOrder } from "@/lib/field-tab-order";
+import { createJavaScriptAction } from "@/lib/pdf-javascript-action";
 
 const RESOLVED_FONT_TO_ENUM_KEY: Record<string, keyof typeof StandardFonts> = {
   Helvetica: "Helvetica",
@@ -119,6 +120,7 @@ export async function exportFormElements(
   }
 
   const form = pdf.getForm();
+  const calculationFields: Array<{ ref: PDFRef; order: number }> = [];
 
   const validElements = elements.filter(
     (el) =>
@@ -196,6 +198,17 @@ export async function exportFormElements(
             () => form.createTextField(safeName),
           );
           addTextField(field, page, { ...el, name: safeName }, view, pdf, isFirst);
+          if (isFirst && el.calculationScript?.trim()) {
+            field.acroField.dict.set(
+              PDFName.of("AA"),
+              pdf.context.obj({ C: createJavaScriptAction(pdf.context, el.calculationScript) }),
+            );
+            field.enableReadOnly();
+            calculationFields.push({
+              ref: field.ref,
+              order: el.calculationOrder ?? Number.MAX_SAFE_INTEGER,
+            });
+          }
           break;
         }
         case "checkbox": {
@@ -290,6 +303,13 @@ export async function exportFormElements(
 
   if ([...customPageOrders.values()].some((indexes) => indexes.size > 0)) {
     declareAdobeWidgetOrderExtension(pdf);
+  }
+  if (calculationFields.length > 0) {
+    calculationFields.sort((a, b) => a.order - b.order);
+    form.acroForm.dict.set(
+      PDFName.of("CO"),
+      pdf.context.obj(calculationFields.map(({ ref }) => ref)),
+    );
   }
   return pdf.save();
 }
@@ -480,6 +500,14 @@ function addButtonField(
     borderColor: borderColor ? rgb(borderColor.r, borderColor.g, borderColor.b) : rgb(0.5, 0.5, 0.5),
     borderWidth: el.borderWidth > 0 ? el.borderWidth : 1,
   });
+
+  if (el.actionScript?.trim()) {
+    const widgets = field.acroField.getWidgets();
+    widgets[widgets.length - 1].dict.set(
+      PDFName.of("A"),
+      createJavaScriptAction(pdfDoc.context, el.actionScript),
+    );
+  }
 
   if (isFirst && el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {
     field.setFontSize(el.fontSize);

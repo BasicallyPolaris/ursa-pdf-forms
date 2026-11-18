@@ -107,6 +107,8 @@ function parseField(raw: unknown): FormElement | null {
   };
 
   if (type === "text") {
+    const calculationScript = readString(raw, "calculationScript");
+    const calculationOrder = readFiniteNumber(raw, "calculationOrder", 0);
     const fontSize = readFiniteNumber(raw, "fontSize", 12);
     const multiline = readBoolean(raw, "multiline", false);
     const width = safePositive(readFiniteNumber(raw, "width", 0), 150);
@@ -121,6 +123,10 @@ function parseField(raw: unknown): FormElement | null {
       height,
       name: readString(raw, "name").slice(0, MAX_FIELD_NAME_LENGTH),
       defaultValue: readString(raw, "defaultValue"),
+      ...(calculationScript.trim() ? { calculationScript } : {}),
+      ...(Number.isSafeInteger(calculationOrder) && calculationOrder > 0
+        ? { calculationOrder }
+        : {}),
       fontSize,
       multiline,
       required: readBoolean(raw, "required", false),
@@ -185,6 +191,7 @@ function parseField(raw: unknown): FormElement | null {
   }
 
   if (type === "button") {
+    const actionScript = readString(raw, "actionScript");
     const fontSize = readFiniteNumber(raw, "fontSize", 12);
     const width = safePositive(readFiniteNumber(raw, "width", 0), 80);
     const height = safePositive(
@@ -199,6 +206,7 @@ function parseField(raw: unknown): FormElement | null {
       height,
       name: readString(raw, "name").slice(0, MAX_FIELD_NAME_LENGTH),
       label: readString(raw, "label", "Button"),
+      ...(actionScript.trim() ? { actionScript } : {}),
       fontSize,
       ...sanitizeTypography(raw),
     };

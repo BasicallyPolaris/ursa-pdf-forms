@@ -8,6 +8,8 @@ export interface TextField {
   pageNumber: number;
   name: string;
   defaultValue: string;
+  calculationScript?: string;
+  calculationOrder?: number;
   fontSize: number;
   multiline: boolean;
   required: boolean;
@@ -77,6 +79,7 @@ export interface ButtonField {
   pageNumber: number;
   name: string;
   label: string;
+  actionScript?: string;
   fontSize: number;
   fontFamily: string;
   fontWeight: "regular" | "bold" | "italic" | "bold-italic";

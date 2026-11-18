@@ -13,7 +13,7 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
 }));
 
 import { PropertiesPanel } from "@/components/properties-panel";
-import { createTextField } from "@/lib/form-element-model";
+import { createButtonField, createTextField } from "@/lib/form-element-model";
 import {
   canUndo,
   getDisplayElements,
@@ -28,6 +28,64 @@ describe("PropertiesPanel", () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it("creates a calculation from selected source fields and updates linked widgets", () => {
+    const quantity = createTextField({
+      name: "Quantity", x: 10, y: 10, pageNumber: 1,
+    });
+    const price = createTextField({
+      name: "Unit price", x: 10, y: 40, pageNumber: 1,
+    });
+    const total = createTextField({
+      name: "Total", x: 10, y: 70, pageNumber: 1,
+    });
+    const linked = { ...total, id: "linked-total", x: 200 };
+    const store = useEditorStore.getState();
+    store.setPdf("test.pdf", new Uint8Array([1]), [
+      { pageNumber: 1, width: 612, height: 792 },
+    ]);
+    store.setInitialElements([quantity, price, total, linked]);
+    store.selectElements(new Set([linked.id]));
+
+    render(<PropertiesPanel />);
+    fireEvent.change(screen.getByRole("combobox", { name: "Operation" }), {
+      target: { value: "PRD" },
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Quantity" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Unit price" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use calculation" }));
+    const script = 'AFSimple_Calculate("PRD", ["Quantity","Unit price"]);';
+    expect(screen.getByRole("textbox", { name: "JavaScript" })).toHaveValue(script);
+    expect(useEditorStore.getState().elements.slice(2)).toMatchObject([
+      { id: total.id, calculationScript: script },
+      { id: linked.id, calculationScript: script },
+    ]);
+    act(() => undo());
+    expect(screen.getByRole("textbox", { name: "JavaScript" })).toHaveValue("");
+  });
+
+  it("commits a multiline button script on blur", () => {
+    const button = createButtonField({
+      name: "Update", x: 10, y: 10, pageNumber: 1,
+    });
+    const store = useEditorStore.getState();
+    store.setPdf("test.pdf", new Uint8Array([1]), [
+      { pageNumber: 1, width: 612, height: 792 },
+    ]);
+    store.setInitialElements([button]);
+    store.selectElements(new Set([button.id]));
+
+    render(<PropertiesPanel />);
+    const input = screen.getByRole("textbox", { name: "JavaScript" });
+    act(() => input.focus());
+    const script = 'this.getField("Quantity").value = 4;\nthis.calculateNow();';
+    fireEvent.change(input, { target: { value: script } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(canUndo()).toBe(false);
+    act(() => input.blur());
+    expect(useEditorStore.getState().elements[0]).toMatchObject({ actionScript: script });
+    expect(canUndo()).toBe(true);
   });
 
   it("shows the selected field properties when changing selection from a focused editor", async () => {

@@ -161,6 +161,25 @@
     "horizontal": "Horizontale Lineal",
     "vertical": "Vertikale Lineal"
   },
+  "formScript": {
+    "calculation": "Berechnung",
+    "operation": "Rechenart",
+    "operations": {
+      "SUM": "Summe",
+      "PRD": "Produkt",
+      "AVG": "Mittelwert",
+      "MIN": "Minimum",
+      "MAX": "Maximum"
+    },
+    "sourceFields": "Quellfelder",
+    "useCalculation": "Berechnung verwenden",
+    "javascript": "JavaScript",
+    "calculationHelp": "Der PDF-Viewer führt dieses Skript aus, wenn sich Formularwerte ändern. Weise das Ergebnis event.value zu.",
+    "calculationOrder": "Berechnungsreihenfolge",
+    "automatic": "Automatisch",
+    "buttonAction": "Schaltflächenaktion",
+    "buttonHelp": "Der PDF-Viewer führt dieses Skript aus, wenn die Schaltfläche aktiviert wird."
+  },
   "fieldOrder": {
     "title": "Feldreihenfolge ändern",
     "description": "Ziehe die Felder in die gewünschte Tab-Reihenfolge.",

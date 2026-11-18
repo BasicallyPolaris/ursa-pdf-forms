@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { PDFDict, PDFDocument, PDFName } from "pdf-lib";
+import { PDFArray, PDFDict, PDFDocument, PDFName } from "pdf-lib";
 import { getFieldsInTabOrder } from "@/lib/field-tab-order";
 import { exportFormElements } from "@/lib/pdf-export-engine";
 import { extractAcroFormFields } from "@/lib/pdf-form-reader";
-import { createTextField, createCheckbox, createRadioButton, type FormElement } from "@/lib/form-element-model";
+import { createTextField, createButtonField, createCheckbox, createRadioButton, type FormElement } from "@/lib/form-element-model";
+import { createCalculationScript } from "@/lib/form-calculation";
+import { readJavaScriptAction } from "@/lib/pdf-javascript-action";
 
 async function createFixturePdf(): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
@@ -20,6 +22,47 @@ async function createCroppedTopFixturePdf(): Promise<Uint8Array> {
 }
 
 describe("exportFormElements", () => {
+  it("round-trips calculations in execution order and per-widget button scripts", async () => {
+    const subtotal = createTextField({
+      name: "subtotal", pageNumber: 1, x: 10, y: 40,
+    });
+    const total = createTextField({
+      name: "total", pageNumber: 1, x: 10, y: 75,
+    });
+    const template = createCalculationScript("PRD", ["quantity", "price"]);
+    const custom = 'event.value = Number(this.getField("subtotal").value) + 3;';
+    const button = createButtonField({
+      name: "update", pageNumber: 1, x: 10, y: 110,
+    });
+    const buttonScript = 'this.getField("quantity").value = 4; // Änderung';
+    const elements: FormElement[] = [
+      { ...total, calculationScript: custom, calculationOrder: 2 },
+      { ...subtotal, calculationScript: template, calculationOrder: 1 },
+      { ...button, actionScript: buttonScript },
+      { ...button, id: "second-widget", x: 140, actionScript: "void 0;" },
+    ];
+    const original = await createFixturePdf();
+    const exported = await exportFormElements(original, elements);
+    const pdf = await PDFDocument.load(exported);
+    const form = pdf.getForm();
+
+    expect(form.acroForm.dict.lookup(PDFName.of("CO"), PDFArray).asArray()).toEqual([
+      form.getTextField("subtotal").ref,
+      form.getTextField("total").ref,
+    ]);
+    expect(form.getTextField("subtotal").isReadOnly()).toBe(true);
+    expect(form.getButton("update").acroField.getWidgets().map(
+      (widget) => readJavaScriptAction(widget.dict.lookup(PDFName.of("A"))),
+    )).toEqual([buttonScript, "void 0;"]);
+
+    expect(await extractAcroFormFields(exported)).toMatchObject([
+      { name: "total", calculationScript: custom, calculationOrder: 2 },
+      { name: "subtotal", calculationScript: template, calculationOrder: 1 },
+      { name: "update", actionScript: buttonScript },
+      { name: "update", actionScript: "void 0;" },
+    ]);
+  });
+
   it("exports and reopens per-page tab order across widget types", async () => {
     const source = await PDFDocument.create();
     const page = source.addPage();
