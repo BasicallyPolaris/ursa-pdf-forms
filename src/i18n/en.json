@@ -213,10 +213,12 @@
   },
   "fieldOrder": {
     "title": "Reorder Fields",
-    "description": "Set the order in which Tab moves between fields on each page of the exported PDF.",
+    "description": "Drag fields into the order you want Tab to follow.",
     "unnamed": "Unnamed field",
-    "moveUp": "Move {{name}} up",
-    "moveDown": "Move {{name}} down",
+    "move": "Move {{name}}, position {{position}}",
+    "moved": "{{name}} moved to position {{position}}",
+    "keyboardHelp": "Use the Up and Down arrow keys to move the field.",
+    "noFieldsOnPage": "This page has no fields.",
     "apply": "Apply"
   },
   "file": {

@@ -163,10 +163,12 @@
   },
   "fieldOrder": {
     "title": "Feldreihenfolge ändern",
-    "description": "Lege fest, in welcher Reihenfolge die Tabulatortaste die Felder auf jeder Seite der exportierten PDF-Datei auswählt.",
+    "description": "Ziehe die Felder in die gewünschte Tab-Reihenfolge.",
     "unnamed": "Unbenanntes Feld",
-    "moveUp": "{{name}} nach oben verschieben",
-    "moveDown": "{{name}} nach unten verschieben",
+    "move": "{{name}} verschieben, Position {{position}}",
+    "moved": "{{name}} auf Position {{position}} verschoben",
+    "keyboardHelp": "Verschiebe das Feld mit den Pfeiltasten nach oben oder unten.",
+    "noFieldsOnPage": "Auf dieser Seite gibt es keine Felder.",
     "apply": "Übernehmen"
   },
   "file": {
