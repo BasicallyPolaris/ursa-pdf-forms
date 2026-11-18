@@ -8,6 +8,8 @@ import {
   type PDFPage,
 } from "pdf-lib";
 import type { FormElement } from "./form-element-model";
+import { readJavaScriptAction } from "@/lib/pdf-javascript-action";
+import { readNumberDecimals } from "@/lib/numeric-form-field";
 import { rgbToHex } from "./font-utils";
 import {
   getPageViewQuadForPdfLibPage,
@@ -31,6 +33,25 @@ export async function extractAcroFormFields(
 
   const ctx = pdf.context;
   const pageRefToIndex = buildPageRefMap(pdf);
+  const calculationOrders = new Map<PDFDict, number>();
+  const calculationOrder = acroForm.lookup(PDFName.of("CO"));
+  if (calculationOrder instanceof PDFArray) {
+    for (let index = 0; index < calculationOrder.size(); index++) {
+      const field = resolveDict(ctx, calculationOrder.get(index));
+      if (field) calculationOrders.set(field, index + 1);
+    }
+  }
+  const widgetTabOrders = new Map<PDFDict, number>();
+  for (const page of pages) {
+    const tabs = page.node.get(PDFName.of("Tabs"));
+    if (tabs !== PDFName.of("A") && tabs !== PDFName.of("W")) continue;
+    const annotations = page.node.Annots();
+    if (!annotations) continue;
+    for (let index = 0; index < annotations.size(); index++) {
+      const annotation = resolveDict(ctx, annotations.get(index));
+      if (annotation) widgetTabOrders.set(annotation, index);
+    }
+  }
 
   for (let i = 0; i < fieldsArray.size(); i++) {
     const fieldRef = fieldsArray.get(i);
@@ -45,6 +66,8 @@ export async function extractAcroFormFields(
       generateId,
       elements,
       null,
+      widgetTabOrders,
+      calculationOrders,
     );
   }
 
@@ -86,6 +109,8 @@ function collectFields(
   generateId: () => string,
   elements: FormElement[],
   parentPartialName: string | null,
+  widgetTabOrders: Map<PDFDict, number>,
+  calculationOrders: Map<PDFDict, number>,
 ): void {
   const kids = fieldDict.lookup(PDFName.of("Kids"));
 
@@ -105,6 +130,7 @@ function collectFields(
           generateId,
           elements,
           parentName ?? "",
+          widgetTabOrders,
         );
         return;
       }
@@ -122,6 +148,8 @@ function collectFields(
         generateId,
         elements,
         parentName,
+        widgetTabOrders,
+        calculationOrders,
       );
     }
     return;
@@ -148,6 +176,7 @@ function collectFields(
 
   if (width <= 0 || height <= 0) return;
 
+  const elementIndex = elements.length;
   if (ft === PDFName.of("Tx")) {
     elements.push(
       extractTextField(
@@ -160,6 +189,7 @@ function collectFields(
         height,
         pageNumber,
         parentPartialName,
+        calculationOrders,
       ),
     );
   } else if (ft === PDFName.of("Btn")) {
@@ -240,6 +270,10 @@ function collectFields(
       );
     }
   }
+  const tabOrder = widgetTabOrders.get(fieldDict);
+  if (tabOrder !== undefined && elements[elementIndex]) {
+    elements[elementIndex].tabOrder = tabOrder;
+  }
 }
 
 function collectRadioKids(
@@ -251,6 +285,7 @@ function collectRadioKids(
   generateId: () => string,
   elements: FormElement[],
   groupName: string,
+  widgetTabOrders: Map<PDFDict, number>,
 ): void {
   const optValues = getOptValues(parentDict);
 
@@ -279,6 +314,7 @@ function collectRadioKids(
 
     const exportValue =
       optValues[i] ?? getExportValue(kidDict) ?? `Option${i + 1}`;
+    const tabOrder = widgetTabOrders.get(kidDict);
 
     elements.push({
       type: "radio",
@@ -291,6 +327,7 @@ function collectRadioKids(
       groupName,
       value: exportValue,
       label: "",
+      ...(tabOrder === undefined ? {} : { tabOrder }),
     });
   }
 }
@@ -305,6 +342,7 @@ function extractTextField(
   height: number,
   pageNumber: number,
   parentName: string | null,
+  calculationOrders: Map<PDFDict, number>,
 ): FormElement {
   const name = getFieldName(dict) ?? parentName ?? "";
   const v = getInheritableAttr(dict, PDFName.of("V"), ctx);
@@ -321,6 +359,13 @@ function extractTextField(
   const maxLength = maxLen instanceof PDFNumber ? maxLen.asNumber() : undefined;
   const { backgroundColor, borderColor } = parseAppearanceColors(dict, ctx);
   const borderWidth = parseBorderWidth(dict, ctx);
+  const scriptFor = (event: "C" | "K" | "F") =>
+    findInField(dict, ctx, (field) =>
+      readJavaScriptAction(getAdditionalAction(field, event)),
+    );
+  const calculationScript = scriptFor("C");
+  const numberDecimals = readNumberDecimals(scriptFor("K"), scriptFor("F"));
+  const calculationOrder = findInField(dict, ctx, (field) => calculationOrders.get(field));
 
   return {
     type: "text",
@@ -332,6 +377,8 @@ function extractTextField(
     pageNumber,
     name,
     defaultValue,
+    ...(numberDecimals === undefined ? {} : { numberDecimals }),
+    ...(calculationScript?.trim() ? { calculationScript, calculationOrder } : {}),
     fontSize,
     multiline,
     required,
@@ -390,6 +437,10 @@ function extractButtonField(
   const label = extractButtonLabel(dict);
   const { backgroundColor, borderColor } = parseAppearanceColors(dict, ctx);
   const borderWidth = parseBorderWidth(dict, ctx);
+  const actionScript = findInField(dict, ctx, (field) =>
+    readJavaScriptAction(field.lookup(PDFName.of("A"))) ??
+    readJavaScriptAction(getAdditionalAction(field, "U")),
+  );
 
   return {
     type: "button",
@@ -401,6 +452,7 @@ function extractButtonField(
     pageNumber,
     name,
     label: label || "Button",
+    ...(actionScript?.trim() ? { actionScript } : {}),
     fontSize,
     fontFamily,
     fontWeight,
@@ -763,21 +815,27 @@ function getInheritableAttr(
   name: PDFName,
   ctx: LookupCtx,
 ): unknown {
+  return findInField(dict, ctx, (field) => field.get(name)) ?? null;
+}
+
+function getAdditionalAction(field: PDFDict, event: "C" | "K" | "F" | "U"): unknown {
+  const actions = field.lookup(PDFName.of("AA"));
+  return actions instanceof PDFDict ? actions.lookup(PDFName.of(event)) : undefined;
+}
+
+function findInField<T>(
+  dict: PDFDict,
+  ctx: LookupCtx,
+  find: (field: PDFDict) => T | undefined,
+): T | undefined {
+  const visited = new Set<PDFDict>();
   let current: PDFDict | null = dict;
-  while (current) {
-    const val = current.get(name);
-    if (val != null) return val;
-    const parent = current.get(PDFName.of("Parent"));
-    if (parent instanceof PDFRef) {
-      const obj = ctx.lookup(parent);
-      current = obj instanceof PDFDict ? obj : null;
-    } else if (parent instanceof PDFDict) {
-      current = parent;
-    } else {
-      break;
-    }
+  while (current && !visited.has(current)) {
+    visited.add(current);
+    const value = find(current);
+    if (value !== undefined) return value;
+    current = resolveDict(ctx, current.get(PDFName.of("Parent")));
   }
-  return null;
 }
 
 interface Rect {

@@ -3,11 +3,15 @@ import {
   PDFDict,
   PDFDocument,
   PDFName,
+  PDFNumber,
   PDFPage,
   PDFRef,
   rgb,
   StandardFonts,
 } from "pdf-lib";
+import { getFieldsInTabOrder } from "@/lib/field-tab-order";
+import { createJavaScriptAction } from "@/lib/pdf-javascript-action";
+import { isNumberDecimals, isNumericFieldValue, numericFieldAction } from "@/lib/numeric-form-field";
 
 const RESOLVED_FONT_TO_ENUM_KEY: Record<string, keyof typeof StandardFonts> = {
   Helvetica: "Helvetica",
@@ -117,6 +121,7 @@ export async function exportFormElements(
   }
 
   const form = pdf.getForm();
+  const calculationFields: Array<{ ref: PDFRef; order: number }> = [];
 
   const validElements = elements.filter(
     (el) =>
@@ -147,6 +152,25 @@ export async function exportFormElements(
     (el): el is RadioButton => el.type === "radio",
   );
   const nonRadioElements = validElements.filter((el) => el.type !== "radio");
+  const customPageOrders = new Map<number, Map<FormElement, number>>();
+  for (const element of validElements) {
+    if (
+      element.tabOrder !== undefined &&
+      !customPageOrders.has(element.pageNumber)
+    ) {
+      customPageOrders.set(element.pageNumber, new Map());
+    }
+  }
+
+  function recordWidget(
+    element: FormElement,
+    page: PDFPage,
+    previousCount: number,
+  ) {
+    if (page.node.Annots()?.size() === previousCount + 1) {
+      customPageOrders.get(element.pageNumber)?.set(element, previousCount);
+    }
+  }
 
   for (let i = 0; i < nonRadioElements.length; i++) {
     const el = nonRadioElements[i];
@@ -165,6 +189,7 @@ export async function exportFormElements(
       usedNames.add(safeName);
     }
 
+    const previousCount = page.node.Annots()?.size() ?? 0;
     try {
       switch (el.type) {
         case "text": {
@@ -174,6 +199,15 @@ export async function exportFormElements(
             () => form.createTextField(safeName),
           );
           addTextField(field, page, { ...el, name: safeName }, view, pdf, isFirst);
+          if (isFirst) {
+            addTextFieldActions(field, el, pdf);
+            if (el.calculationScript?.trim()) {
+              calculationFields.push({
+                ref: field.ref,
+                order: el.calculationOrder ?? Number.MAX_SAFE_INTEGER,
+              });
+            }
+          }
           break;
         }
         case "checkbox": {
@@ -215,6 +249,8 @@ export async function exportFormElements(
       }
     } catch (err) {
       console.warn(`Skipping field "${safeName}" due to export error:`, err);
+    } finally {
+      recordWidget(el, page, previousCount);
     }
   }
 
@@ -235,19 +271,62 @@ export async function exportFormElements(
         const page = pdf.getPage(el.pageNumber - 1);
         const view = getPageViewQuadForPdfLibPage(page);
         const { x, y } = editorRectToPdfLowerLeft(el, view);
-        radioGroup.addOptionToPage(el.value || el.id, page, {
-          x,
-          y,
-          width: el.width,
-          height: el.height,
-        });
+        const previousCount = page.node.Annots()?.size() ?? 0;
+        try {
+          radioGroup.addOptionToPage(el.value || el.id, page, {
+            x,
+            y,
+            width: el.width,
+            height: el.height,
+          });
+        } finally {
+          recordWidget(el, page, previousCount);
+        }
       }
     } catch (err) {
       console.warn(`Skipping radio group "${groupName}" due to export error:`, err);
     }
   }
 
+  for (const [pageNumber, widgetIndexes] of customPageOrders) {
+    const page = pdf.getPage(pageNumber - 1);
+    const annotations = page.node.Annots();
+    if (!annotations || widgetIndexes.size === 0) continue;
+    const widgets = getFieldsInTabOrder([...widgetIndexes.keys()]).map(
+      (element) => annotations.get(widgetIndexes.get(element)!),
+    );
+    const slots = [...widgetIndexes.values()].sort((a, b) => a - b);
+    slots.forEach((slot, index) => annotations.set(slot, widgets[index]));
+    page.node.set(PDFName.of("Tabs"), PDFName.of("W"));
+  }
+
+  if ([...customPageOrders.values()].some((indexes) => indexes.size > 0)) {
+    declareAdobeWidgetOrderExtension(pdf);
+  }
+  if (calculationFields.length > 0) {
+    calculationFields.sort((a, b) => a.order - b.order);
+    form.acroForm.dict.set(
+      PDFName.of("CO"),
+      pdf.context.obj(calculationFields.map(({ ref }) => ref)),
+    );
+  }
   return pdf.save();
+}
+
+function declareAdobeWidgetOrderExtension(pdf: PDFDocument): void {
+  const extensionsKey = PDFName.of("Extensions");
+  const adobeKey = PDFName.of("ADBE");
+  const levelKey = PDFName.of("ExtensionLevel");
+  const existingExtensions = pdf.catalog.lookup(extensionsKey);
+  const extensions = existingExtensions instanceof PDFDict
+    ? existingExtensions
+    : pdf.context.obj({});
+  const adobe = extensions.lookup(adobeKey);
+  const level = adobe instanceof PDFDict ? adobe.lookup(levelKey) : undefined;
+  if (level instanceof PDFNumber && level.asNumber() >= 3) return;
+
+  extensions.set(adobeKey, pdf.context.obj({ BaseVersion: "1.7", ExtensionLevel: 3 }));
+  pdf.catalog.set(extensionsKey, extensions);
 }
 
 function getOrCreateField<T>(
@@ -297,7 +376,12 @@ function addTextField(
       field.setFontSize(el.fontSize);
     }
 
-    field.setText(el.defaultValue ?? "");
+    const value = el.defaultValue ?? "";
+    field.setText(
+      isNumberDecimals(el.numberDecimals) && !isNumericFieldValue(value)
+        ? ""
+        : value,
+    );
 
     if (el.multiline) {
       field.enableMultiline();
@@ -317,6 +401,40 @@ function addTextField(
   }
 
   field.updateAppearances(font);
+}
+
+function addTextFieldActions(
+  field: PdfTextField,
+  element: TextField,
+  pdf: PDFDocument,
+): void {
+  const actions = pdf.context.obj({});
+  const { numberDecimals, calculationScript } = element;
+  if (isNumberDecimals(numberDecimals)) {
+    actions.set(
+      PDFName.of("K"),
+      createJavaScriptAction(
+        pdf.context,
+        numericFieldAction("Keystroke", numberDecimals),
+      ),
+    );
+    actions.set(
+      PDFName.of("F"),
+      createJavaScriptAction(
+        pdf.context,
+        numericFieldAction("Format", numberDecimals),
+      ),
+    );
+  }
+  if (calculationScript?.trim()) {
+    actions.set(
+      PDFName.of("C"),
+      createJavaScriptAction(pdf.context, calculationScript),
+    );
+    field.enableReadOnly();
+  }
+  if (actions.keys().length > 0)
+    field.acroField.dict.set(PDFName.of("AA"), actions);
 }
 
 function addCheckboxField(
@@ -420,6 +538,14 @@ function addButtonField(
     borderColor: borderColor ? rgb(borderColor.r, borderColor.g, borderColor.b) : rgb(0.5, 0.5, 0.5),
     borderWidth: el.borderWidth > 0 ? el.borderWidth : 1,
   });
+
+  if (el.actionScript?.trim()) {
+    const widgets = field.acroField.getWidgets();
+    widgets[widgets.length - 1].dict.set(
+      PDFName.of("A"),
+      createJavaScriptAction(pdfDoc.context, el.actionScript),
+    );
+  }
 
   if (isFirst && el.fontSize && Number.isFinite(el.fontSize) && el.fontSize > 0) {
     field.setFontSize(el.fontSize);

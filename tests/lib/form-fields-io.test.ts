@@ -8,6 +8,7 @@ import {
 } from "@/lib/form-fields-io";
 import {
   createCheckbox,
+  createButtonField,
   createTextField,
   isTextField,
 } from "@/lib/form-element-model";
@@ -24,9 +25,19 @@ const pagesB: PageInfo[] = [
 ];
 
 describe("form-fields-io", () => {
+  it("round-trips optional calculation and button scripts", () => {
+    const text = createTextField({ x: 10, y: 10, pageNumber: 1, name: "total" });
+    const button = createButtonField({ x: 10, y: 40, pageNumber: 1, name: "reset" });
+    const fields = [
+      { ...text, calculationScript: "event.value = 7;\n", calculationOrder: 1, numberDecimals: 0 },
+      { ...button, actionScript: 'app.alert("Fertig!");' },
+    ];
+    expect(parseFormFieldsJson(serializeFormFields(fields, pagesA)).fields).toEqual(fields);
+  });
+
   it("round-trips fields and page metadata", () => {
     const field = createTextField({ x: 100, y: 200, pageNumber: 1, name: "name1" });
-    const json = serializeFormFields([field], pagesA);
+    const json = serializeFormFields([{ ...field, tabOrder: 0 }], pagesA);
     const doc = parseFormFieldsJson(json);
     expect(doc.pages).toEqual([
       { width: 612, height: 792 },
@@ -35,6 +46,7 @@ describe("form-fields-io", () => {
     expect(doc.fields).toHaveLength(1);
     expect(isTextField(doc.fields[0]) && doc.fields[0].name).toBe("name1");
     expect(doc.fields[0].x).toBe(100);
+    expect(doc.fields[0].tabOrder).toBe(0);
   });
 
   it("scales coordinates when target page size differs", () => {

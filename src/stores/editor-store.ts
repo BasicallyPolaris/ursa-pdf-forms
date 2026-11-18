@@ -73,7 +73,9 @@ function mergeElement(
   el: FormElement,
   updates: Partial<FormElement>,
 ): FormElement {
-  return { ...el, ...sanitizePartial(updates) } as FormElement;
+  const next = { ...el, ...sanitizePartial(updates) } as FormElement;
+  if (next.pageNumber !== el.pageNumber) delete next.tabOrder;
+  return next;
 }
 
 export type PropertyEditKey = string & {
@@ -186,6 +188,7 @@ function cloneElementsWithNewIds(
       ? el.y + (offY || opts.offsetIfSamePage)
       : el.y + (offY || 0);
     const clone = structuredClone(el);
+    delete clone.tabOrder;
     const newEl = mergeElement(clone, {
       id: generatePastedId(),
       pageNumber: opts.targetPage ?? el.pageNumber,

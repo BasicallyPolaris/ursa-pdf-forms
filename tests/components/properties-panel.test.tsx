@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -13,7 +14,7 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
 }));
 
 import { PropertiesPanel } from "@/components/properties-panel";
-import { createTextField } from "@/lib/form-element-model";
+import { createButtonField, createTextField } from "@/lib/form-element-model";
 import {
   canUndo,
   getDisplayElements,
@@ -28,6 +29,107 @@ describe("PropertiesPanel", () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it("sets and removes number formatting on a text field", () => {
+    const quantity = createTextField({
+      name: "Quantity",
+      pageNumber: 1,
+      x: 10,
+      y: 10,
+    });
+    const store = useEditorStore.getState();
+    store.setPdf("test.pdf", new Uint8Array([1]), []);
+    store.setInitialElements([quantity]);
+    store.selectElements(new Set([quantity.id]));
+
+    render(<PropertiesPanel />);
+    const type = screen.getByRole("combobox", { name: "Input type" });
+    expect(type).toHaveValue("text");
+    fireEvent.change(type, { target: { value: "number" } });
+    const decimals = screen.getByRole("combobox", { name: "Decimal places" });
+    expect(decimals).toHaveValue("2");
+    fireEvent.change(decimals, { target: { value: "0" } });
+    expect(useEditorStore.getState().elements[0]).toMatchObject({ numberDecimals: 0 });
+    fireEvent.change(type, { target: { value: "text" } });
+    expect(screen.queryByRole("combobox", { name: "Decimal places" })).toBeNull();
+    expect(useEditorStore.getState().elements[0]).toMatchObject({ numberDecimals: undefined });
+  });
+
+  it("inserts a preset into the calculation draft before saving linked widgets", () => {
+    const quantity = createTextField({
+      name: "Quantity", x: 10, y: 10, pageNumber: 1,
+    });
+    const price = createTextField({
+      name: "Unit price", x: 10, y: 40, pageNumber: 1,
+    });
+    const total = createTextField({
+      name: "Total", x: 10, y: 70, pageNumber: 1,
+    });
+    const linked = { ...total, id: "linked-total", x: 200 };
+    const store = useEditorStore.getState();
+    store.setPdf("test.pdf", new Uint8Array([1]), [
+      { pageNumber: 1, width: 612, height: 792 },
+    ]);
+    store.setInitialElements([quantity, price, total, linked]);
+    store.selectElements(new Set([linked.id]));
+
+    render(<PropertiesPanel />);
+    expect(screen.queryByRole("combobox", { name: "Operation" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Add Calculation" }));
+    const editor = within(screen.getByRole("dialog", { name: "Add Calculation" }));
+    fireEvent.click(editor.getByRole("button", { name: "Use preset" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Operation" }), {
+      target: { value: "PRD" },
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Quantity" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Unit price" }));
+    fireEvent.click(screen.getByRole("button", { name: "Insert code" }));
+    const script = 'AFSimple_Calculate("PRD", ["Quantity","Unit price"]);';
+    expect(editor.getByRole("textbox", { name: "JavaScript" })).toHaveValue(script);
+    expect(useEditorStore.getState().elements.slice(2)).toEqual([total, linked]);
+    fireEvent.click(editor.getByRole("button", { name: "Save" }));
+    expect(screen.getByRole("button", { name: "Edit Calculation" })).toBeVisible();
+    expect(useEditorStore.getState().elements.slice(2)).toMatchObject([
+      { id: total.id, calculationScript: script },
+      { id: linked.id, calculationScript: script },
+    ]);
+    act(() => undo());
+    fireEvent.click(screen.getByRole("button", { name: "Add Calculation" }));
+    expect(screen.getByRole("textbox", { name: "JavaScript" })).toHaveValue("");
+  });
+
+  it("saves or discards a multiline button script from the editor dialog", () => {
+    const button = createButtonField({
+      name: "Update", x: 10, y: 10, pageNumber: 1,
+    });
+    const store = useEditorStore.getState();
+    store.setPdf("test.pdf", new Uint8Array([1]), [
+      { pageNumber: 1, width: 612, height: 792 },
+    ]);
+    store.setInitialElements([button]);
+    store.selectElements(new Set([button.id]));
+
+    render(<PropertiesPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "Add JavaScript" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Button JavaScript" }));
+    expect(dialog.getByRole("link", { name: "Acrobat JavaScript reference" }))
+      .toHaveAttribute("href", "https://developer.adobe.com/acrobat-pdfl-sdk/guides/jsapiref/");
+    const input = dialog.getByRole("textbox", { name: "JavaScript" });
+    const script = 'this.getField("Quantity").value = 4;\nthis.calculateNow();';
+    fireEvent.change(input, { target: { value: script } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(canUndo()).toBe(false);
+    fireEvent.click(dialog.getByRole("button", { name: "Save" }));
+    expect(useEditorStore.getState().elements[0]).toMatchObject({ actionScript: script });
+    expect(canUndo()).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit JavaScript" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "JavaScript" }), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(useEditorStore.getState().elements[0]).toMatchObject({ actionScript: script });
   });
 
   it("shows the selected field properties when changing selection from a focused editor", async () => {

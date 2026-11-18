@@ -9,6 +9,7 @@ import {
 } from "@/lib/form-element-model";
 import { clampFieldToPageBounds } from "@/lib/page-coordinates";
 import type { PageInfo } from "@/lib/pdf-loader";
+import { isNumberDecimals } from "@/lib/numeric-form-field";
 
 export const FORM_FIELDS_FILE_VERSION = 1;
 
@@ -98,8 +99,17 @@ function parseField(raw: unknown): FormElement | null {
   const x = readFiniteNumber(raw, "x", 0);
   const y = readFiniteNumber(raw, "y", 0);
   const pageNumber = Math.max(1, Math.floor(readFiniteNumber(raw, "pageNumber", 1)));
+  const tabOrder = readFiniteNumber(raw, "tabOrder", -1);
+  const position = {
+    x,
+    y,
+    pageNumber,
+    ...(Number.isSafeInteger(tabOrder) && tabOrder >= 0 ? { tabOrder } : {}),
+  };
 
   if (type === "text") {
+    const calculationScript = readString(raw, "calculationScript");
+    const calculationOrder = readFiniteNumber(raw, "calculationOrder", 0);
     const fontSize = readFiniteNumber(raw, "fontSize", 12);
     const multiline = readBoolean(raw, "multiline", false);
     const width = safePositive(readFiniteNumber(raw, "width", 0), 150);
@@ -109,13 +119,16 @@ function parseField(raw: unknown): FormElement | null {
     return {
       type: "text",
       id: readString(raw, "id", ""),
-      x,
-      y,
+      ...position,
       width,
       height,
-      pageNumber,
       name: readString(raw, "name").slice(0, MAX_FIELD_NAME_LENGTH),
       defaultValue: readString(raw, "defaultValue"),
+      ...(isNumberDecimals(raw.numberDecimals) ? { numberDecimals: raw.numberDecimals } : {}),
+      ...(calculationScript.trim() ? { calculationScript } : {}),
+      ...(Number.isSafeInteger(calculationOrder) && calculationOrder > 0
+        ? { calculationOrder }
+        : {}),
       fontSize,
       multiline,
       required: readBoolean(raw, "required", false),
@@ -133,11 +146,9 @@ function parseField(raw: unknown): FormElement | null {
     return {
       type: "checkbox",
       id: readString(raw, "id", ""),
-      x,
-      y,
+      ...position,
       width,
       height,
-      pageNumber,
       name: readString(raw, "name").slice(0, MAX_FIELD_NAME_LENGTH),
       defaultChecked: readBoolean(raw, "defaultChecked", false),
     };
@@ -149,11 +160,9 @@ function parseField(raw: unknown): FormElement | null {
     return {
       type: "radio",
       id: readString(raw, "id", ""),
-      x,
-      y,
+      ...position,
       width,
       height,
-      pageNumber,
       groupName: readString(raw, "groupName").slice(0, MAX_FIELD_NAME_LENGTH),
       value: readString(raw, "value"),
       label: readString(raw, "label"),
@@ -170,11 +179,9 @@ function parseField(raw: unknown): FormElement | null {
     return {
       type: "dropdown",
       id: readString(raw, "id", ""),
-      x,
-      y,
+      ...position,
       width,
       height,
-      pageNumber,
       name: readString(raw, "name").slice(0, MAX_FIELD_NAME_LENGTH),
       options: readStringArray(raw, "options"),
       defaultValue: readString(raw, "defaultValue"),
@@ -186,6 +193,7 @@ function parseField(raw: unknown): FormElement | null {
   }
 
   if (type === "button") {
+    const actionScript = readString(raw, "actionScript");
     const fontSize = readFiniteNumber(raw, "fontSize", 12);
     const width = safePositive(readFiniteNumber(raw, "width", 0), 80);
     const height = safePositive(
@@ -195,13 +203,12 @@ function parseField(raw: unknown): FormElement | null {
     return {
       type: "button",
       id: readString(raw, "id", ""),
-      x,
-      y,
+      ...position,
       width,
       height,
-      pageNumber,
       name: readString(raw, "name").slice(0, MAX_FIELD_NAME_LENGTH),
       label: readString(raw, "label", "Button"),
+      ...(actionScript.trim() ? { actionScript } : {}),
       fontSize,
       ...sanitizeTypography(raw),
     };
@@ -217,11 +224,9 @@ function parseField(raw: unknown): FormElement | null {
   return {
     type: "optionlist",
     id: readString(raw, "id", ""),
-    x,
-    y,
+    ...position,
     width,
     height,
-    pageNumber,
     name: readString(raw, "name").slice(0, MAX_FIELD_NAME_LENGTH),
     options,
     defaultValue: readString(raw, "defaultValue"),

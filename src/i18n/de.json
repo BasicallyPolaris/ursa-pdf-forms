@@ -161,6 +161,54 @@
     "horizontal": "Horizontale Lineal",
     "vertical": "Vertikale Lineal"
   },
+  "formInput": {
+    "type": "Eingabetyp",
+    "text": "Text",
+    "number": "Zahl",
+    "decimalPlaces": "Nachkommastellen",
+    "invalidDefault": "Verwende eine Zahl mit einem Punkt als Dezimaltrennzeichen. Ungültige Standardwerte werden leer exportiert."
+  },
+  "formScript": {
+    "calculation": "Berechnung",
+    "operation": "Rechenart",
+    "operations": {
+      "SUM": "Summe",
+      "PRD": "Produkt",
+      "AVG": "Mittelwert",
+      "MIN": "Minimum",
+      "MAX": "Maximum"
+    },
+    "sourceFields": "Quellfelder",
+    "noSources": "Füge für eine Vorlage ein benanntes Quellfeld hinzu.",
+    "usePreset": "Vorlage verwenden",
+    "presetTitle": "Berechnungsvorlage",
+    "replaceScript": "Beim Einfügen ersetzt die Vorlage den Code in diesem Editor.",
+    "insertCode": "Code einfügen",
+    "javascript": "JavaScript",
+    "addCalculation": "Berechnung hinzufügen",
+    "editCalculation": "Berechnung bearbeiten",
+    "addScript": "JavaScript hinzufügen",
+    "editScript": "JavaScript bearbeiten",
+    "documentation": "Acrobat-JavaScript-Referenz",
+    "calculationHelp": "Der PDF-Viewer führt dieses Skript aus, wenn sich Formularwerte ändern. Weise das Ergebnis event.value zu.",
+    "calculationOrder": "Berechnungsreihenfolge",
+    "orderInfo": "Zur Berechnungsreihenfolge",
+    "orderHelp": "Niedrigere Zahlen werden zuerst ausgeführt",
+    "automatic": "Auto",
+    "buttonAction": "Schaltflächenaktion",
+    "buttonEditor": "JavaScript für Schaltflächen",
+    "buttonHelp": "Der PDF-Viewer führt dieses Skript aus, wenn die Schaltfläche aktiviert wird."
+  },
+  "fieldOrder": {
+    "title": "Feldreihenfolge ändern",
+    "description": "Ziehe die Felder in die gewünschte Tab-Reihenfolge.",
+    "unnamed": "Unbenanntes Feld",
+    "move": "{{name}} verschieben, Position {{position}}",
+    "moved": "{{name}} auf Position {{position}} verschoben",
+    "keyboardHelp": "Verschiebe das Feld mit den Pfeiltasten nach oben oder unten.",
+    "noFieldsOnPage": "Auf dieser Seite gibt es keine Felder.",
+    "apply": "Übernehmen"
+  },
   "file": {
     "pdfFilter": "PDF",
     "defaultPdfName": "dokument.pdf",

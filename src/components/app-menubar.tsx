@@ -1,3 +1,4 @@
+import { FieldOrderDialog } from "@/components/field-order-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +27,7 @@ import {
 import { formatShortcut } from "@/lib/shortcuts";
 import { zoomFitWidth, zoomIn, zoomOut, zoomTo100 } from "@/lib/zoom-actions";
 import { useEditorStore } from "@/stores/editor-store";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
 
@@ -80,6 +81,15 @@ export function AppMenubar() {
   const { t } = useTranslation();
   const hasPdf = useEditorStore((s) => !!s.pdfBytes);
   const hasSelection = useEditorStore((s) => s.selectedIds.size > 0);
+  const canReorderFields = useEditorStore((s) => {
+    const seen = new Set<number>();
+    return s.elements.some(({ pageNumber }) => {
+      if (seen.has(pageNumber)) return true;
+      seen.add(pageNumber);
+      return false;
+    });
+  });
+  const [fieldOrderOpen, setFieldOrderOpen] = useState(false);
   const hasClipboard = useEditorStore((s) => s.clipboard.length > 0);
   const hasPast = useStore(
     useEditorStore.temporal,
@@ -153,6 +163,18 @@ export function AppMenubar() {
           onClick={menuSelectAll}
           disabled={!hasPdf}
         />
+        <DropdownMenuItem
+          disabled={!hasPdf || !canReorderFields}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            if (event.button === 0) setFieldOrderOpen(true);
+          }}
+          onClick={(event) => {
+            if (event.detail === 0) setFieldOrderOpen(true);
+          }}
+        >
+          {t("fieldOrder.title")}
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <MenuAction
           label={t("header.undo")}
@@ -208,6 +230,7 @@ export function AppMenubar() {
           onClick={menuResetOnboarding}
         />
       </MenubarMenu>
+      <FieldOrderDialog open={fieldOrderOpen} onOpenChange={setFieldOrderOpen} />
     </nav>
   );
 }

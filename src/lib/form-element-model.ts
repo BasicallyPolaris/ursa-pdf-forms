@@ -8,6 +8,9 @@ export interface TextField {
   pageNumber: number;
   name: string;
   defaultValue: string;
+  numberDecimals?: number;
+  calculationScript?: string;
+  calculationOrder?: number;
   fontSize: number;
   multiline: boolean;
   required: boolean;
@@ -77,6 +80,7 @@ export interface ButtonField {
   pageNumber: number;
   name: string;
   label: string;
+  actionScript?: string;
   fontSize: number;
   fontFamily: string;
   fontWeight: "regular" | "bold" | "italic" | "bold-italic";
@@ -117,13 +121,14 @@ export type HasTypography = {
   borderWidth: number;
 };
 
-export type FormElement =
+export type FormElement = (
   | TextField
   | Checkbox
   | RadioButton
   | DropdownField
   | ButtonField
-  | OptionListField;
+  | OptionListField
+) & { tabOrder?: number };
 
 export const MAX_FIELD_NAME_LENGTH = 100;
 export const MAX_OPTION_COUNT = 200;

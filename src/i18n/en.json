@@ -211,6 +211,54 @@
     "horizontal": "Horizontal ruler",
     "vertical": "Vertical ruler"
   },
+  "formInput": {
+    "type": "Input type",
+    "text": "Text",
+    "number": "Number",
+    "decimalPlaces": "Decimal places",
+    "invalidDefault": "Use a number with a period for decimals. Invalid defaults export blank."
+  },
+  "formScript": {
+    "calculation": "Calculation",
+    "operation": "Operation",
+    "operations": {
+      "SUM": "Sum",
+      "PRD": "Product",
+      "AVG": "Average",
+      "MIN": "Minimum",
+      "MAX": "Maximum"
+    },
+    "sourceFields": "Source fields",
+    "noSources": "Add a named source field to use a preset.",
+    "usePreset": "Use preset",
+    "presetTitle": "Calculation preset",
+    "replaceScript": "Inserting a preset replaces the code in this editor.",
+    "insertCode": "Insert code",
+    "javascript": "JavaScript",
+    "addCalculation": "Add Calculation",
+    "editCalculation": "Edit Calculation",
+    "addScript": "Add JavaScript",
+    "editScript": "Edit JavaScript",
+    "documentation": "Acrobat JavaScript reference",
+    "calculationHelp": "The PDF viewer runs this script when form values change. Assign the result to event.value.",
+    "calculationOrder": "Calculation order",
+    "orderInfo": "About calculation order",
+    "orderHelp": "Lower numbers run first",
+    "automatic": "Auto",
+    "buttonAction": "Button action",
+    "buttonEditor": "Button JavaScript",
+    "buttonHelp": "The PDF viewer runs this script when the button is activated."
+  },
+  "fieldOrder": {
+    "title": "Reorder Fields",
+    "description": "Drag fields into the order you want Tab to follow.",
+    "unnamed": "Unnamed field",
+    "move": "Move {{name}}, position {{position}}",
+    "moved": "{{name}} moved to position {{position}}",
+    "keyboardHelp": "Use the Up and Down arrow keys to move the field.",
+    "noFieldsOnPage": "This page has no fields.",
+    "apply": "Apply"
+  },
   "file": {
     "pdfFilter": "PDF",
     "defaultPdfName": "document.pdf",
