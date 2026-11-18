@@ -161,6 +161,13 @@
     "horizontal": "Horizontale Lineal",
     "vertical": "Vertikale Lineal"
   },
+  "formInput": {
+    "type": "Eingabetyp",
+    "text": "Text",
+    "number": "Zahl",
+    "decimalPlaces": "Nachkommastellen",
+    "invalidDefault": "Verwende eine Zahl mit einem Punkt als Dezimaltrennzeichen. Ungültige Standardwerte werden leer exportiert."
+  },
   "formScript": {
     "calculation": "Berechnung",
     "operation": "Rechenart",

@@ -9,6 +9,7 @@ import {
 } from "pdf-lib";
 import type { FormElement } from "./form-element-model";
 import { readJavaScriptAction } from "@/lib/pdf-javascript-action";
+import { readNumberDecimals } from "@/lib/numeric-form-field";
 import { rgbToHex } from "./font-utils";
 import {
   getPageViewQuadForPdfLibPage,
@@ -358,9 +359,12 @@ function extractTextField(
   const maxLength = maxLen instanceof PDFNumber ? maxLen.asNumber() : undefined;
   const { backgroundColor, borderColor } = parseAppearanceColors(dict, ctx);
   const borderWidth = parseBorderWidth(dict, ctx);
-  const calculationScript = findInField(dict, ctx, (field) =>
-    readJavaScriptAction(getAdditionalAction(field, "C")),
-  );
+  const scriptFor = (event: "C" | "K" | "F") =>
+    findInField(dict, ctx, (field) =>
+      readJavaScriptAction(getAdditionalAction(field, event)),
+    );
+  const calculationScript = scriptFor("C");
+  const numberDecimals = readNumberDecimals(scriptFor("K"), scriptFor("F"));
   const calculationOrder = findInField(dict, ctx, (field) => calculationOrders.get(field));
 
   return {
@@ -373,6 +377,7 @@ function extractTextField(
     pageNumber,
     name,
     defaultValue,
+    ...(numberDecimals === undefined ? {} : { numberDecimals }),
     ...(calculationScript?.trim() ? { calculationScript, calculationOrder } : {}),
     fontSize,
     multiline,
@@ -813,7 +818,7 @@ function getInheritableAttr(
   return findInField(dict, ctx, (field) => field.get(name)) ?? null;
 }
 
-function getAdditionalAction(field: PDFDict, event: "C" | "U"): unknown {
+function getAdditionalAction(field: PDFDict, event: "C" | "K" | "F" | "U"): unknown {
   const actions = field.lookup(PDFName.of("AA"));
   return actions instanceof PDFDict ? actions.lookup(PDFName.of(event)) : undefined;
 }

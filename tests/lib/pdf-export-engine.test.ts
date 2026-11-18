@@ -36,7 +36,7 @@ describe("exportFormElements", () => {
     });
     const buttonScript = 'this.getField("quantity").value = 4; // Änderung';
     const elements: FormElement[] = [
-      { ...total, calculationScript: custom, calculationOrder: 2 },
+      { ...total, calculationScript: custom, calculationOrder: 2, numberDecimals: 0 },
       { ...subtotal, calculationScript: template, calculationOrder: 1 },
       { ...button, actionScript: buttonScript },
       { ...button, id: "second-widget", x: 140, actionScript: "void 0;" },
@@ -51,16 +51,44 @@ describe("exportFormElements", () => {
       form.getTextField("total").ref,
     ]);
     expect(form.getTextField("subtotal").isReadOnly()).toBe(true);
+    const numericActions = form.getTextField("total").acroField.dict.lookup(
+      PDFName.of("AA"),
+      PDFDict,
+    );
+    expect(readJavaScriptAction(numericActions.lookup(PDFName.of("K")))).toBe(
+      'AFNumber_Keystroke(0, 1, 0, 0, "", true);',
+    );
+    expect(readJavaScriptAction(numericActions.lookup(PDFName.of("F")))).toBe(
+      'AFNumber_Format(0, 1, 0, 0, "", true);',
+    );
     expect(form.getButton("update").acroField.getWidgets().map(
       (widget) => readJavaScriptAction(widget.dict.lookup(PDFName.of("A"))),
     )).toEqual([buttonScript, "void 0;"]);
 
     expect(await extractAcroFormFields(exported)).toMatchObject([
-      { name: "total", calculationScript: custom, calculationOrder: 2 },
+      { name: "total", calculationScript: custom, calculationOrder: 2, numberDecimals: 0 },
       { name: "subtotal", calculationScript: template, calculationOrder: 1 },
       { name: "update", actionScript: buttonScript },
       { name: "update", actionScript: "void 0;" },
     ]);
+  });
+
+  it("leaves invalid number defaults blank and preserves ordinary text values", async () => {
+    const numeric = createTextField({
+      x: 10, y: 10, pageNumber: 1, name: "numeric", defaultValue: "Example",
+    });
+    const text = createTextField({
+      x: 10, y: 50, pageNumber: 1, name: "text", defaultValue: "Example",
+    });
+    const exported = await exportFormElements(await createFixturePdf(), [
+      { ...numeric, numberDecimals: 3 },
+      text,
+    ]);
+    const pdf = await PDFDocument.load(exported);
+    const form = pdf.getForm();
+    expect(form.getTextField("numeric").getText()).toBeFalsy();
+    expect(form.getTextField("text").getText()).toBe("Example");
+    expect(form.getTextField("text").acroField.dict.has(PDFName.of("AA"))).toBe(false);
   });
 
   it("exports and reopens per-page tab order across widget types", async () => {

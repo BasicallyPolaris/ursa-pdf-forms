@@ -11,6 +11,7 @@ import {
 } from "pdf-lib";
 import { getFieldsInTabOrder } from "@/lib/field-tab-order";
 import { createJavaScriptAction } from "@/lib/pdf-javascript-action";
+import { isNumberDecimals, isNumericFieldValue, numericFieldAction } from "@/lib/numeric-form-field";
 
 const RESOLVED_FONT_TO_ENUM_KEY: Record<string, keyof typeof StandardFonts> = {
   Helvetica: "Helvetica",
@@ -198,16 +199,14 @@ export async function exportFormElements(
             () => form.createTextField(safeName),
           );
           addTextField(field, page, { ...el, name: safeName }, view, pdf, isFirst);
-          if (isFirst && el.calculationScript?.trim()) {
-            field.acroField.dict.set(
-              PDFName.of("AA"),
-              pdf.context.obj({ C: createJavaScriptAction(pdf.context, el.calculationScript) }),
-            );
-            field.enableReadOnly();
-            calculationFields.push({
-              ref: field.ref,
-              order: el.calculationOrder ?? Number.MAX_SAFE_INTEGER,
-            });
+          if (isFirst) {
+            addTextFieldActions(field, el, pdf);
+            if (el.calculationScript?.trim()) {
+              calculationFields.push({
+                ref: field.ref,
+                order: el.calculationOrder ?? Number.MAX_SAFE_INTEGER,
+              });
+            }
           }
           break;
         }
@@ -377,7 +376,12 @@ function addTextField(
       field.setFontSize(el.fontSize);
     }
 
-    field.setText(el.defaultValue ?? "");
+    const value = el.defaultValue ?? "";
+    field.setText(
+      isNumberDecimals(el.numberDecimals) && !isNumericFieldValue(value)
+        ? ""
+        : value,
+    );
 
     if (el.multiline) {
       field.enableMultiline();
@@ -397,6 +401,40 @@ function addTextField(
   }
 
   field.updateAppearances(font);
+}
+
+function addTextFieldActions(
+  field: PdfTextField,
+  element: TextField,
+  pdf: PDFDocument,
+): void {
+  const actions = pdf.context.obj({});
+  const { numberDecimals, calculationScript } = element;
+  if (isNumberDecimals(numberDecimals)) {
+    actions.set(
+      PDFName.of("K"),
+      createJavaScriptAction(
+        pdf.context,
+        numericFieldAction("Keystroke", numberDecimals),
+      ),
+    );
+    actions.set(
+      PDFName.of("F"),
+      createJavaScriptAction(
+        pdf.context,
+        numericFieldAction("Format", numberDecimals),
+      ),
+    );
+  }
+  if (calculationScript?.trim()) {
+    actions.set(
+      PDFName.of("C"),
+      createJavaScriptAction(pdf.context, calculationScript),
+    );
+    field.enableReadOnly();
+  }
+  if (actions.keys().length > 0)
+    field.acroField.dict.set(PDFName.of("AA"), actions);
 }
 
 function addCheckboxField(

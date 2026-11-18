@@ -31,6 +31,31 @@ describe("PropertiesPanel", () => {
     cleanup();
   });
 
+  it("sets and removes number formatting on a text field", () => {
+    const quantity = createTextField({
+      name: "Quantity",
+      pageNumber: 1,
+      x: 10,
+      y: 10,
+    });
+    const store = useEditorStore.getState();
+    store.setPdf("test.pdf", new Uint8Array([1]), []);
+    store.setInitialElements([quantity]);
+    store.selectElements(new Set([quantity.id]));
+
+    render(<PropertiesPanel />);
+    const type = screen.getByRole("combobox", { name: "Input type" });
+    expect(type).toHaveValue("text");
+    fireEvent.change(type, { target: { value: "number" } });
+    const decimals = screen.getByRole("combobox", { name: "Decimal places" });
+    expect(decimals).toHaveValue("2");
+    fireEvent.change(decimals, { target: { value: "0" } });
+    expect(useEditorStore.getState().elements[0]).toMatchObject({ numberDecimals: 0 });
+    fireEvent.change(type, { target: { value: "text" } });
+    expect(screen.queryByRole("combobox", { name: "Decimal places" })).toBeNull();
+    expect(useEditorStore.getState().elements[0]).toMatchObject({ numberDecimals: undefined });
+  });
+
   it("creates a preset in a dialog and updates linked widgets", () => {
     const quantity = createTextField({
       name: "Quantity", x: 10, y: 10, pageNumber: 1,

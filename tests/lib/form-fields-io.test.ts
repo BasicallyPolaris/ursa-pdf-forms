@@ -29,7 +29,7 @@ describe("form-fields-io", () => {
     const text = createTextField({ x: 10, y: 10, pageNumber: 1, name: "total" });
     const button = createButtonField({ x: 10, y: 40, pageNumber: 1, name: "reset" });
     const fields = [
-      { ...text, calculationScript: "event.value = 7;\n", calculationOrder: 1 },
+      { ...text, calculationScript: "event.value = 7;\n", calculationOrder: 1, numberDecimals: 0 },
       { ...button, actionScript: 'app.alert("Fertig!");' },
     ];
     expect(parseFormFieldsJson(serializeFormFields(fields, pagesA)).fields).toEqual(fields);

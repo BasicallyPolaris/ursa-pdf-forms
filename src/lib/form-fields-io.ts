@@ -9,6 +9,7 @@ import {
 } from "@/lib/form-element-model";
 import { clampFieldToPageBounds } from "@/lib/page-coordinates";
 import type { PageInfo } from "@/lib/pdf-loader";
+import { isNumberDecimals } from "@/lib/numeric-form-field";
 
 export const FORM_FIELDS_FILE_VERSION = 1;
 
@@ -123,6 +124,7 @@ function parseField(raw: unknown): FormElement | null {
       height,
       name: readString(raw, "name").slice(0, MAX_FIELD_NAME_LENGTH),
       defaultValue: readString(raw, "defaultValue"),
+      ...(isNumberDecimals(raw.numberDecimals) ? { numberDecimals: raw.numberDecimals } : {}),
       ...(calculationScript.trim() ? { calculationScript } : {}),
       ...(Number.isSafeInteger(calculationOrder) && calculationOrder > 0
         ? { calculationOrder }

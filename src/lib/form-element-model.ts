@@ -8,6 +8,7 @@ export interface TextField {
   pageNumber: number;
   name: string;
   defaultValue: string;
+  numberDecimals?: number;
   calculationScript?: string;
   calculationOrder?: number;
   fontSize: number;

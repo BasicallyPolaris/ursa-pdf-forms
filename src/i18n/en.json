@@ -211,6 +211,13 @@
     "horizontal": "Horizontal ruler",
     "vertical": "Vertical ruler"
   },
+  "formInput": {
+    "type": "Input type",
+    "text": "Text",
+    "number": "Number",
+    "decimalPlaces": "Decimal places",
+    "invalidDefault": "Use a number with a period for decimals. Invalid defaults export blank."
+  },
   "formScript": {
     "calculation": "Calculation",
     "operation": "Operation",

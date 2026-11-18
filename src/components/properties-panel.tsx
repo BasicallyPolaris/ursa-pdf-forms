@@ -37,6 +37,11 @@ import {
 } from "@/lib/form-element-model";
 import { resolveElementPosition } from "@/lib/page-coordinates";
 import {
+  DEFAULT_NUMBER_DECIMALS,
+  MAX_NUMBER_DECIMALS,
+  isNumericFieldValue,
+} from "@/lib/numeric-form-field";
+import {
   createPropertyEditKey,
   getDisplayElements,
   getDisplayGuides,
@@ -572,9 +577,25 @@ function TypographySection({
   );
 }
 
+function updateLinkedTextFields(
+  element: TextField,
+  changes: Partial<TextField>,
+) {
+  const state = useEditorStore.getState();
+  state.batchUpdateElements(
+    getDisplayElements(state)
+      .filter(isTextField)
+      .filter(
+        ({ id, name }) =>
+          id === element.id ||
+          (element.name.trim() !== "" && name === element.name),
+      )
+      .map(({ id }) => ({ id, changes })),
+  );
+}
+
 function TextCalculationProperties({ element }: { element: TextField }) {
   const textFields = useEditorStore(getDisplayElements).filter(isTextField);
-  const batchUpdate = useEditorStore((state) => state.batchUpdateElements);
   const sources = [...new Set(textFields.map(({ name }) => name))].filter(
     (name) => name.trim() && name !== element.name,
   );
@@ -586,13 +607,7 @@ function TextCalculationProperties({ element }: { element: TextField }) {
       script={element.calculationScript}
       order={element.calculationOrder}
       onSave={(calculationScript, calculationOrder) =>
-        batchUpdate(
-          textFields
-            .filter(({ id, name }) =>
-              id === element.id || (element.name.trim() !== "" && name === element.name),
-            )
-            .map(({ id }) => ({ id, changes: { calculationScript, calculationOrder } })),
-        )
+        updateLinkedTextFields(element, { calculationScript, calculationOrder })
       }
     />
   );
@@ -601,6 +616,7 @@ function TextCalculationProperties({ element }: { element: TextField }) {
 function TextFieldProperties({ elementId }: { elementId: string }) {
   const { t } = useTranslation();
   const requiredId = useId();
+  const numericDefaultHelpId = useId();
   const element = useDisplayElement(elementId);
   const updateElement = useEditorStore((s) => s.updateElement);
   const getElementChanges = useElementPropertyChanges(elementId);
@@ -622,6 +638,11 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
     element.maxLength ?? "",
     (v) => getElementChanges({ maxLength: v ? Number(v) : undefined }),
   );
+  const isNumber = element.numberDecimals !== undefined;
+  const invalidDefault =
+    isNumber && !isNumericFieldValue(defaultValueField.value);
+  const selectClass =
+    "h-7 w-24 rounded-md border border-border bg-card px-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
 
   return (
     <div className="flex flex-col gap-3">
@@ -634,8 +655,61 @@ function TextFieldProperties({ elementId }: { elementId: string }) {
           />
         </PropertyField>
 
+        <label className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+          {t("formInput.type")}
+          <select
+            className={selectClass}
+            value={isNumber ? "number" : "text"}
+            onChange={(event) =>
+              updateLinkedTextFields(element, {
+                numberDecimals:
+                  event.target.value === "number"
+                    ? DEFAULT_NUMBER_DECIMALS
+                    : undefined,
+              })
+            }
+          >
+            <option value="text">{t("formInput.text")}</option>
+            <option value="number">{t("formInput.number")}</option>
+          </select>
+        </label>
+        {isNumber && (
+          <label className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+            {t("formInput.decimalPlaces")}
+            <select
+              className={selectClass}
+              value={element.numberDecimals}
+              onChange={(event) =>
+                updateLinkedTextFields(element, {
+                  numberDecimals: Number(event.target.value),
+                })
+              }
+            >
+              {Array.from({ length: MAX_NUMBER_DECIMALS + 1 }, (_, value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
         <PropertyField label={t("properties.defaultValue")}>
-          <Input {...defaultValueField} className="h-7 text-xs" />
+          <Input
+            {...defaultValueField}
+            inputMode={isNumber ? "decimal" : undefined}
+            aria-invalid={invalidDefault || undefined}
+            aria-describedby={invalidDefault ? numericDefaultHelpId : undefined}
+            className="h-7 text-xs"
+          />
+          {invalidDefault && (
+            <p
+              id={numericDefaultHelpId}
+              className="text-[11px] text-muted-foreground"
+            >
+              {t("formInput.invalidDefault")}
+            </p>
+          )}
         </PropertyField>
 
         <div className="flex items-center justify-between">
