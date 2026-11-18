@@ -1,10 +1,10 @@
+import { FormScriptControls } from "@/components/form-script-controls";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { ToolButton as ToolbarButton } from "@/components/ui/tool-button";
 import {
   Tooltip,
   TooltipContent,
@@ -12,11 +12,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { lockCursor, unlockCursor } from "@/lib/cursor";
-import {
-  CALCULATION_OPERATIONS,
-  createCalculationScript,
-  type CalculationOperation,
-} from "@/lib/form-calculation";
 import {
   getElementStyleConfig,
   getElementStyleConfigByType,
@@ -93,7 +88,7 @@ const BASE_FONT_FAMILIES = [
   { value: "ZapfDingbats", label: "Zapf Dingbats" },
 ];
 
-function usePropertyInput<T extends HTMLInputElement | HTMLTextAreaElement = HTMLInputElement>(
+function usePropertyInput(
   identity: PropertyEditKey,
   storeValue: string | number,
   getChanges: (raw: string) => PropertyEditChanges,
@@ -115,7 +110,7 @@ function usePropertyInput<T extends HTMLInputElement | HTMLTextAreaElement = HTM
   }, [startEdit]);
 
   const onChange = useCallback(
-    (e: React.ChangeEvent<T>) => {
+    (e: React.ChangeEvent<HTMLInputElement>) => {
       startEdit();
       const inputValue = e.target.value;
       previewPropertyEdit(inputValue, getChanges(inputValue));
@@ -132,16 +127,16 @@ function usePropertyInput<T extends HTMLInputElement | HTMLTextAreaElement = HTM
   }, [commitPropertyEdit, identity]);
 
   const onKeyDown = useCallback(
-    (e: React.KeyboardEvent<T>) => {
-      if (e.key === "Enter" && e.currentTarget instanceof HTMLInputElement) {
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
         e.preventDefault();
         commitPropertyEdit(identity);
-        e.currentTarget.select();
+        (e.target as HTMLInputElement).select();
       }
       if (e.key === "Escape") {
         e.preventDefault();
         discardPropertyEdit(identity);
-        e.currentTarget.blur();
+        (e.target as HTMLInputElement).blur();
       }
     },
     [commitPropertyEdit, discardPropertyEdit, identity],
@@ -577,178 +572,29 @@ function TypographySection({
   );
 }
 
-function ScriptInput({
-  identity,
-  script,
-  getChanges,
-  help,
-  placeholder,
-}: {
-  identity: PropertyEditKey;
-  script?: string;
-  getChanges: (value: string | undefined) => PropertyEditChanges;
-  help: string;
-  placeholder?: string;
-}) {
-  const { t } = useTranslation();
-  const id = useId();
-  const field = usePropertyInput<HTMLTextAreaElement>(
-    identity,
-    script ?? "",
-    (value) => getChanges(value.trim() ? value : undefined),
-  );
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id} className="text-[11px] text-muted-foreground">
-        {t("formScript.javascript")}
-      </Label>
-      <textarea
-        {...field}
-        id={id}
-        aria-describedby={`${id}-help`}
-        spellCheck={false}
-        autoCapitalize="off"
-        placeholder={placeholder}
-        className="min-h-24 w-full resize-y rounded-md border border-border bg-card p-2 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-      />
-      <p
-        id={`${id}-help`}
-        className="text-[11px] leading-relaxed text-muted-foreground"
-      >
-        {help}
-      </p>
-    </div>
-  );
-}
-
 function TextCalculationProperties({ element }: { element: TextField }) {
-  const { t } = useTranslation();
-  const elements = useEditorStore(getDisplayElements);
+  const textFields = useEditorStore(getDisplayElements).filter(isTextField);
   const batchUpdate = useEditorStore((state) => state.batchUpdateElements);
-  const [operation, setOperation] = useState<CalculationOperation>("SUM");
-  const [selection, setSelection] = useState<string[]>([]);
-  const orderId = useId();
-  const sources = [
-    ...new Set(elements.filter(isTextField).map(({ name }) => name)),
-  ].filter((name) => name.trim() && name !== element.name);
-  const selectedSources = sources.filter((name) => selection.includes(name));
-  const linked = elements
-    .filter(isTextField)
-    .filter(
-      ({ id, name }) =>
-        id === element.id ||
-        (element.name.trim() !== "" && name === element.name),
-    );
-  const propertyIds = linked.map(({ id }) => id);
-  const changesFor = (changes: Partial<TextField>) =>
-    linked.map(({ id }) => ({ id, changes }));
-  const order = usePropertyInput(
-    createPropertyEditKey("calculationOrder", propertyIds),
-    element.calculationOrder ?? "",
-    (value) => {
-      const order = Number(value);
-      return {
-        elementUpdates: changesFor({
-          calculationOrder:
-            Number.isSafeInteger(order) && order > 0 ? order : undefined,
-        }),
-      };
-    },
+  const sources = [...new Set(textFields.map(({ name }) => name))].filter(
+    (name) => name.trim() && name !== element.name,
   );
 
   return (
-    <>
-      {sources.length > 0 && (
-        <div className="flex flex-col gap-2 rounded-md border border-border p-2">
-          <label className="flex items-center justify-between gap-2 text-xs">
-            {t("formScript.operation")}
-            <select
-              value={operation}
-              onChange={(event) =>
-                setOperation(event.target.value as CalculationOperation)
-              }
-              className="h-7 rounded border border-border bg-card px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-            >
-              {CALCULATION_OPERATIONS.map((operation) => (
-                <option key={operation} value={operation}>
-                  {t(`formScript.operations.${operation}`)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <fieldset className="min-w-0">
-            <legend className="text-[11px] text-muted-foreground">
-              {t("formScript.sourceFields")}
-            </legend>
-            <div className="mt-1 flex max-h-28 flex-col gap-1 overflow-auto">
-              {sources.map((name) => (
-                <label
-                  key={name}
-                  className="flex min-w-0 items-center gap-2 px-0.5 text-xs"
-                >
-                  <input
-                    type="checkbox"
-                    className="shrink-0 accent-primary"
-                    checked={selection.includes(name)}
-                    onChange={(event) =>
-                      setSelection(
-                        event.target.checked
-                          ? [...selection, name]
-                          : selection.filter((field) => field !== name),
-                      )
-                    }
-                  />
-                  <span className="truncate" title={name}>
-                    {name}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <ToolbarButton
-            type="button"
-            className="self-end border border-border"
-            disabled={selectedSources.length === 0}
-            onClick={() =>
-              batchUpdate(
-                changesFor({
-                  calculationScript: createCalculationScript(
-                    operation,
-                    selectedSources,
-                  ),
-                }),
-              )
-            }
-          >
-            {t("formScript.useCalculation")}
-          </ToolbarButton>
-        </div>
-      )}
-      <ScriptInput
-        identity={createPropertyEditKey("calculationScript", propertyIds)}
-        script={element.calculationScript}
-        getChanges={(calculationScript) => ({
-          elementUpdates: changesFor({ calculationScript }),
-        })}
-        help={t("formScript.calculationHelp")}
-      />
-      {element.calculationScript && (
-        <div className="flex items-center justify-between gap-2">
-          <Label
-            htmlFor={orderId}
-            className="text-[11px] text-muted-foreground"
-          >
-            {t("formScript.calculationOrder")}
-          </Label>
-          <NumericInput
-            {...order}
-            id={orderId}
-            placeholder={t("formScript.automatic")}
-            className="w-24"
-          />
-        </div>
-      )}
-    </>
+    <FormScriptControls
+      kind="calculation"
+      sources={sources}
+      script={element.calculationScript}
+      order={element.calculationOrder}
+      onSave={(calculationScript, calculationOrder) =>
+        batchUpdate(
+          textFields
+            .filter(({ id, name }) =>
+              id === element.id || (element.name.trim() !== "" && name === element.name),
+            )
+            .map(({ id }) => ({ id, changes: { calculationScript, calculationOrder } })),
+        )
+      }
+    />
   );
 }
 
@@ -1264,12 +1110,11 @@ function ButtonProperties({ elementId }: { elementId: string }) {
 
       <Separator />
       <CollapsibleSection label={t("formScript.buttonAction")}>
-        <ScriptInput
-          identity={createPropertyEditKey("actionScript", [element.id])}
+        <FormScriptControls
+          key={element.id}
+          kind="button"
           script={element.actionScript}
-          getChanges={(actionScript) => getElementChanges({ actionScript })}
-          help={t("formScript.buttonHelp")}
-          placeholder={'app.alert("Hello!");'}
+          onSave={(actionScript) => updateElement(element.id, { actionScript })}
         />
       </CollapsibleSection>
 
