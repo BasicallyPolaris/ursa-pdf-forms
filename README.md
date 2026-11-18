@@ -24,8 +24,13 @@ Built with Tauri, React, and TypeScript.
 ### 📝 Form Fields
 
 - **Text Fields**: Single-line and multi-line text inputs with configurable font size and default values.
+- **Number Fields** — Set a text field’s input type to **Number** and choose how many decimal places to display.
 - **Checkboxes**: Toggle checkboxes with customizable default state.
 - **Radio Buttons**: Grouped radio buttons with mutual exclusion.
+- **Calculations** — Use a sum, product, average, minimum, or maximum preset. Edit the generated JavaScript and set calculation order when one result depends on another.
+- **Button Actions** — Attach custom PDF JavaScript to a button. The editor links to the Acrobat JavaScript reference.
+
+Number validation, calculations, and button actions require a PDF reader with scripting enabled.
 
 ### 🎯 Precision Layout
 
@@ -41,6 +46,7 @@ Built with Tauri, React, and TypeScript.
 - **Multi-Selection**: Select multiple fields for batch editing and alignment.
 - **Drag & Resize**: Direct manipulation of form fields on the PDF canvas.
 - **Properties Panel**: Type-specific property editors for quick field configuration.
+- **Tab Order** — Open **Edit → Reorder Fields**, choose a page, and drag the field cards into the order you want. PDF readers that honor custom tab order use this sequence.
 
 ### 📄 PDF Support
 

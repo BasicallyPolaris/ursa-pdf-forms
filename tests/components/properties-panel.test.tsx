@@ -56,7 +56,7 @@ describe("PropertiesPanel", () => {
     expect(useEditorStore.getState().elements[0]).toMatchObject({ numberDecimals: undefined });
   });
 
-  it("creates a preset in a dialog and updates linked widgets", () => {
+  it("inserts a preset into the calculation draft before saving linked widgets", () => {
     const quantity = createTextField({
       name: "Quantity", x: 10, y: 10, pageNumber: 1,
     });
@@ -76,24 +76,26 @@ describe("PropertiesPanel", () => {
 
     render(<PropertiesPanel />);
     expect(screen.queryByRole("combobox", { name: "Operation" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Use preset" }));
-    const preset = within(screen.getByRole("dialog", { name: "Calculation preset" }));
-    fireEvent.change(preset.getByRole("combobox", { name: "Operation" }), {
+    fireEvent.click(screen.getByRole("button", { name: "Add Calculation" }));
+    const editor = within(screen.getByRole("dialog", { name: "Add Calculation" }));
+    fireEvent.click(editor.getByRole("button", { name: "Use preset" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Operation" }), {
       target: { value: "PRD" },
     });
-    fireEvent.click(preset.getByRole("checkbox", { name: "Quantity" }));
-    fireEvent.click(preset.getByRole("checkbox", { name: "Unit price" }));
-    fireEvent.click(preset.getByRole("button", { name: "Use calculation" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Quantity" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Unit price" }));
+    fireEvent.click(screen.getByRole("button", { name: "Insert code" }));
     const script = 'AFSimple_Calculate("PRD", ["Quantity","Unit price"]);';
-    fireEvent.click(screen.getByRole("button", { name: "Edit JavaScript" }));
-    expect(screen.getByRole("textbox", { name: "JavaScript" })).toHaveValue(script);
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(editor.getByRole("textbox", { name: "JavaScript" })).toHaveValue(script);
+    expect(useEditorStore.getState().elements.slice(2)).toEqual([total, linked]);
+    fireEvent.click(editor.getByRole("button", { name: "Save" }));
+    expect(screen.getByRole("button", { name: "Edit Calculation" })).toBeVisible();
     expect(useEditorStore.getState().elements.slice(2)).toMatchObject([
       { id: total.id, calculationScript: script },
       { id: linked.id, calculationScript: script },
     ]);
     act(() => undo());
-    fireEvent.click(screen.getByRole("button", { name: "Edit JavaScript" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Calculation" }));
     expect(screen.getByRole("textbox", { name: "JavaScript" })).toHaveValue("");
   });
 
@@ -109,7 +111,7 @@ describe("PropertiesPanel", () => {
     store.selectElements(new Set([button.id]));
 
     render(<PropertiesPanel />);
-    fireEvent.click(screen.getByRole("button", { name: "Edit JavaScript" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add JavaScript" }));
     const dialog = within(screen.getByRole("dialog", { name: "Button JavaScript" }));
     expect(dialog.getByRole("link", { name: "Acrobat JavaScript reference" }))
       .toHaveAttribute("href", "https://developer.adobe.com/acrobat-pdfl-sdk/guides/jsapiref/");
