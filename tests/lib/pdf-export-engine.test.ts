@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { PDFDocument, PDFName } from "pdf-lib";
+import { PDFDict, PDFDocument, PDFName } from "pdf-lib";
+import { getFieldsInTabOrder } from "@/lib/field-tab-order";
 import { exportFormElements } from "@/lib/pdf-export-engine";
 import { extractAcroFormFields } from "@/lib/pdf-form-reader";
 import { createTextField, createCheckbox, createRadioButton, type FormElement } from "@/lib/form-element-model";
@@ -19,6 +20,53 @@ async function createCroppedTopFixturePdf(): Promise<Uint8Array> {
 }
 
 describe("exportFormElements", () => {
+  it("exports and reopens per-page tab order across widget types", async () => {
+    const source = await PDFDocument.create();
+    const page = source.addPage();
+    source.addPage().node.set(PDFName.of("Tabs"), PDFName.of("R"));
+    const link = source.context.register(source.context.obj({
+      Type: "Annot",
+      Subtype: "Link",
+      Rect: [10, 10, 30, 30],
+    }));
+    page.node.addAnnot(link);
+    const text = createTextField({ x: 10, y: 10, pageNumber: 1, name: "name" });
+    const checkbox = createCheckbox({ x: 20, y: 50, pageNumber: 1, name: "agree" });
+    const radio = createRadioButton({
+      x: 40, y: 50, pageNumber: 1, groupName: "choice", value: "yes",
+    });
+    const otherPage = createTextField({ x: 10, y: 10, pageNumber: 2, name: "notes" });
+    const result = await exportFormElements(await source.save(), [
+      { ...text, tabOrder: 2 },
+      { ...checkbox, tabOrder: 1 },
+      { ...radio, tabOrder: 0 },
+      otherPage,
+    ]);
+
+    const pdf = await PDFDocument.load(result);
+    const [firstPage, secondPage] = pdf.getPages();
+    expect(firstPage.node.get(PDFName.of("Tabs"))).toBe(PDFName.of("W"));
+    expect(secondPage.node.get(PDFName.of("Tabs"))).toBe(PDFName.of("R"));
+    const annotations = firstPage.node.Annots()!;
+    expect(annotations.lookup(0, PDFDict).get(PDFName.of("Subtype"))).toBe(
+      PDFName.of("Link"),
+    );
+    const fields = pdf.getForm();
+    expect(annotations.asArray().slice(1)).toEqual(
+      ["choice", "agree", "name"].map((name) => {
+        const widget = fields.getField(name).acroField.getWidgets()[0];
+        return pdf.context.getObjectRef(widget.dict);
+      }),
+    );
+
+    const reopened = await extractAcroFormFields(result);
+    expect(
+      getFieldsInTabOrder(reopened.filter((field) => field.pageNumber === 1)).map(
+        (field) => field.type,
+      ),
+    ).toEqual(["radio", "checkbox", "text"]);
+  });
+
   it("produces a valid PDF with AcroForm text field", async () => {
     const fixturePdf = await createFixturePdf();
     const elements: FormElement[] = [

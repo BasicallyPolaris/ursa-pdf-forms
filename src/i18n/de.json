@@ -161,6 +161,14 @@
     "horizontal": "Horizontale Lineal",
     "vertical": "Vertikale Lineal"
   },
+  "fieldOrder": {
+    "title": "Feldreihenfolge ändern",
+    "description": "Lege fest, in welcher Reihenfolge die Tabulatortaste die Felder auf jeder Seite der exportierten PDF-Datei auswählt.",
+    "unnamed": "Unbenanntes Feld",
+    "moveUp": "{{name}} nach oben verschieben",
+    "moveDown": "{{name}} nach unten verschieben",
+    "apply": "Übernehmen"
+  },
   "file": {
     "pdfFilter": "PDF",
     "defaultPdfName": "dokument.pdf",

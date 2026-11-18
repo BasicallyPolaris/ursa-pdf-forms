@@ -3,11 +3,13 @@ import {
   PDFDict,
   PDFDocument,
   PDFName,
+  PDFNumber,
   PDFPage,
   PDFRef,
   rgb,
   StandardFonts,
 } from "pdf-lib";
+import { getFieldsInTabOrder } from "@/lib/field-tab-order";
 
 const RESOLVED_FONT_TO_ENUM_KEY: Record<string, keyof typeof StandardFonts> = {
   Helvetica: "Helvetica",
@@ -147,6 +149,25 @@ export async function exportFormElements(
     (el): el is RadioButton => el.type === "radio",
   );
   const nonRadioElements = validElements.filter((el) => el.type !== "radio");
+  const customPageOrders = new Map<number, Map<FormElement, number>>();
+  for (const element of validElements) {
+    if (
+      element.tabOrder !== undefined &&
+      !customPageOrders.has(element.pageNumber)
+    ) {
+      customPageOrders.set(element.pageNumber, new Map());
+    }
+  }
+
+  function recordWidget(
+    element: FormElement,
+    page: PDFPage,
+    previousCount: number,
+  ) {
+    if (page.node.Annots()?.size() === previousCount + 1) {
+      customPageOrders.get(element.pageNumber)?.set(element, previousCount);
+    }
+  }
 
   for (let i = 0; i < nonRadioElements.length; i++) {
     const el = nonRadioElements[i];
@@ -165,6 +186,7 @@ export async function exportFormElements(
       usedNames.add(safeName);
     }
 
+    const previousCount = page.node.Annots()?.size() ?? 0;
     try {
       switch (el.type) {
         case "text": {
@@ -215,6 +237,8 @@ export async function exportFormElements(
       }
     } catch (err) {
       console.warn(`Skipping field "${safeName}" due to export error:`, err);
+    } finally {
+      recordWidget(el, page, previousCount);
     }
   }
 
@@ -235,19 +259,55 @@ export async function exportFormElements(
         const page = pdf.getPage(el.pageNumber - 1);
         const view = getPageViewQuadForPdfLibPage(page);
         const { x, y } = editorRectToPdfLowerLeft(el, view);
-        radioGroup.addOptionToPage(el.value || el.id, page, {
-          x,
-          y,
-          width: el.width,
-          height: el.height,
-        });
+        const previousCount = page.node.Annots()?.size() ?? 0;
+        try {
+          radioGroup.addOptionToPage(el.value || el.id, page, {
+            x,
+            y,
+            width: el.width,
+            height: el.height,
+          });
+        } finally {
+          recordWidget(el, page, previousCount);
+        }
       }
     } catch (err) {
       console.warn(`Skipping radio group "${groupName}" due to export error:`, err);
     }
   }
 
+  for (const [pageNumber, widgetIndexes] of customPageOrders) {
+    const page = pdf.getPage(pageNumber - 1);
+    const annotations = page.node.Annots();
+    if (!annotations || widgetIndexes.size === 0) continue;
+    const widgets = getFieldsInTabOrder([...widgetIndexes.keys()]).map(
+      (element) => annotations.get(widgetIndexes.get(element)!),
+    );
+    const slots = [...widgetIndexes.values()].sort((a, b) => a - b);
+    slots.forEach((slot, index) => annotations.set(slot, widgets[index]));
+    page.node.set(PDFName.of("Tabs"), PDFName.of("W"));
+  }
+
+  if ([...customPageOrders.values()].some((indexes) => indexes.size > 0)) {
+    declareAdobeWidgetOrderExtension(pdf);
+  }
   return pdf.save();
+}
+
+function declareAdobeWidgetOrderExtension(pdf: PDFDocument): void {
+  const extensionsKey = PDFName.of("Extensions");
+  const adobeKey = PDFName.of("ADBE");
+  const levelKey = PDFName.of("ExtensionLevel");
+  const existingExtensions = pdf.catalog.lookup(extensionsKey);
+  const extensions = existingExtensions instanceof PDFDict
+    ? existingExtensions
+    : pdf.context.obj({});
+  const adobe = extensions.lookup(adobeKey);
+  const level = adobe instanceof PDFDict ? adobe.lookup(levelKey) : undefined;
+  if (level instanceof PDFNumber && level.asNumber() >= 3) return;
+
+  extensions.set(adobeKey, pdf.context.obj({ BaseVersion: "1.7", ExtensionLevel: 3 }));
+  pdf.catalog.set(extensionsKey, extensions);
 }
 
 function getOrCreateField<T>(

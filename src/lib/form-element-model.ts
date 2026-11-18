@@ -117,13 +117,14 @@ export type HasTypography = {
   borderWidth: number;
 };
 
-export type FormElement =
+export type FormElement = (
   | TextField
   | Checkbox
   | RadioButton
   | DropdownField
   | ButtonField
-  | OptionListField;
+  | OptionListField
+) & { tabOrder?: number };
 
 export const MAX_FIELD_NAME_LENGTH = 100;
 export const MAX_OPTION_COUNT = 200;

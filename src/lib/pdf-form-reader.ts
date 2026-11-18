@@ -31,6 +31,17 @@ export async function extractAcroFormFields(
 
   const ctx = pdf.context;
   const pageRefToIndex = buildPageRefMap(pdf);
+  const widgetTabOrders = new Map<PDFDict, number>();
+  for (const page of pages) {
+    const tabs = page.node.get(PDFName.of("Tabs"));
+    if (tabs !== PDFName.of("A") && tabs !== PDFName.of("W")) continue;
+    const annotations = page.node.Annots();
+    if (!annotations) continue;
+    for (let index = 0; index < annotations.size(); index++) {
+      const annotation = resolveDict(ctx, annotations.get(index));
+      if (annotation) widgetTabOrders.set(annotation, index);
+    }
+  }
 
   for (let i = 0; i < fieldsArray.size(); i++) {
     const fieldRef = fieldsArray.get(i);
@@ -45,6 +56,7 @@ export async function extractAcroFormFields(
       generateId,
       elements,
       null,
+      widgetTabOrders,
     );
   }
 
@@ -86,6 +98,7 @@ function collectFields(
   generateId: () => string,
   elements: FormElement[],
   parentPartialName: string | null,
+  widgetTabOrders: Map<PDFDict, number>,
 ): void {
   const kids = fieldDict.lookup(PDFName.of("Kids"));
 
@@ -105,6 +118,7 @@ function collectFields(
           generateId,
           elements,
           parentName ?? "",
+          widgetTabOrders,
         );
         return;
       }
@@ -122,6 +136,7 @@ function collectFields(
         generateId,
         elements,
         parentName,
+        widgetTabOrders,
       );
     }
     return;
@@ -148,6 +163,7 @@ function collectFields(
 
   if (width <= 0 || height <= 0) return;
 
+  const elementIndex = elements.length;
   if (ft === PDFName.of("Tx")) {
     elements.push(
       extractTextField(
@@ -240,6 +256,10 @@ function collectFields(
       );
     }
   }
+  const tabOrder = widgetTabOrders.get(fieldDict);
+  if (tabOrder !== undefined && elements[elementIndex]) {
+    elements[elementIndex].tabOrder = tabOrder;
+  }
 }
 
 function collectRadioKids(
@@ -251,6 +271,7 @@ function collectRadioKids(
   generateId: () => string,
   elements: FormElement[],
   groupName: string,
+  widgetTabOrders: Map<PDFDict, number>,
 ): void {
   const optValues = getOptValues(parentDict);
 
@@ -279,6 +300,7 @@ function collectRadioKids(
 
     const exportValue =
       optValues[i] ?? getExportValue(kidDict) ?? `Option${i + 1}`;
+    const tabOrder = widgetTabOrders.get(kidDict);
 
     elements.push({
       type: "radio",
@@ -291,6 +313,7 @@ function collectRadioKids(
       groupName,
       value: exportValue,
       label: "",
+      ...(tabOrder === undefined ? {} : { tabOrder }),
     });
   }
 }

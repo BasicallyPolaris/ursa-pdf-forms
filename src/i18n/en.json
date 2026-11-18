@@ -211,6 +211,14 @@
     "horizontal": "Horizontal ruler",
     "vertical": "Vertical ruler"
   },
+  "fieldOrder": {
+    "title": "Reorder Fields",
+    "description": "Set the order in which Tab moves between fields on each page of the exported PDF.",
+    "unnamed": "Unnamed field",
+    "moveUp": "Move {{name}} up",
+    "moveDown": "Move {{name}} down",
+    "apply": "Apply"
+  },
   "file": {
     "pdfFilter": "PDF",
     "defaultPdfName": "document.pdf",
