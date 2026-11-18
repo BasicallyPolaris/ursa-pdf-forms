@@ -556,12 +556,11 @@ export const useEditorStore = create<EditorState>()(
       },
 
       replaceFormElements: (elements: FormElement[]) => {
-        set({
+        setPersistent(set, get, {
           elements,
           selectedIds: new Set<string>(),
           clipboard: [],
           pasteStackByPage: {},
-          propertyEditSession: null,
         });
         announce(
           i18n.t("announcements.fieldsImported", { count: elements.length }),
@@ -1103,11 +1102,20 @@ export function isDirty(): boolean {
   );
 }
 
-export function markClean(): void {
-  useEditorStore.getState().commitPropertyEdit();
+export function getPdfExportSnapshot() {
   const state = useEditorStore.getState();
-  _cleanSnapshot = {
-    elements: state.elements.map((el) => ({ ...el })),
-    guides: [...state.guides],
+  const { pdfBytes } = state;
+  if (!pdfBytes) return null;
+
+  const elements = getDisplayElements(state);
+  const guides = getDisplayGuides(state);
+  return {
+    pdfBytes,
+    elements,
+    markClean() {
+      if (useEditorStore.getState().pdfBytes === pdfBytes) {
+        _cleanSnapshot = { elements, guides };
+      }
+    },
   };
 }

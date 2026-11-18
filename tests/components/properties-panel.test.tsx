@@ -76,6 +76,43 @@ describe("PropertiesPanel", () => {
     });
   });
 
+  it("does not carry a pending page edit to the next selected field", () => {
+    const first = createTextField({
+      x: 10,
+      y: 10,
+      pageNumber: 1,
+      name: "first-field",
+    });
+    const second = createTextField({
+      x: 50,
+      y: 50,
+      pageNumber: 2,
+      name: "second-field",
+    });
+    const store = useEditorStore.getState();
+    store.setPdf(
+      "test.pdf",
+      new Uint8Array([1]),
+      [1, 2, 3].map((pageNumber) => ({ pageNumber, width: 612, height: 792 })),
+    );
+    store.setInitialElements([first, second]);
+    store.selectElements(new Set([first.id]));
+
+    render(<PropertiesPanel />);
+    const pageLabel = /edit page number/i;
+    fireEvent.click(screen.getByRole("button", { name: pageLabel }));
+    const pageInput = screen.getByRole("textbox", { name: pageLabel });
+    act(() => pageInput.focus());
+    fireEvent.change(pageInput, { target: { value: "3" } });
+
+    act(() => store.selectElements(new Set([second.id])));
+
+    expect(screen.queryByRole("textbox", { name: pageLabel })).toBeNull();
+    const pageButton = screen.getByRole("button", { name: pageLabel });
+    expect(pageButton).toHaveTextContent("2");
+    expect(useEditorStore.getState().elements).toEqual([first, second]);
+  });
+
   it("discards a focused property preview on Escape", () => {
     const field = createTextField({
       x: 10,

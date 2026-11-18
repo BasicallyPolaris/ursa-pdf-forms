@@ -1,7 +1,7 @@
 import {
   getDisplayElements,
+  getPdfExportSnapshot,
   isDirty as storeIsDirty,
-  markClean as storeMarkClean,
   useEditorStore,
 } from "@/stores/editor-store";
 import { getAppWindow, isTauriRuntime } from "@/lib/tauri-window";
@@ -57,6 +57,7 @@ export const zustandStore: StorePort = {
   getPdfBytes: () => useEditorStore.getState().pdfBytes,
   getPdfFilePath: () => useEditorStore.getState().pdfFilePath,
   getPdfFileName: () => useEditorStore.getState().pdfFileName,
+  getPdfExportSnapshot,
   getElements: () => getDisplayElements(useEditorStore.getState()),
   getPages: () => useEditorStore.getState().pages,
   setPdf: (name, bytes, pages) =>
@@ -70,7 +71,6 @@ export const zustandStore: StorePort = {
   setRenderPdfBytes: (bytes) =>
     useEditorStore.getState().setRenderPdfBytes(bytes),
   isDirty: () => storeIsDirty(),
-  markClean: () => storeMarkClean(),
 };
 
 export const tauriWindow: WindowPort = {

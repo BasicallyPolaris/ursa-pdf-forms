@@ -140,6 +140,39 @@ describe("property edit sessions", () => {
     });
   });
 
+  it("restores the pending edit when undoing a field replacement", () => {
+    const original = createTextField({
+      x: 10,
+      y: 10,
+      pageNumber: 1,
+      name: "original",
+    });
+    const imported = createTextField({
+      x: 20,
+      y: 20,
+      pageNumber: 1,
+      name: "imported",
+    });
+    const store = useEditorStore.getState();
+    store.setInitialElements([original]);
+    store.beginPropertyEdit(
+      createPropertyEditKey("name", [original.id]),
+      "original",
+    );
+    store.previewPropertyEdit("edited", {
+      elementUpdates: [{ id: original.id, changes: { name: "edited" } }],
+    });
+
+    store.replaceFormElements([imported]);
+    expect(useEditorStore.getState().elements).toEqual([imported]);
+    undo();
+    expect(useEditorStore.getState().elements).toEqual([
+      { ...original, name: "edited" },
+    ]);
+    undo();
+    expect(useEditorStore.getState().elements).toEqual([original]);
+  });
+
   it("previews and commits guide changes through the same interface", () => {
     const store = useEditorStore.getState();
     store.addGuide("horizontal", 25);

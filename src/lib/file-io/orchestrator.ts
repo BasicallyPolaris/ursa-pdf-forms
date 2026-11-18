@@ -107,7 +107,7 @@ export function createFileIO(
 
       if (result === "yes") {
         const error = await exportPdf();
-        return error ? "cancel" : "save";
+        return error || ports.store.isDirty() ? "cancel" : "save";
       }
       if (result === "cancel") return "cancel";
       return "discard";
@@ -261,16 +261,18 @@ export function createFileIO(
 
   async function exportPdf(): Promise<string | null> {
     const labels = getLabels();
-    const pdfBytes = ports.store.getPdfBytes();
-    if (!pdfBytes) return null;
+    const snapshot = ports.store.getPdfExportSnapshot();
+    if (!snapshot) return null;
 
     try {
       return await withLock(async () => {
-        const elements = ports.store.getElements();
-        const resultBytes = await exportFormElements(pdfBytes, elements);
-
         const sourcePath = ports.store.getPdfFilePath();
         const sourceName = ports.store.getPdfFileName();
+        const resultBytes = await exportFormElements(
+          snapshot.pdfBytes,
+          snapshot.elements,
+        );
+
         let defaultExportPath = labels.defaultExportName;
         if (sourcePath) {
           const dir = sourcePath.split(/[/\\]/).slice(0, -1).join("/");
@@ -287,7 +289,7 @@ export function createFileIO(
         if (!filePath) return null;
 
         await ports.fs.writeFile(filePath, resultBytes);
-        ports.store.markClean();
+        snapshot.markClean();
         return null;
       });
     } catch (error) {

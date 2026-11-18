@@ -2349,6 +2349,7 @@ function PropertiesPanelContent() {
             </span>
           </div>
           <PageSelector
+            key={element.id}
             pageNumber={element.pageNumber}
             totalPages={pages.length}
             onChange={(page) => updateElement(element.id, { pageNumber: page })}
