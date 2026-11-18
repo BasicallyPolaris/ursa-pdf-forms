@@ -254,6 +254,60 @@ describe("file-io orchestrator", () => {
       expect(store.mutations).toContain("markClean");
     });
 
+    it("leaves edits made during export dirty and cancellable", async () => {
+      const { createFileIO } = await import("@/lib/file-io/orchestrator");
+      const { zustandStore } = await import("@/lib/file-io/adapters/tauri");
+      const { createTestFileSystem, createTestDialogs, createTestWindow } =
+        await import("@/lib/file-io/adapters/test");
+      const { createTextField } = await import("@/lib/form-element-model");
+      const { createPropertyEditKey, useEditorStore } =
+        await import("@/stores/editor-store");
+
+      const pdfBytes = new Uint8Array([1]);
+      const field = createTextField({
+        name: "original",
+        x: 10,
+        y: 10,
+        pageNumber: 1,
+      });
+      const editor = useEditorStore.getState();
+      editor.setPdf("form.pdf", pdfBytes, []);
+      editor.setInitialElements([field]);
+      editor.updateElement(field.id, { name: "exported" });
+      const identity = createPropertyEditKey("name", [field.id]);
+      const fs = createTestFileSystem();
+      const fileIO = createFileIO(
+        {
+          fs: {
+            ...fs,
+            async writeFile(path, data) {
+              editor.beginPropertyEdit(identity, "exported");
+              editor.previewPropertyEdit("later edit", {
+                elementUpdates: [
+                  { id: field.id, changes: { name: "later edit" } },
+                ],
+              });
+              await fs.writeFile(path, data);
+            },
+          },
+          dialogs: createTestDialogs({ saveResult: "/out/exported.pdf" }),
+          store: zustandStore,
+          window: createTestWindow(),
+        },
+        stubLabels(),
+      );
+
+      expect(await fileIO.exportPdf()).toBeNull();
+      expect(exportFormElementsMock).toHaveBeenCalledWith(pdfBytes, [
+        { ...field, name: "exported" },
+      ]);
+      expect(zustandStore.getElements()[0]).toMatchObject({ name: "later edit" });
+      expect(zustandStore.isDirty()).toBe(true);
+      editor.discardPropertyEdit(identity);
+      expect(zustandStore.getElements()[0]).toMatchObject({ name: "exported" });
+      expect(zustandStore.isDirty()).toBe(false);
+    });
+
     it("returns null when no PDF is loaded", async () => {
       const { createFileIO } = await import("@/lib/file-io/orchestrator");
       const { createTestFileSystem, createTestDialogs, createTestStore, createTestWindow } = await import("@/lib/file-io/adapters/test");
@@ -396,6 +450,52 @@ describe("file-io orchestrator", () => {
       const allowed = await win.simulateCloseRequest();
 
       expect(allowed).toBe(false);
+      unregister();
+    });
+
+    it("keeps the document open if it changes during the close-triggered export", async () => {
+      const { createFileIO } = await import("@/lib/file-io/orchestrator");
+      const {
+        createTestFileSystem,
+        createTestDialogs,
+        createTestStore,
+        createTestWindow,
+      } = await import("@/lib/file-io/adapters/test");
+      const { createTextField } = await import("@/lib/form-element-model");
+
+      const field = createTextField({
+        x: 10,
+        y: 10,
+        pageNumber: 1,
+        name: "field",
+      });
+      const store = createTestStore({ pdfBytes: new Uint8Array([1]) });
+      store.state.elements = [field];
+      const fs = createTestFileSystem();
+      const window = createTestWindow();
+      const fileIO = createFileIO(
+        {
+          fs: {
+            ...fs,
+            async writeFile(path, data) {
+              store.state.elements = [{ ...field, name: "later edit" }];
+              await fs.writeFile(path, data);
+            },
+          },
+          dialogs: createTestDialogs({
+            confirmResult: "yes",
+            saveResult: "/saved.pdf",
+          }),
+          store,
+          window,
+        },
+        stubLabels(),
+      );
+
+      const unregister = fileIO.registerCloseGuard();
+      expect(await window.simulateCloseRequest()).toBe(false);
+      expect(fs.writtenFiles.has("/saved.pdf")).toBe(true);
+      expect(store.isDirty()).toBe(true);
       unregister();
     });
 

@@ -16,7 +16,7 @@ import {
   type SnapContext,
   type SnapGuide,
 } from "@/lib/snap-engine";
-import { useEditorStore } from "@/stores/editor-store";
+import { getDisplayElements, useEditorStore } from "@/stores/editor-store";
 import { useCallback, useRef, useState } from "react";
 
 interface DrawRect {
@@ -165,6 +165,7 @@ export function useDrawingTool(deps: {
       const width = Math.abs(drawRect.currentX - drawRect.startX);
 
       const state = useEditorStore.getState();
+      const elements = getDisplayElements(state);
       let newEl: FormElement | null = null;
 
       if (HORIZONTAL_DRAW_TOOLS.has(activeTool) && width > 5) {
@@ -179,7 +180,7 @@ export function useDrawingTool(deps: {
             x: pdfTopLeft.x,
             y: pdfTopLeft.y,
             pageNumber: start.pageNumber,
-            name: `dropdown_${state.elements.length + 1}`,
+            name: `dropdown_${elements.length + 1}`,
             width: pdfWidth,
           });
         } else if (activeTool === "optionlist") {
@@ -187,7 +188,7 @@ export function useDrawingTool(deps: {
             x: pdfTopLeft.x,
             y: pdfTopLeft.y,
             pageNumber: start.pageNumber,
-            name: `optionlist_${state.elements.length + 1}`,
+            name: `optionlist_${elements.length + 1}`,
             width: pdfWidth,
           });
         } else {
@@ -195,7 +196,7 @@ export function useDrawingTool(deps: {
             x: pdfTopLeft.x,
             y: pdfTopLeft.y,
             pageNumber: start.pageNumber,
-            name: `text_${state.elements.length + 1}`,
+            name: `text_${elements.length + 1}`,
             multiline: false,
             width: pdfWidth,
           });
@@ -214,7 +215,7 @@ export function useDrawingTool(deps: {
             x: pdfTopLeft.x,
             y: pdfTopLeft.y,
             pageNumber: start.pageNumber,
-            name: `text_${state.elements.length + 1}`,
+            name: `text_${elements.length + 1}`,
             multiline: true,
             width: pdfWidth,
             height: pdfHeight,

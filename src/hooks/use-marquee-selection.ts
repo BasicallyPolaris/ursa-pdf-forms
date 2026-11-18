@@ -1,7 +1,7 @@
 import { pdfToScreen } from "@/lib/coordinates";
 import { rectsOverlap, type Rect } from "@/lib/geometry";
 import type { PageLayout } from "@/lib/page-layout";
-import { useEditorStore } from "@/stores/editor-store";
+import { getDisplayElements, useEditorStore } from "@/stores/editor-store";
 import { useCallback, useRef, useState } from "react";
 
 interface MarqueeRect {
@@ -51,7 +51,7 @@ export function useMarqueeSelection(deps: {
         const marqueeRect: Rect = { x: left, y: top, width, height };
         const state = useEditorStore.getState();
 
-        for (const el of state.elements) {
+        for (const el of getDisplayElements(state)) {
           const layout = layouts.get(el.pageNumber);
           if (!layout) continue;
           const screen = pdfToScreen(

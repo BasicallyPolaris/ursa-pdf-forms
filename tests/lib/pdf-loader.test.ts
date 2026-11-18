@@ -86,7 +86,8 @@ describe("pdf loading", () => {
       createTestStore,
       createTestWindow,
     } = await import("@/lib/file-io/adapters/test");
-    const { useEditorStore } = await import("@/stores/editor-store");
+    const { getPdfExportSnapshot, useEditorStore } =
+      await import("@/stores/editor-store");
 
     createTestStore();
     const fileIO = createFileIO(
@@ -97,6 +98,7 @@ describe("pdf loading", () => {
           getPdfBytes: () => useEditorStore.getState().pdfBytes,
           getPdfFilePath: () => useEditorStore.getState().pdfFilePath,
           getPdfFileName: () => useEditorStore.getState().pdfFileName,
+          getPdfExportSnapshot,
           getElements: () => useEditorStore.getState().elements,
           getPages: () => useEditorStore.getState().pages,
           setPdf: (n, b, p) => useEditorStore.getState().setPdf(n, b, p),
@@ -109,7 +111,6 @@ describe("pdf loading", () => {
           setRenderPdfBytes: (b) =>
             useEditorStore.getState().setRenderPdfBytes(b),
           isDirty: () => false,
-          markClean: () => {},
         },
         window: createTestWindow(),
       },

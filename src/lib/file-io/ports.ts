@@ -29,6 +29,11 @@ export interface StorePort {
   getPdfBytes(): Uint8Array | null;
   getPdfFilePath(): string | null;
   getPdfFileName(): string | null;
+  getPdfExportSnapshot(): {
+    pdfBytes: Uint8Array;
+    elements: FormElement[];
+    markClean(): void;
+  } | null;
   getElements(): FormElement[];
   getPages(): PageInfo[];
   setPdf(fileName: string, bytes: Uint8Array, pages: PageInfo[]): void;
@@ -38,7 +43,6 @@ export interface StorePort {
   replaceFormElements(elements: FormElement[]): void;
   setRenderPdfBytes(bytes: Uint8Array): void;
   isDirty(): boolean;
-  markClean(): void;
 }
 
 export interface WindowPort {

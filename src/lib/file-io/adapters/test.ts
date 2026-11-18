@@ -110,6 +110,22 @@ export function createTestStore(initial?: {
     getPdfBytes: () => state.pdfBytes,
     getPdfFilePath: () => state.filePath,
     getPdfFileName: () => state.fileName,
+    getPdfExportSnapshot() {
+      const { pdfBytes, elements } = state;
+      if (!pdfBytes) return null;
+
+      const snapshot = JSON.stringify(elements);
+      return {
+        pdfBytes,
+        elements,
+        markClean() {
+          if (state.pdfBytes === pdfBytes) {
+            mutations.push("markClean");
+            savedSnapshot = snapshot;
+          }
+        },
+      };
+    },
     getElements: () => state.elements,
     getPages: () => state.pages,
     setPdf(name, bytes, pages) {
@@ -145,10 +161,6 @@ export function createTestStore(initial?: {
     isDirty: () => {
       if (!state.pdfBytes) return false;
       return JSON.stringify(state.elements) !== savedSnapshot;
-    },
-    markClean() {
-      mutations.push("markClean");
-      savedSnapshot = JSON.stringify(state.elements);
     },
   };
 }

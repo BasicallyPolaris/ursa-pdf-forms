@@ -39,7 +39,11 @@ import {
   type PageLayout,
 } from "@/lib/page-layout";
 import type { SnapContext } from "@/lib/snap-engine";
-import { useEditorStore } from "@/stores/editor-store";
+import {
+  getDisplayElements,
+  getDisplayGuides,
+  useEditorStore,
+} from "@/stores/editor-store";
 import {
   memo,
   useCallback,
@@ -57,19 +61,43 @@ interface ElementOverlayListProps {
   visiblePages: Set<number>;
   layouts: Map<number, PageLayout>;
   selectedIds: Set<string>;
-  dragLivePositions: Map<string, { x: number; y: number; width: number; height: number }> | null;
+  dragLivePositions: Map<
+    string,
+    { x: number; y: number; width: number; height: number }
+  > | null;
   snapTargetIds: Set<string>;
   zoom: number;
   dragOffset: { dx: number; dy: number } | null;
   dragDraggingIdRef: RefObject<string | null>;
   dragSnapCorrection: { dx: number; dy: number } | null;
   resizeResizingIdRef: RefObject<string | null>;
-  resizeSnapCorrection: { dx: number; dy: number; dw: number; dh: number } | null;
+  resizeSnapCorrection: {
+    dx: number;
+    dy: number;
+    dw: number;
+    dh: number;
+  } | null;
   multiResizeActiveRef: RefObject<boolean>;
   onDragStart: (el: FormElement, e: React.MouseEvent) => void;
-  onDrag: (el: FormElement, screen: { x: number; y: number }, d: { x: number; y: number }, me: MouseEvent) => void;
-  onDragStop: (el: FormElement, screen: { x: number; y: number }, d: { x: number; y: number }, me: MouseEvent) => void;
-  onResize: (el: FormElement, dir: string, ref: HTMLElement, position: { x: number; y: number }, me: MouseEvent) => void;
+  onDrag: (
+    el: FormElement,
+    screen: { x: number; y: number },
+    d: { x: number; y: number },
+    me: MouseEvent,
+  ) => void;
+  onDragStop: (
+    el: FormElement,
+    screen: { x: number; y: number },
+    d: { x: number; y: number },
+    me: MouseEvent,
+  ) => void;
+  onResize: (
+    el: FormElement,
+    dir: string,
+    ref: HTMLElement,
+    position: { x: number; y: number },
+    me: MouseEvent,
+  ) => void;
   onResizeStop: (el: FormElement) => void;
   onResetResize: () => void;
 }
@@ -103,7 +131,9 @@ const ElementOverlayList = memo(function ElementOverlayList({
         if (!layout) return null;
 
         const isSelected = selectedIds.has(el.id);
-        const livePos = isSelected ? dragLivePositions?.get(el.id) ?? null : null;
+        const livePos = isSelected
+          ? (dragLivePositions?.get(el.id) ?? null)
+          : null;
         const isMultiResize =
           multiResizeActiveRef.current &&
           !!livePos &&
@@ -124,9 +154,7 @@ const ElementOverlayList = memo(function ElementOverlayList({
             isMultiResize={isMultiResize}
             isSnapTarget={snapTargetIds.has(el.id)}
             effectiveDragOffset={
-              !isMultiResize && isSelected && !isDragging
-                ? dragOffset
-                : null
+              !isMultiResize && isSelected && !isDragging ? dragOffset : null
             }
             isDragging={isDragging}
             isResizing={isResizing}
@@ -148,14 +176,14 @@ const ElementOverlayList = memo(function ElementOverlayList({
 export function CanvasOverlay() {
   const { t } = useTranslation();
   const scrollRef = useScrollContainerRef();
-  const elements = useEditorStore((s) => s.elements);
+  const elements = useEditorStore(getDisplayElements);
   const activeTool = useEditorStore((s) => s.activeTool);
   const zoom = useEditorStore((s) => s.zoom);
   const pages = useEditorStore((s) => s.pages);
   const pdfBytes = useEditorStore((s) => s.pdfBytes);
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const gridSize = useEditorStore((s) => s.gridSize);
-  const guides = useEditorStore((s) => s.guides);
+  const guides = useEditorStore(getDisplayGuides);
   const previewGuide = useEditorStore((s) => s.previewGuide);
   const visiblePages = useVisiblePages();
 
@@ -522,7 +550,12 @@ export function CanvasOverlay() {
       };
 
       if (drawing.drawStartRef.current) {
-        drawing.updateDraw(currentX, currentY, modifiers, HORIZONTAL_DRAW_TOOLS.has(activeTool));
+        drawing.updateDraw(
+          currentX,
+          currentY,
+          modifiers,
+          HORIZONTAL_DRAW_TOOLS.has(activeTool),
+        );
         return;
       }
 
@@ -582,9 +615,9 @@ export function CanvasOverlay() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
         e.target instanceof HTMLElement &&
-        (e.target.closest(
+        e.target.closest(
           "input, textarea, select, [role='menu'], [role='menuitem']",
-        ) !== null)
+        ) !== null
       ) {
         return;
       }
@@ -596,7 +629,7 @@ export function CanvasOverlay() {
         const state = useEditorStore.getState();
         const page = getPageAtViewportCenter(scrollEl, state.pages, zoom);
         if (page === undefined) return;
-        const pageIds = state.elements
+        const pageIds = getDisplayElements(state)
           .filter((el) => el.pageNumber === page)
           .map((el) => el.id);
         selectElements(new Set(pageIds));
@@ -616,7 +649,7 @@ export function CanvasOverlay() {
 
       e.preventDefault();
       const updates: Array<{ id: string; x: number; y: number }> = [];
-      for (const el of store.elements) {
+      for (const el of getDisplayElements(store)) {
         if (store.selectedIds.has(el.id)) {
           updates.push({ id: el.id, x: el.x + dx, y: el.y + dy });
         }
@@ -642,7 +675,9 @@ export function CanvasOverlay() {
         if (!store.selectedIds.has(elementId)) {
           selectElements(new Set([elementId]));
         }
-        const el = store.elements.find((el) => el.id === elementId);
+        const el = getDisplayElements(store).find(
+          (element) => element.id === elementId,
+        );
         const rect = e.currentTarget.getBoundingClientRect();
         const screenX = e.clientX - rect.left;
         const screenY = e.clientY - rect.top;
@@ -706,8 +741,7 @@ export function CanvasOverlay() {
   );
 
   const totalContentHeight = useMemo(
-    () =>
-      getTotalContentHeight(pages, zoom, scrollViewportHeight || undefined),
+    () => getTotalContentHeight(pages, zoom, scrollViewportHeight || undefined),
     [pages, zoom, scrollViewportHeight],
   );
 
@@ -726,7 +760,12 @@ export function CanvasOverlay() {
     if (multiResize.isActive.current && multiResize.currentBbox.current) {
       return multiResize.currentBbox.current;
     }
-    const items: Array<{ x: number; y: number; width: number; height: number }> = [];
+    const items: Array<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }> = [];
     for (const el of elements) {
       if (!selectedIds.has(el.id)) continue;
       const layout = layouts.get(el.pageNumber);
@@ -736,11 +775,17 @@ export function CanvasOverlay() {
       const py = live?.y ?? el.y;
       const pw = live?.width ?? el.width;
       const ph = live?.height ?? el.height;
-      const tl = pdfToScreen({ x: px, y: py }, { zoom, pageX: layout.xOffset, pageY: layout.yOffset });
+      const tl = pdfToScreen(
+        { x: px, y: py },
+        { zoom, pageX: layout.xOffset, pageY: layout.yOffset },
+      );
       items.push({ x: tl.x, y: tl.y, width: pw * zoom, height: ph * zoom });
     }
     if (items.length < 2) return null;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
     for (const r of items) {
       if (r.x < minX) minX = r.x;
       if (r.y < minY) minY = r.y;
@@ -748,7 +793,14 @@ export function CanvasOverlay() {
       if (r.y + r.height > maxY) maxY = r.y + r.height;
     }
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-  }, [selectedIds, elements, layouts, zoom, dragLivePositions, multiResize.snapCorrection]);
+  }, [
+    selectedIds,
+    elements,
+    layouts,
+    zoom,
+    dragLivePositions,
+    multiResize.snapCorrection,
+  ]);
 
   const anyHeightLocked = useMemo(() => {
     if (selectedIds.size < 2) return false;
