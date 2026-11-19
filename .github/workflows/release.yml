@@ -9,6 +9,10 @@ on:
         description: "Release version (e.g. v1.0.0)"
         required: true
         default: "v1.0.0"
+      prerelease:
+        description: "Mark the release as a prerelease"
+        type: boolean
+        default: false
 
 jobs:
   release:
@@ -49,7 +53,7 @@ jobs:
           bun-version: latest
 
       - name: Install frontend dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
@@ -60,4 +64,4 @@ jobs:
           releaseName: "Ursa PDF Forms v__VERSION__"
           releaseBody: "See the assets to download this version and install."
           releaseDraft: true
-          prerelease: false
+          prerelease: ${{ inputs.prerelease || false }}

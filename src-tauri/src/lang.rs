@@ -22,7 +22,7 @@ fn get_translations() -> HashMap<&'static str, HashMap<&'static str, &'static st
     map.insert("en", en);
 
     let mut de = HashMap::new();
-    de.insert("app.title", "PDF-Formular-Designer");
+    de.insert("app.title", "Ursa PDF Forms");
     map.insert("de", de);
 
     map
