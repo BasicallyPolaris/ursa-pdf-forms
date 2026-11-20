@@ -35,7 +35,6 @@ import {
   findPageAtScreenPoint,
   getPageAtViewportCenter,
   getVisiblePageNumbers,
-  getTotalContentHeight,
   type PageLayout,
 } from "@/lib/page-layout";
 import type { SnapContext } from "@/lib/snap-engine";
@@ -201,8 +200,8 @@ export function CanvasOverlay() {
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const pointerDownOnCanvasRef = useRef(false);
-  const [overlayWidth, setOverlayWidth] = useState(0);
-  const [scrollViewportHeight, setScrollViewportHeight] = useState(0);
+  const [{ width: overlayWidth, height: totalContentHeight }, setOverlaySize] =
+    useState({ width: 0, height: 0 });
   const [activeGuides, setActiveGuides] = useState<
     import("@/lib/snap-engine").SnapGuide[]
   >([]);
@@ -214,21 +213,12 @@ export function CanvasOverlay() {
   const closeContextMenu = useCallback(() => setContextMenuState(null), []);
 
   useLayoutEffect(() => {
-    const scrollEl = scrollRef.current;
-    if (!scrollEl) return;
-    const update = () => setScrollViewportHeight(scrollEl.clientHeight);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(scrollEl);
-    return () => ro.disconnect();
-  }, [scrollRef]);
-
-  useLayoutEffect(() => {
     const el = overlayRef.current;
     if (!el) return;
-    setOverlayWidth(el.clientWidth);
-    const observer = new ResizeObserver((entries) => {
-      setOverlayWidth(entries[0].contentRect.width);
+    setOverlaySize({ width: el.clientWidth, height: el.clientHeight });
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setOverlaySize({ width, height });
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -738,11 +728,6 @@ export function CanvasOverlay() {
       });
     },
     [zoom, getPageLayouts, selectElements, selectGuide],
-  );
-
-  const totalContentHeight = useMemo(
-    () => getTotalContentHeight(pages, zoom, scrollViewportHeight || undefined),
-    [pages, zoom, scrollViewportHeight],
   );
 
   const snapTargetIds = useMemo(

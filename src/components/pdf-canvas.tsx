@@ -131,29 +131,26 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
   }, [pdfBytes]);
 
   const [containerWidth, setContainerWidth] = useState(0);
-  const [containerHeight, setContainerHeight] = useState(0);
 
   const layouts = useMemo(
     () => computeLayouts(pages, committedZoom, containerWidth),
     [pages, committedZoom, containerWidth],
   );
   const totalHeight = useMemo(
-    () =>
-      getTotalContentHeight(pages, committedZoom, containerHeight || undefined),
-    [pages, committedZoom, containerHeight],
+    () => getTotalContentHeight(pages, committedZoom),
+    [pages, committedZoom],
   );
   const layoutContentWidth = useMemo(
-    () => getLayoutContentWidth(pages, committedZoom, containerWidth),
-    [pages, committedZoom, containerWidth],
+    () => getLayoutContentWidth(pages, committedZoom, 0),
+    [pages, committedZoom],
   );
 
   const [visiblePages, setVisiblePages] = useState<Set<number>>(new Set());
+  const visiblePagesRef = useRef(visiblePages);
   const layoutsRef = useRef(layouts);
   layoutsRef.current = layouts;
   const pagesRef = useRef(pages);
   pagesRef.current = pages;
-
-  const scrollRafRef = useRef<number | null>(null);
 
   const computeVisibleSet = useCallback((): Set<number> => {
     const el = scrollRef.current;
@@ -172,7 +169,20 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     const s = new Set<number>();
     for (let i = lo; i <= hi; i++) s.add(i);
     return s;
-  }, []);
+  }, [scrollRef]);
+
+  const updateVisiblePages = useCallback(() => {
+    const next = computeVisibleSet();
+    const previous = visiblePagesRef.current;
+    if (
+      previous.size === next.size &&
+      [...next].every((page) => previous.has(page))
+    ) {
+      return;
+    }
+    visiblePagesRef.current = next;
+    setVisiblePages(next);
+  }, [computeVisibleSet]);
 
   const pendingScrollCorrectionRef = useRef<{
     scrollTop: number;
@@ -216,61 +226,35 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
     }
     committedZoomRef.current = committedZoom;
 
-    const next = computeVisibleSet();
-    setVisiblePages((prev) => {
-      if (prev.size === next.size) {
-        let same = true;
-        for (const p of next) {
-          if (!prev.has(p)) {
-            same = false;
-            break;
-          }
-        }
-        if (same) return prev;
-      }
-      return next;
-    });
-
-    const w = scrollEl.clientWidth;
-    const h = scrollEl.clientHeight;
-    if (w !== containerWidth) {
-      setContainerWidth(w);
-    }
-    if (h !== containerHeight) {
-      setContainerHeight(h);
-    }
-  });
+    updateVisiblePages();
+  }, [committedZoom, pages, scrollRef, updateVisiblePages]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
+    const onResize = () => {
+      setContainerWidth(el.clientWidth);
+      updateVisiblePages();
+    };
+    onResize();
+    const observer = new ResizeObserver(onResize);
+    observer.observe(el);
+
+    let scrollFrame: number | null = null;
     const onScroll = () => {
-      if (scrollRafRef.current !== null) return;
-      scrollRafRef.current = requestAnimationFrame(() => {
-        scrollRafRef.current = null;
-        const next = computeVisibleSet();
-        setVisiblePages((prev) => {
-          if (prev.size === next.size) {
-            let same = true;
-            for (const p of next) {
-              if (!prev.has(p)) {
-                same = false;
-                break;
-              }
-            }
-            if (same) return prev;
-          }
-          return next;
-        });
+      if (scrollFrame !== null) return;
+      scrollFrame = requestAnimationFrame(() => {
+        scrollFrame = null;
+        updateVisiblePages();
       });
     };
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => {
+      observer.disconnect();
       el.removeEventListener("scroll", onScroll);
-      if (scrollRafRef.current !== null)
-        cancelAnimationFrame(scrollRafRef.current);
+      if (scrollFrame !== null) cancelAnimationFrame(scrollFrame);
     };
-  }, [computeVisibleSet]);
+  }, [scrollRef, updateVisiblePages]);
 
   const visiblePageItems = useMemo(() => {
     const items: Array<{ page: (typeof pages)[number]; layout: PageLayout }> =
@@ -408,7 +392,8 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
       className="relative min-w-full bg-muted/20"
       style={{
         height: totalHeight > 0 ? totalHeight : undefined,
-        minWidth: layoutContentWidth > 0 ? layoutContentWidth : undefined,
+        minHeight: pages.length === 1 ? "100%" : undefined,
+        width: layoutContentWidth > 0 ? layoutContentWidth : undefined,
       }}
       onDragStart={(e) => e.preventDefault()}
     >
@@ -432,15 +417,7 @@ export function PdfCanvas({ children }: PdfCanvasProps) {
         </div>
       ))}
 
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          width: layoutContentWidth > 0 ? layoutContentWidth : undefined,
-          height: totalHeight > 0 ? totalHeight : undefined,
-        }}
-      >
+      <div className="absolute inset-0">
         <VisiblePagesContext.Provider value={visiblePages}>
           {children}
         </VisiblePagesContext.Provider>

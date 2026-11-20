@@ -20,7 +20,7 @@ export function getLayoutContentWidth(
   zoom: number,
   viewportWidth: number,
 ): number {
-  if (pages.length === 0 || viewportWidth <= 0) return viewportWidth;
+  if (pages.length === 0) return viewportWidth;
   const maxPageW = Math.max(...pages.map((p) => p.width * zoom));
   return Math.max(maxPageW + 2 * H_PADDING, viewportWidth);
 }

@@ -94,7 +94,7 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: vi.fn() },
 }));
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import App from "@/App";
 import { useEditorStore } from "@/stores/editor-store";
 
@@ -139,5 +139,40 @@ describe("App layout", () => {
     });
     expect(screen.getByTestId("tool-input")).toBeInTheDocument();
     expect(screen.getByTestId("tool-textarea")).toBeInTheDocument();
+  });
+
+  it("keeps the canvas mounted when scrollbar measurements change during resize", () => {
+    const { container, rerender } = render(<App />);
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-pdf-scroll-container]",
+    )!;
+    let maximized = false;
+    const measureHeight = vi
+      .spyOn(viewport, "clientHeight", "get")
+      .mockImplementation(() => {
+        if (!maximized) return 800;
+        const canvas = viewport.firstElementChild as HTMLElement;
+        return canvas.style.height === "920px" ? 912 : 920;
+      });
+
+    try {
+      act(() => {
+        useEditorStore
+          .getState()
+          .setPdf("blank.pdf", new Uint8Array([1, 2, 3]), [
+            { pageNumber: 1, width: 595.32, height: 841.92 },
+          ]);
+      });
+
+      maximized = true;
+      rerender(<App />);
+
+      expect(screen.getByTestId("floating-toolbar")).toBeInTheDocument();
+      expect(
+        viewport.querySelector('[data-page-wrapper="1"]'),
+      ).toBeInTheDocument();
+    } finally {
+      measureHeight.mockRestore();
+    }
   });
 });
